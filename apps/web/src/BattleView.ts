@@ -43,6 +43,7 @@ export interface ProbeRow {
 
 /** Team B is tinted toward rust so the two sides stay readable at a glance. */
 const ENEMY_TINT = 0xc4653a
+const BODY_SHAPE_COUNT = 6
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
@@ -134,10 +135,76 @@ function brightnessTint(base: number, ratio: number): number {
   const tone = hexToHsl(base)
   const vibrant = {
     h: tone.h,
-    s: Math.max(0.75, Math.min(1, tone.s + 0.2)),
-    l: 0.28 + clamp01(ratio) * 0.46,
+    s: Math.max(0.88, Math.min(1, tone.s + 0.34)),
+    l: 0.34 + clamp01(ratio) * 0.42,
   }
   return hslToHex(vibrant.h, vibrant.s, vibrant.l)
+}
+
+function pathPolygon(g: Graphics, points: Array<[number, number]>): Graphics {
+  const [firstX, firstY] = points[0]
+  g.moveTo(firstX, firstY)
+  for (let i = 1; i < points.length; i++) {
+    const [x, y] = points[i]
+    g.lineTo(x, y)
+  }
+  g.closePath()
+  return g
+}
+
+function createBodyTexture(app: Application, kind: number): Texture {
+  const g = new Graphics()
+  const r = 16
+
+  switch (kind) {
+    case 0:
+      g.circle(0, 0, r)
+      break
+    case 1:
+      pathPolygon(g, [
+        [0, -r],
+        [r, 0],
+        [0, r],
+        [-r, 0],
+      ])
+      break
+    case 2:
+      g.rect(-r, -r, r * 2, r * 2)
+      break
+    case 3:
+      pathPolygon(g, [
+        [0, -r],
+        [r, r],
+        [-r, r],
+      ])
+      break
+    case 4:
+      pathPolygon(g, [
+        [0, -r],
+        [r * 0.95, -r * 0.3],
+        [r * 0.6, r],
+        [-r * 0.6, r],
+        [-r * 0.95, -r * 0.3],
+      ])
+      break
+    default:
+      pathPolygon(g, [
+        [0, -r],
+        [r * 0.45, -r * 0.45],
+        [r, 0],
+        [r * 0.45, r * 0.45],
+        [0, r],
+        [-r * 0.45, r * 0.45],
+        [-r, 0],
+        [-r * 0.45, -r * 0.45],
+      ])
+      break
+  }
+
+  g.fill(0xffffff)
+  const texture = app.renderer.generateTexture(g)
+  g.destroy()
+  return texture
 }
 
 /**
@@ -163,6 +230,7 @@ export class BattleView {
   private app: Application | null = null
   private world = new Container()
   private texture: Texture | null = null
+  private bodyTextures: Texture[] = []
   private sprites: Sprite[] = []
   private banners: Banner[] = []
   private battle: Battle | null = null
@@ -192,12 +260,16 @@ export class BattleView {
     this.texture = app.renderer.generateTexture(g)
     g.destroy()
 
+    this.bodyTextures = Array.from({ length: BODY_SHAPE_COUNT }, (_, kind) => createBodyTexture(app, kind))
+
     app.ticker.add(this.frame)
   }
 
   destroy(): void {
     if (!this.app) return
     this.app.ticker.remove(this.frame)
+    for (const texture of this.bodyTextures) texture.destroy(true)
+    this.bodyTextures = []
     this.app.destroy(true, { children: true, texture: true })
     this.app = null
     this.battle = null
@@ -224,7 +296,8 @@ export class BattleView {
     const b = this.battle
     for (let i = 0; i < b.count; i++) {
       const group = config.groups[b.group[i]]
-      const sprite = new Sprite(this.texture)
+      const groupIndex = b.group[i]
+      const sprite = new Sprite(this.bodyTextures[groupIndex % this.bodyTextures.length])
       sprite.anchor.set(0.5)
       sprite.width = group.stats.radius * 2
       sprite.height = group.stats.radius * 2
@@ -321,7 +394,7 @@ export class BattleView {
       }
       const maxHp = Math.max(1, group.stats.hp)
       const health = clamp01(b.hp[i] / maxHp)
-      const baseTint = group.team === TEAM_A ? group.color : mixHex(group.color, ENEMY_TINT, 0.35)
+      const baseTint = group.team === TEAM_A ? mixHex(group.color, 0x8bffff, 0.1) : mixHex(group.color, ENEMY_TINT, 0.45)
       sprite.tint = brightnessTint(baseTint, health)
       sprite.alpha = 0.92 + health * 0.08
       sprite.x = px[i] + (x[i] - px[i]) * alpha
