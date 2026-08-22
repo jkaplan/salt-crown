@@ -58,13 +58,14 @@ export interface RunState {
 /** One officer, a pile of fodder, and a single Potential to care about. */
 function startingWarband(rng: Rng, selectedOfficer?: Officer): Warband {
   const officer = selectedOfficer || rollOfficer(rng, 'off-start')
+  const potential = rollPotential(rng, MUTANT_TYPES[2].id, 0)
   const squads: Squad[] = [
     { id: 'sq-start-1', typeId: MUTANT_TYPES[0].id, count: 18, leader: { kind: 'officer', id: officer.id } },
-    { id: 'sq-start-2', typeId: MUTANT_TYPES[2].id, count: 8, leader: null },
+    { id: 'sq-start-2', typeId: MUTANT_TYPES[2].id, count: 8, leader: { kind: 'potential', id: potential.id } },
   ]
   return {
     squads,
-    potentials: [rollPotential(rng, MUTANT_TYPES[2].id, 0)],
+    potentials: [potential],
     officers: [officer],
     salvage: 120,
   }
@@ -99,11 +100,12 @@ export function buy(state: RunState, offerId: string): RunState {
   }
 
   if (offer.kind === 'squad') {
+    const leader = offer.potentials[0]
     warband.squads.push({
       id: offer.id,
       typeId: offer.typeId,
       count: offer.count,
-      leader: null,
+      leader: leader ? { kind: 'potential', id: leader.id } : null,
     })
     warband.potentials.push(...offer.potentials)
   } else {
