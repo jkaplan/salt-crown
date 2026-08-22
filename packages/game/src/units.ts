@@ -1,0 +1,192 @@
+import type { UnitType } from '@salt/sim'
+
+/**
+ * M1 content: 10 unit types, 5 mutant and 5 True Kin. Machines arrive in M3
+ * because they're ruin-found, not purchasable.
+ *
+ * PLACEHOLDER NUMBERS. These exist so the loop can be played and judged;
+ * balancing happens against batch-sim data once the shape is agreed.
+ *
+ * The lineages don't counter each other — they differ by cost, reliability
+ * and upgrade path (docs/V0-DESIGN.md §3):
+ *   Mutants  — frail, cheap, mutations are the only thing that lifts them.
+ *   True Kin — durable, reliable, expensive, no mutations ever.
+ */
+
+const MUTANT = 'mutant' as const
+const TRUEKIN = 'truekin' as const
+
+/**
+ * The five mutants are differentiated by *kind*, not degree. Because armour is
+ * flat reduction, three different kinds of durability counter three different
+ * kinds of attacker, and that is where the variety lives:
+ *
+ *   Chaff          mass          — no durability at all, but you field forty
+ *   Sludge-Waller  raw HP        — soaks big hits, dies to sustained volume
+ *   Thornback      flat armour   — hard-counters swarms, dies to big hitters
+ *   Stiltwalker    evasion       — beats low-accuracy, deleted by marksmen
+ *   Spitter        range         — no durability, needs a screen
+ *
+ * Fielding only one kind is a real mistake. That is the point.
+ */
+export const UNIT_TYPES: readonly UnitType[] = [
+  {
+    id: 0,
+    name: 'Chaff',
+    lineage: MUTANT,
+    cost: 2,
+    color: 0x7a8a5c,
+    blurb: 'Numbers, and nothing else whatsoever.',
+    description:
+      'Bred by the hundred and named for what they are. Barely trained, barely armed, and sent forward first so something more expensive does not have to be. One is worthless. Forty is a wall.',
+    base: {
+      hp: 30, armor: 0, damage: 5, attackInterval: 10,
+      range: 22, moveSpeed: 5.2, accuracy: 0.7, evade: 0.05, radius: 7,
+    },
+  },
+  {
+    id: 1,
+    name: 'Sludge-Waller',
+    lineage: MUTANT,
+    cost: 5,
+    color: 0x4a6b52,
+    blurb: 'Enormous, wet, and barely fights at all.',
+    description:
+      'Bred for the flooded levels beneath the Houses, where the pumps failed generations ago. Bloated, amphibious, and slow to notice injury. It exists to be hit — it does almost no damage and moves at a crawl.',
+    base: {
+      hp: 165, armor: 1, damage: 8, attackInterval: 20,
+      range: 22, moveSpeed: 2.4, accuracy: 0.66, evade: 0.02, radius: 12,
+    },
+  },
+  {
+    id: 2,
+    name: 'Stiltwalker',
+    lineage: MUTANT,
+    cost: 5,
+    color: 0xa8c46a,
+    blurb: 'Too fast to hit, far too easy to kill.',
+    description:
+      'Legs bred long for crossing the salt flats with messages. It dodges most of what is thrown at it and hits quickly in return, but anything that connects tends to be the last thing that needs to. Accurate shooters ignore the dodging entirely.',
+    base: {
+      hp: 38, armor: 0, damage: 10, attackInterval: 8,
+      range: 22, moveSpeed: 9, accuracy: 0.78, evade: 0.24, radius: 7,
+    },
+  },
+  {
+    id: 3,
+    name: 'Spitter',
+    lineage: MUTANT,
+    cost: 7,
+    color: 0x8fbf3f,
+    blurb: 'Hits hard from far away. Dies to a stiff look.',
+    description:
+      'Its gut brews something caustic, and somewhere along the line it learned to aim. Heavy single shots at long range, no armour, and no ability whatsoever to defend itself. Put something in front of it.',
+    base: {
+      hp: 42, armor: 0, damage: 14, attackInterval: 14,
+      range: 240, moveSpeed: 3.2, accuracy: 0.7, evade: 0.06, radius: 8,
+    },
+  },
+  {
+    id: 4,
+    name: 'Thornback',
+    lineage: MUTANT,
+    cost: 7,
+    color: 0x6b6f3a,
+    blurb: 'Swarms break on it. Big hitters do not.',
+    description:
+      'Its skin mineralised generations back and no House has bothered breeding it out. Armour is flat reduction, so a hundred weak blows do almost nothing to it — but its own hide is thin underneath, and anything hitting hard enough to get through kills it quickly.',
+    base: {
+      hp: 90, armor: 7, damage: 9, attackInterval: 15,
+      range: 22, moveSpeed: 3.6, accuracy: 0.72, evade: 0.03, radius: 9,
+    },
+  },
+
+  // ---- True Kin: durable, predictable, expensive ----
+  {
+    id: 5,
+    name: 'Levy',
+    lineage: TRUEKIN,
+    cost: 12,
+    color: 0xc9a870,
+    blurb: 'A House owes its levies nothing but a spear.',
+    description:
+      'Conscripted from a House’s own holdings and owed nothing beyond a spear. Trained, equipped, and entirely replaceable by anyone above them.',
+    base: {
+      hp: 105, armor: 3, damage: 15, attackInterval: 12,
+      range: 24, moveSpeed: 4.6, accuracy: 0.82, evade: 0.1, radius: 9,
+    },
+  },
+  {
+    id: 6,
+    name: 'Halberdier',
+    lineage: TRUEKIN,
+    cost: 16,
+    color: 0xd8b978,
+    blurb: 'Reach, weight, and a great deal of drilling.',
+    description:
+      'Drilled infantry with reach. The backbone of any House still wealthy enough to keep a standing line rather than simply buy bodies.',
+    base: {
+      hp: 118, armor: 4, damage: 24, attackInterval: 17,
+      range: 34, moveSpeed: 4, accuracy: 0.84, evade: 0.08, radius: 10,
+    },
+  },
+  {
+    id: 7,
+    name: 'Marksman',
+    lineage: TRUEKIN,
+    cost: 15,
+    color: 0xe0cc94,
+    blurb: 'Expensive, fragile, and worth it from far enough away.',
+    description:
+      'A specialist, and priced like one. Shoots from far enough back that being fragile rarely comes up.',
+    base: {
+      hp: 88, armor: 1, damage: 22, attackInterval: 17,
+      range: 320, moveSpeed: 4, accuracy: 0.88, evade: 0.1, radius: 9,
+    },
+  },
+  {
+    id: 8,
+    name: 'Shieldbearer',
+    lineage: TRUEKIN,
+    cost: 16,
+    color: 0xb08d55,
+    blurb: 'Paid to be hit, and very good at it.',
+    description:
+      'Armoured to a near standstill and paid to be hit. Harmless on the attack and extraordinarily difficult to move.',
+    base: {
+      hp: 165, armor: 8, damage: 10, attackInterval: 16,
+      range: 24, moveSpeed: 3.4, accuracy: 0.78, evade: 0.04, radius: 11,
+    },
+  },
+  {
+    id: 9,
+    name: 'Dragoon',
+    lineage: TRUEKIN,
+    cost: 22,
+    color: 0xefd9a0,
+    blurb: 'A House heir with something to prove.',
+    description:
+      'A minor heir working off an obligation to their House. Fast, expensive, and painfully aware of being watched.',
+    base: {
+      hp: 130, armor: 5, damage: 22, attackInterval: 13,
+      range: 26, moveSpeed: 6.6, accuracy: 0.86, evade: 0.14, radius: 10,
+    },
+  },
+]
+
+export const MUTANT_TYPES = UNIT_TYPES.filter((u) => u.lineage === MUTANT)
+export const TRUEKIN_TYPES = UNIT_TYPES.filter((u) => u.lineage === TRUEKIN)
+
+/**
+ * Discipline: the damage multiplier a squad retains once it has been ground
+ * down to nothing. Morale is a multiplier, not an exit — nobody flees, they
+ * just fight worse and worse until they are gone.
+ *
+ * Mutants fold toward 35% and collapse fast. True Kin barely notice. Machines
+ * (M3) sit at 1 and never degrade, which is the balance for them being much
+ * stronger. See docs/V0-DESIGN.md §7.
+ */
+export const DISCIPLINE: Record<UnitType["lineage"], number> = {
+  mutant: 0.35,
+  truekin: 0.78,
+}

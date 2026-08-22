@@ -1,0 +1,29 @@
+{
+  "name": "salt-crown",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @salt/web",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "sim:batch": "tsx tools/batch.ts",
+    "sim:perf": "tsx tools/batch.ts --perf",
+    "sim:campaign": "tsx tools/campaign.ts",
+    "sim:matchup": "tsx tools/matchup.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "eslint": "^9.15.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.16.0",
+    "vitest": "^3.0.0"
+  }
+}

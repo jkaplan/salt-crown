@@ -1,0 +1,124 @@
+import type { BattleReport } from '@salt/game'
+import { TICKS_PER_SECOND } from '@salt/sim'
+
+interface Props {
+  report: BattleReport
+  onContinue: () => void
+  isLast: boolean
+}
+
+export default function Report({ report, onContinue, isLast }: Props) {
+  const dead = report.squads.reduce((n, s) => n + s.dead, 0)
+  const held = report.squads.reduce((n, s) => n + s.survived, 0)
+  const enemyDead = report.enemy.reduce((n, s) => n + s.dead, 0)
+  const lostPotentials = report.potentials.filter((p) => p.died)
+  const livedPotentials = report.potentials.filter((p) => !p.died)
+
+  return (
+    <div className="report">
+      <div className="report-card">
+        <h2 className={report.won ? 'won' : 'lost'}>
+          {report.won ? 'The field is yours' : 'The warband broke'}
+        </h2>
+        <p className="enc">
+          {report.encounterName} · {(report.ticks / TICKS_PER_SECOND).toFixed(0)}s
+        </p>
+
+        <div className="tally">
+          <div>
+            <span className="big dead">{dead}</span>
+            <span className="label">fodder lost</span>
+          </div>
+          <div>
+            <span className="big held">{held}</span>
+            <span className="label">still standing</span>
+          </div>
+          <div>
+            <span className="big">{enemyDead}</span>
+            <span className="label">theirs killed</span>
+          </div>
+          <div>
+            <span className="big salvage">
+              {report.salvageEarned > 0 ? `+${report.salvageEarned}` : '0'}
+            </span>
+            <span className="label">salvage</span>
+          </div>
+        </div>
+
+        {report.potentials.length > 0 && (
+          <div className="potential-roll">
+            {lostPotentials.length > 0 && (
+              <>
+                <h3 className="lost-head">Lost</h3>
+                <ul className="pot-list">
+                  {lostPotentials.map((p) => (
+                    <li key={p.name} className="pot-dead">
+                      <span className="potential-name">{p.name}</span>
+                      <span className="dim">
+                        {p.label} · {p.battles} battle{p.battles === 1 ? '' : 's'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {livedPotentials.length > 0 && (
+              <>
+                <h3>Still with you</h3>
+                <ul className="pot-list">
+                  {livedPotentials.map((p) => (
+                    <li key={p.name}>
+                      <span className="potential-name">{p.name}</span>
+                      <span className="dim">
+                        {p.battles} battle{p.battles === 1 ? '' : 's'} survived
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+
+        <table className="losses">
+          <thead>
+            <tr>
+              <th>Squad</th>
+              <th>Began</th>
+              <th>Dead</th>
+              <th>Left</th>
+              <th title="Damage multiplier it ended on. Low means it was collapsing.">
+                Fighting at
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.squads.map((s) => {
+              const eff = Math.round(s.endEffectiveness * 100)
+              return (
+                <tr key={s.label} className={eff < 60 ? 'routed' : ''}>
+                  <td>{s.label}</td>
+                  <td>{s.started}</td>
+                  <td className="dead">{s.dead}</td>
+                  <td>{s.survived}</td>
+                  <td className={eff < 60 ? 'dead' : ''}>{eff}%</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+
+        {lostPotentials.length > 0 && (
+          <p className="hint">
+            A Potential does not come back. Fodder is a line item; these were the ones worth
+            watching.
+          </p>
+        )}
+
+        <button onClick={onContinue}>
+          {report.won ? (isLast ? 'End the run' : 'Break camp') : 'The run ends here'}
+        </button>
+      </div>
+    </div>
+  )
+}
