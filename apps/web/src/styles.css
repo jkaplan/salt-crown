@@ -383,6 +383,32 @@ h2.spaced { margin-top: 22px; }
   font-size: 14px;
 }
 
+.seed-input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.seed-input-group input {
+  flex: 1;
+}
+
+.randomize-btn {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  background: #2c231a;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.randomize-btn:hover {
+  background: #3a2f27;
+}
+
 .start-card input[type="text"]:focus {
   outline: none;
   border-color: var(--b);
@@ -502,4 +528,103 @@ h2.spaced { margin-top: 22px; }
   font-size: 12px;
   color: #c9a870;
   font-variant-numeric: tabular-nums;
+}
+
+/* ---- name edit form ---- */
+.name-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: #15110e;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.rank-label {
+  color: var(--dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  flex: 0 0 auto;
+}
+
+.name-input {
+  flex: 1;
+  padding: 8px 10px;
+  background: #0c0a08;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.name-input:focus {
+  outline: none;
+  border-color: var(--b);
+}
+
+.house-label {
+  color: var(--dim);
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+
+.preview-effect {
+  margin: 0;
+  font-size: 12px;
+  color: #c9a870;
+  font-variant-numeric: tabular-nums;
+}
+
+.preview-blurb {
+  margin: 0;
+  font-size: 12px;
+  color: #8b7d6d;
+  font-style: italic;
+}
+
+.button-group {
+  display: flex;
+  gap: 8px;
+}
+
+.back-btn, .confirm-btn {
+  flex: 1;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.back-btn {
+  background: #221b15;
+  color: var(--ink);
+}
+
+.back-btn:hover {
+  background: #2c231a;
+}
+
+.confirm-btn {
+  background: var(--b);
+  border-color: var(--b);
+  color: #1a1108;
+  font-weight: 600;
+}
+
+.confirm-btn:hover {
+  background: #e89660;
 }
