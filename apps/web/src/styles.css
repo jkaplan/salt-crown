@@ -499,6 +499,56 @@ button.march:hover:not(:disabled) { background: #914c28; }
   letter-spacing: 0.08em;
 }
 
+.battle-momentum {
+  margin-bottom: 5px;
+  padding: 5px 6px 6px;
+  border: 1px solid #35291f;
+  border-radius: 7px;
+  background: rgba(17, 13, 10, 0.88);
+}
+
+.battle-momentum-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+  color: #fff0cc;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.battle-momentum-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(90deg, #9d5e3d 0%, #5d655f 50%, #4b8d84 100%);
+  border: 1px solid #372c22;
+}
+
+.battle-momentum-center {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: rgba(255, 245, 220, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.battle-momentum-marker {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 1px solid #fff6e6;
+  background: #15110e;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
 .battle-hud-list { display: grid; gap: 4px; }
 
 .battle-hud-row {

@@ -77,6 +77,14 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
         (a, b) => Number(a.team !== TEAM_A) - Number(b.team !== TEAM_A) || a.groupIndex - b.groupIndex,
       )
     : []
+  const playerPower = stats
+    ? stats.combatants.filter((combatant) => combatant.team === TEAM_A).reduce((sum, combatant) => sum + combatant.currentHp, 0)
+    : 0
+  const enemyPower = stats
+    ? stats.combatants.filter((combatant) => combatant.team !== TEAM_A).reduce((sum, combatant) => sum + combatant.currentHp, 0)
+    : 0
+  const totalPower = playerPower + enemyPower
+  const momentum = totalPower > 0 ? playerPower / totalPower : 0.5
 
   return (
     <div className="battle">
@@ -87,6 +95,18 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
             <div className="battle-hud-head">
               <span>Squad health</span>
               <span>{stats.tick}t</span>
+            </div>
+            <div className="battle-momentum">
+              <div className="battle-momentum-label">
+                <span>Momentum</span>
+                <span>
+                  {playerPower.toFixed(0)} / {enemyPower.toFixed(0)}
+                </span>
+              </div>
+              <div className="battle-momentum-track">
+                <div className="battle-momentum-center" />
+                <div className="battle-momentum-marker" style={{ left: `${momentum * 100}%` }} />
+              </div>
             </div>
             <div className="battle-hud-list">
               {combatants.map((combatant) => {
