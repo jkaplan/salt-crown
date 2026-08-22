@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Salt Crown Cheatsheet</title>
+    <style>
+      :root {
+        --bg: #0f0d0b;
+        --bg-elev: #171310;
+        --bg-soft: #1d1814;
+        --panel: rgba(24, 19, 15, 0.92);
+        --border: #2f261f;
+        --border-strong: #4a3a2f;
+        --text: #eadfce;
+        --muted: #a59280;
+        --accent: #d9b26f;
+        --accent-2: #87c7ba;
+        --good: #98c98d;
+        --warn: #d49a64;
+        --bad: #d56c64;
+        --shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+        --radius: 18px;
+        --radius-sm: 12px;
+        --max: 1240px;
+        color-scheme: dark;
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(217, 178, 111, 0.12), transparent 30%),
+          radial-gradient(circle at top right, rgba(135, 199, 186, 0.09), transparent 24%),
+          linear-gradient(180deg, #0c0a08 0%, #12100d 100%);
+        font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      a { color: inherit; }
+      code, kbd {
+        font: inherit;
+        padding: 0.08rem 0.38rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: #f3e5cb;
+      }
+
+      .wrap {
+        width: min(var(--max), calc(100% - 40px));
+        margin: 0 auto;
+        padding: 28px 0 56px;
+      }
+
+      .hero {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(180deg, rgba(30, 24, 18, 0.92), rgba(18, 14, 11, 0.96));
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        padding: 28px;
+        box-shadow: var(--shadow);
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: -2px -2px auto auto;
+        width: 280px;
+        height: 280px;
+        background: radial-gradient(circle, rgba(217, 178, 111, 0.14), transparent 68%);
+        pointer-events: none;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        margin: 0 0 14px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(217, 178, 111, 0.28);
+        background: rgba(217, 178, 111, 0.08);
+        color: var(--accent);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(34px, 5vw, 56px);
+        line-height: 1.02;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .lede {
+        max-width: 72ch;
+        margin: 16px 0 0;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 22px;
+      }
+
+      .stat {
+        padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+      }
+
+      .stat b {
+        display: block;
+        font-size: 28px;
+        line-height: 1;
+        margin-bottom: 4px;
+        color: var(--accent);
+      }
+
+      .stat span {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        margin: 18px 0 0;
+        padding: 12px;
+        backdrop-filter: blur(14px);
+        background: rgba(12, 10, 8, 0.82);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25);
+      }
+
+      .nav a {
+        text-decoration: none;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        color: var(--muted);
+        transition: 0.18s ease;
+      }
+
+      .nav a:hover {
+        color: var(--text);
+        border-color: var(--border-strong);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      main {
+        display: grid;
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .section {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 22px;
+        box-shadow: var(--shadow);
+      }
+
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .section h2 {
+        margin: 0;
+        font-size: 26px;
+        line-height: 1.1;
+      }
+
+      .section .sub {
+        margin: 0;
+        color: var(--muted);
+        max-width: 72ch;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .card {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.015));
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 16px;
+      }
+
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .pill strong { color: var(--text); }
+      .pill.good { color: var(--good); }
+      .pill.warn { color: var(--warn); }
+      .pill.bad { color: var(--bad); }
+
+      .table-wrap {
+        overflow-x: auto;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 820px;
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      th, td {
+        padding: 12px 14px;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      }
+
+      th {
+        position: sticky;
+        top: 66px;
+        z-index: 1;
+        background: rgba(19, 15, 12, 0.98);
+        color: var(--accent);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      tbody tr:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .name {
+        display: block;
+        font-weight: 700;
+        color: #f4e5cc;
+      }
+
+      .blurb {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .detail {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .formula {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .formula .card strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--accent-2);
+      }
+
+      .list {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .list li + li { margin-top: 6px; }
+
+      .footer-note {
+        margin: 18px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 1000px) {
+        .hero-grid,
+        .grid-3,
+        .formula,
+        .grid-2 {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .wrap { width: min(var(--max), calc(100% - 24px)); padding-top: 14px; }
+        .hero { padding: 20px; border-radius: 22px; }
+        .section { padding: 18px; border-radius: 20px; }
+        .hero-grid,
+        .grid-3,
+        .grid-2,
+        .formula {
+          grid-template-columns: 1fr;
+        }
+        .section-head {
+          flex-direction: column;
+          align-items: start;
+        }
+        th { top: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="hero">
+        <div class="eyebrow">Salt Crown Cheatsheet</div>
+        <h1>Read the numbers fast.</h1>
+        <p class="lede">
+          A design-first reference for the current V0 rules: mutations, units, officers, Houses,
+          and the math behind combat. Built for quick scanning during balance work or play.
+        </p>
+        <div class="hero-grid">
+          <div class="stat"><b>12</b><span>Mutations</span></div>
+          <div class="stat"><b>10</b><span>Unit types</span></div>
+          <div class="stat"><b>4</b><span>Officer ranks</span></div>
+          <div class="stat"><b>8</b><span>Houses</span></div>
+        </div>
+      </header>
+
+      <nav class="nav" aria-label="Cheatsheet sections">
+        <a href="#overview">Overview</a>
+        <a href="#mutations">Mutations</a>
+        <a href="#units">Units</a>
+        <a href="#officers">Officers</a>
+        <a href="#houses">Houses</a>
+        <a href="#combat">Combat math</a>
+        <a href="#composition">Composition</a>
+        <a href="#economy">Economy</a>
+        <a href="#firstborn">Firstborn</a>
+        <a href="#seeds">Seeds</a>
+      </nav>
+
+      <main>
+        <section class="section" id="overview">
+          <div class="section-head">
+            <div>
+              <h2>What matters most</h2>
+              <p class="sub">
+                Composition is the strategy surface. Mutations create variance, officers create
+                reliability, and warband size creates economic pressure.
+              </p>
+            </div>
+          </div>
+          <div class="grid-3">
+            <div class="card">
+              <h3>Mutants</h3>
+              <p class="detail">Cheap, fragile, and mutation-driven. They are the volume play.</p>
+              <div class="meta">
+                <span class="pill good"><strong>Low cost</strong></span>
+                <span class="pill warn"><strong>Random growth</strong></span>
+                <span class="pill bad"><strong>No bionics</strong></span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>True Kin</h3>
+              <p class="detail">Expensive, reliable, and bionic-friendly. They are the quality play.</p>
+              <div class="meta">
+                <span class="pill good"><strong>Stable stats</strong></span>
+                <span class="pill warn"><strong>Officer-led</strong></span>
+                <span class="pill"><strong>Bionics</strong></span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Machines</h3>
+              <p class="detail">Ruins-only, much stronger, and permanently dangerous to own.</p>
+              <div class="meta">
+                <span class="pill good"><strong>Very strong</strong></span>
+                <span class="pill bad"><strong>Decay</strong></span>
+                <span class="pill warn"><strong>Not purchasable</strong></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="mutations">
+          <div class="section-head">
+            <div>
+              <h2>Mutations</h2>
+              <p class="sub">
+                All mutations scale from level 1 to 6. Higher rolls are rarer and matter more.
+              </p>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mutation</th>
+                  <th>Level 1</th>
+                  <th>Level 3</th>
+                  <th>Level 6</th>
+                  <th>What it does</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="name">Horns</span><span class="blurb">Bone, forward.</span></td>
+                  <td>+1.5 dmg</td>
+                  <td>+4.5 dmg</td>
+                  <td>+9 dmg</td>
+                  <td>Flat damage boost.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Carapace</span><span class="blurb">A shell, of sorts.</span></td>
+                  <td>+0.8 arm</td>
+                  <td>+2.4 arm</td>
+                  <td>+4.8 arm</td>
+                  <td>Flat armour that stacks well.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Bulging Sacs</span><span class="blurb">More of it to kill.</span></td>
+                  <td>+7 HP</td>
+                  <td>+21 HP</td>
+                  <td>+42 HP</td>
+                  <td>Raw durability.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Adrenal Glands</span><span class="blurb">Always at a run.</span></td>
+                  <td>+0.5 move</td>
+                  <td>+1.5 move</td>
+                  <td>+3 move</td>
+                  <td>Speed for reaching or escaping.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Twitch Reflex</span><span class="blurb">Flinches before the blow lands.</span></td>
+                  <td>+2.2% evade</td>
+                  <td>+6.6% evade</td>
+                  <td>+13.2% evade</td>
+                  <td>Dodge chance against attacks.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Keen Sense</span><span class="blurb">Smells where you will be.</span></td>
+                  <td>+2% accuracy</td>
+                  <td>+6% accuracy</td>
+                  <td>+12% accuracy</td>
+                  <td>Better hit rate.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Serrated Claws</span><span class="blurb">Enthusiasm over precision.</span></td>
+                  <td>+2.6 dmg, -6% acc</td>
+                  <td>+7.8 dmg, -6% acc</td>
+                  <td>+15.6 dmg, -6% acc</td>
+                  <td>Damage spike with accuracy cost.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Flaming Ray</span><span class="blurb">It opens its mouth and the air lights up.</span></td>
+                  <td>90 range, -20% dmg</td>
+                  <td>156 range, -20% dmg</td>
+                  <td>222 range, -20% dmg</td>
+                  <td>Converts to ranged attack, but weaker hits.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Dense Bone</span><span class="blurb">Heavy, and slow with it.</span></td>
+                  <td>+1.1 arm, -0.7 move</td>
+                  <td>+3.3 arm, -0.7 move</td>
+                  <td>+6.6 arm, -0.7 move</td>
+                  <td>Tank mutation with a speed penalty.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Regeneration</span><span class="blurb">Knits itself back together, slowly.</span></td>
+                  <td>+1.2 HP/sec</td>
+                  <td>+3.6 HP/sec</td>
+                  <td>+7.2 HP/sec</td>
+                  <td>Heals in combat.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Quills</span><span class="blurb">Punching it is its own punishment.</span></td>
+                  <td>6% reflect</td>
+                  <td>18% reflect</td>
+                  <td>36% reflect</td>
+                  <td>Reflects melee damage back.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Frenzy</span><span class="blurb">Fights hardest on the way out.</span></td>
+                  <td>+9% attack speed</td>
+                  <td>+27% attack speed</td>
+                  <td>+54% attack speed</td>
+                  <td>Attacks faster as HP drops, capped at 75% speed.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section" id="units">
+          <div class="section-head">
+            <div>
+              <h2>Units</h2>
+              <p class="sub">
+                Unit cost is per body. The important number is not just raw stats, but how each
+                body type solves a different problem for the warband.
+              </p>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <h3>Mutant Units</h3>
+              <p class="detail">Cheap, mutation-driven, and bionic-proof.</p>
+              <div class="table-wrap" style="margin-top: 12px;">
+                <table style="min-width: 760px;">
+                  <thead>
+                    <tr>
+                      <th>Unit</th><th>Cost</th><th>HP</th><th>Armour</th><th>Dmg</th><th>Atk/s</th><th>Range</th><th>Speed</th><th>Acc</th><th>Evade</th><th>Use</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><span class="name">Chaff</span><span class="blurb">Numbers, and nothing else whatsoever.</span></td>
+                      <td>2</td><td>30</td><td>0</td><td>5</td><td>0.10</td><td>22</td><td>5.2</td><td>70%</td><td>5%</td><td>Mass wall; one is worthless, many are not.</td>
+                    </tr>
+                    <tr>
+                      <td><span class="name">Sludge-Waller</span><span class="blurb">Enormous, wet, and barely fights at all.</span></td>
+                      <td>5</td><td>165</td><td>1</td><td>8</td><td>0.05</td><td>22</td><td>2.4</td><td>66%</td><td>2%</td><td>Soaks volume damage, crawls forward.</td>
+                    </tr>
+                    <tr>
+                      <td><span class="name">Stiltwalker</span><span class="blurb">Too fast to hit, far too easy to kill.</span></td>
+                      <td>5</td><td>38</td><td>0</td><td>10</td><td>0.125</td><td>22</td><td>9</td><td>78%</td><td>24%</td><td>Evasion specialist; dies to accuracy.</td>
+                    </tr>
+                    <tr>
+                      <td><span class="name">Spitter</span><span class="blurb">Hits hard from far away. Dies to a stiff look.</span></td>
+                      <td>7</td><td>42</td><td>0</td><td>14</td><td>0.07</td><td>240</td><td>3.2</td><td>70%</td><td>6%</td><td>Long-range pressure. Needs a screen.</td>
+                    </tr>
+                    <tr>
+                      <td><span class="name">Thornback</span><span class="blurb">Swarms break on it. Big hitters do not.</span></td>
+                      <td>7</td><td>90</td><td>7</td><td>9</td><td>0.067</td><td>22</td><td>3.6</td><td>72%</td><td>3%</td><td>Armour wall. Punishes low-damage swarms.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>True Kin Units</h3>
+              <p class="detail">Expensive, reliable, and eligible for bionics.</p>
+              <div class="table-wrap" style="margin-top: 12px;">
+                <table style="min-width: 760px;">
+                  <thead>
+                    <tr>
+                      <th>Unit</th><th>Cost</th><th>HP</th><th>Armour</th><th>Dmg</th><th>Atk/s</th><th>Range</th><th>Speed</th><th>Acc</th><th>Evade</th><th>Use</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><span class="name">Levy</span><span class="blurb">A House owes its levies nothing but a spear.</span></td>
+                      <td>12</td><td>105</td><td>3</td><td>15</td><td>0.083</td><td>24</td><td>4.6</td><td>82%</td><td>10%</td><td>Baseline infantry. Solid and dependable.</td>
+                    </tr>
+                    <tr>
+                      <td><span class="name">Halberdier</span><span class="blurb">Reach, weight, and a great deal of drilling.</span></td>
+                      <td>16</td><td>118</td><td>4</td><td>24</td><td>0.059</td><td>34</td><td>4</td><td>84%</td><td>8%</td><td>Reach line. Heavy melee hitter.</td>
+                    </tr>
+                    <tr>
+                      <td><span class="name">Marksman</span><span class="blurb">Expensive, fragile, and worth it from far enough away.</span></td>
+                      <td>15</td><td>88</td><td>1</td><td>22</td><td>0.059</td><td>320</td><td>4</td><td>88%</td><td>10%</td><td>Far-back damage dealer.</td>
+                    </tr>
+                    <tr>
+                      <td><span class="name">Shieldbearer</span><span class="blurb">Paid to be hit, and very good at it.</span></td>
+                      <td>16</td><td>165</td><td>8</td><td>10</td><td>0.063</td><td>24</td><td>3.4</td><td>78%</td><td>4%</td><td>Frontline tank, high armour.</td>
+                    </tr>
+                    <tr>
+                      <td><span class="name">Dragoon</span><span class="blurb">A House heir with something to prove.</span></td>
+                      <td>22</td><td>130</td><td>5</td><td>22</td><td>0.077</td><td>26</td><td>6.6</td><td>86%</td><td>14%</td><td>Fast premium striker.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="officers">
+          <div class="section-head">
+            <div>
+              <h2>Officer ranks</h2>
+              <p class="sub">
+                Officers are the named True Kin tier. They are individually recruited and each
+                leads one squad.
+              </p>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Cost</th>
+                  <th>Bonus</th>
+                  <th>Morale boost</th>
+                  <th>Use</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="name">Serjeant</span><span class="blurb">Shouts until it works.</span></td>
+                  <td>85</td>
+                  <td>+18% squad damage</td>
+                  <td>+5% hold</td>
+                  <td>Offense amplification. Best on damage-heavy squads.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Warden</span><span class="blurb">Keeps the line where it was put.</span></td>
+                  <td>90</td>
+                  <td>+2.5 squad armour</td>
+                  <td>+12% hold</td>
+                  <td>Frontline anchor. Strongest on tank squads.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Marshal</span><span class="blurb">Reads a field like a ledger.</span></td>
+                  <td>110</td>
+                  <td>+9% accuracy, +6% damage</td>
+                  <td>+8% morale</td>
+                  <td>Balanced leader. Good general-purpose choice.</td>
+                </tr>
+                <tr>
+                  <td><span class="name">Outrider</span><span class="blurb">Arrives before the order does.</span></td>
+                  <td>80</td>
+                  <td>+25% move speed, +5% evade</td>
+                  <td>+4% morale</td>
+                  <td>Fast support. Pairs with mobility or flanking plans.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="footer-note">
+            Morale boost means the squad breaks later. A Warden-led squad holds much longer than an
+            unled one.
+          </p>
+        </section>
+
+        <section class="section" id="houses">
+          <div class="section-head">
+            <div>
+              <h2>Houses</h2>
+              <p class="sub">
+                Eight True Kin Houses. Commander names are drawn from these. Mutants have no House.
+              </p>
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div class="card"><h3>Vantry</h3><p class="detail">House name, no special mechanics yet.</p></div>
+            <div class="card"><h3>Oskal</h3><p class="detail">House name, no special mechanics yet.</p></div>
+            <div class="card"><h3>Merethel</h3><p class="detail">House name, no special mechanics yet.</p></div>
+            <div class="card"><h3>Caldrion</h3><p class="detail">House name, no special mechanics yet.</p></div>
+            <div class="card"><h3>Thessaly</h3><p class="detail">House name, no special mechanics yet.</p></div>
+            <div class="card"><h3>Ambrose</h3><p class="detail">House name, no special mechanics yet.</p></div>
+            <div class="card"><h3>Wexhall</h3><p class="detail">House name, no special mechanics yet.</p></div>
+            <div class="card"><h3>Duon</h3><p class="detail">House name, no special mechanics yet.</p></div>
+          </div>
+        </section>
+
+        <section class="section" id="combat">
+          <div class="section-head">
+            <div>
+              <h2>Combat math</h2>
+              <p class="sub">
+                The sim is deterministic and tick-based. Combat resolves from the same snapshot each
+                tick, so ordering bias does not matter.
+              </p>
+            </div>
+          </div>
+
+          <div class="formula">
+            <div class="card">
+              <strong>Hit chance</strong>
+              <code>attacker_accuracy - defender_evade</code>
+              <p class="detail">Clamped between 5% and 95%.</p>
+            </div>
+            <div class="card">
+              <strong>Damage dealt</strong>
+              <code>max(1, attacker_damage - defender_armor)</code>
+              <p class="detail">Armour is flat reduction, not percentage.</p>
+            </div>
+            <div class="card">
+              <strong>Attack interval</strong>
+              <code>20 Hz / attackInterval_ticks</code>
+              <p class="detail">A 10 tick interval means 2 attacks per second.</p>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 14px;">
+            <div class="card">
+              <h3>Discipline</h3>
+              <ul class="list">
+                <li>Mutants: 35% effectiveness when broken.</li>
+                <li>True Kin: 78% effectiveness when broken.</li>
+                <li>Machines: 100%; they never degrade.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Range thresholds</h3>
+              <ul class="list">
+                <li><strong>≤40</strong> counts as melee and can trigger Quills reflections.</li>
+                <li><strong>&gt;40</strong> counts as ranged and avoids melee-only counterplay.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="composition">
+          <div class="section-head">
+            <div>
+              <h2>Composition logic</h2>
+              <p class="sub">
+                The game is not about counter triangles. It is about building a warband that can
+                survive its own costs and still scale.
+              </p>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <h3>Five mutant kinds</h3>
+              <ul class="list">
+                <li><strong>Chaff</strong> — mass and nothing else.</li>
+                <li><strong>Sludge-Waller</strong> — raw HP.</li>
+                <li><strong>Thornback</strong> — flat armour.</li>
+                <li><strong>Stiltwalker</strong> — evasion.</li>
+                <li><strong>Spitter</strong> — range.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Why officers matter</h3>
+              <p class="detail">
+                True Kin officers give guaranteed bonuses and better morale. Mutations are random;
+                officers are reliable. That reliability is worth a lot when salvage is tight.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="economy">
+          <div class="section-head">
+            <div>
+              <h2>Economy</h2>
+              <p class="sub">
+                Salvage funds recruits and upgrades. Water and machine upkeep exist later in the
+                design, but salvage is the current balancing lens.
+              </p>
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div class="card">
+              <h3>Battle reward</h3>
+              <p class="detail"><code>~60 + encounter_index × 34</code></p>
+            </div>
+            <div class="card">
+              <h3>Scavenge</h3>
+              <p class="detail">Stable, around 100 salvage expected value.</p>
+            </div>
+            <div class="card">
+              <h3>Delve</h3>
+              <p class="detail">High variance, around 220 salvage expected value, plus better finds.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="firstborn">
+          <div class="section-head">
+            <div>
+              <h2>Firstborn</h2>
+              <p class="sub">
+                A Firstborn is a mutant named tier unit, promoted from a survivor rather than hired.
+              </p>
+            </div>
+          </div>
+          <div class="card">
+            <p class="detail">
+              When a Firstborn leads a mutant squad, that squad’s mutations leak out to the whole
+              squad at half level, minimum 1. This is how mutant growth becomes army-wide scaling.
+            </p>
+          </div>
+        </section>
+
+        <section class="section" id="seeds">
+          <div class="section-head">
+            <div>
+              <h2>Seeds & determinism</h2>
+              <p class="sub">
+                The same seed yields the same commander options, encounters, and battle outcomes for
+                identical choices.
+              </p>
+            </div>
+          </div>
+          <div class="card">
+            <ul class="list">
+              <li>Same 15 encounters in the same order.</li>
+              <li>Same 3 commander options on leader select.</li>
+              <li>Same enemy warbands and mutation rolls.</li>
+              <li>Identical battle results if you make the same decisions.</li>
+            </ul>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
