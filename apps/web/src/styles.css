@@ -75,6 +75,10 @@ body {
   color: #f0e0b0;
 }
 
+.dim-copy {
+  color: var(--dim) !important;
+}
+
 .quick-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -105,6 +109,43 @@ body {
   color: #f0e0b0;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+.health-bar {
+  display: grid;
+  gap: 4px;
+}
+
+.health-bar span {
+  color: #f0e0b0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.health-bar-track {
+  height: 8px;
+  border: 1px solid #31261d;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #0f0b09;
+}
+
+.health-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 120ms linear;
+}
+
+.health-bar.player .health-bar-fill {
+  background: linear-gradient(90deg, #6ec4b6, #9de0d5);
+}
+
+.health-bar.enemy .health-bar-fill {
+  background: linear-gradient(90deg, #bf6a3f, #e08a5c);
+}
+
+.health-bar.neutral .health-bar-fill {
+  background: linear-gradient(90deg, #d9c56a, #f0dfb0);
 }
 
 .leader-line {
@@ -150,6 +191,14 @@ body {
 .combatant-card .parameter-card,
 .squad-card .parameter-card {
   gap: 3px;
+}
+
+.combatant-card.player-side {
+  border-color: rgba(127, 199, 187, 0.45);
+}
+
+.combatant-card.enemy-side {
+  border-color: rgba(217, 133, 82, 0.45);
 }
 
 .combatant-card span:last-child {

@@ -8,6 +8,7 @@ import {
   squadLabel,
   unitType,
 } from '@salt/game'
+import { TEAM_A } from '@salt/sim'
 import type { ViewStats } from '../BattleView'
 
 interface Props {
@@ -19,6 +20,12 @@ interface Props {
 interface HealthSnapshot {
   current: number
   max: number
+}
+
+interface HealthBarProps {
+  current: number
+  max: number
+  tone?: 'player' | 'enemy' | 'neutral'
 }
 
 function leaderText(leader: SquadLeader | null, run: RunState): string {
@@ -70,9 +77,20 @@ function healthText(snapshot: HealthSnapshot): string {
   return `${snapshot.current.toFixed(0)} / ${snapshot.max.toFixed(0)} hp`
 }
 
+function HealthBar({ current, max, tone = 'neutral' }: HealthBarProps) {
+  const ratio = max > 0 ? Math.max(0, Math.min(1, current / max)) : 0
+  return (
+    <div className={`health-bar ${tone}`}>
+      <div className="health-bar-track">
+        <div className="health-bar-fill" style={{ width: `${ratio * 100}%` }} />
+      </div>
+      <span>{healthText({ current, max })}</span>
+    </div>
+  )
+}
+
 export default function ParametersPanel({ run, setup, liveStats }: Props) {
   const warband = run.warband
-  const leadingSquad = warband.squads.find((squad) => squad.leader)
   const warbandHealth = warband.squads.reduce(
     (sum, squad) => sum + squadHealth(squad, liveStats, run).current,
     0,
@@ -85,22 +103,13 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
   return (
     <aside className="parameters-panel">
       <section className="spotlight-section">
-        <h2>Command</h2>
-        {leadingSquad ? (
-          <article className="parameter-card spotlight-card">
-            <span className="eyebrow">Warband leader</span>
-            <strong>{squadLabel(leadingSquad)}</strong>
-            <span>Leader: {leaderText(leadingSquad.leader, run)}</span>
-            <span>{healthText(squadHealth(leadingSquad, liveStats, run))}</span>
-            <span>{squadStatsLine(leadingSquad, run)}</span>
-          </article>
-        ) : (
-          <article className="parameter-card spotlight-card">
-            <span className="eyebrow">Warband leader</span>
-            <strong>No squad leader assigned</strong>
-            <span>Assign an officer or potential to bring a squad forward.</span>
-          </article>
-        )}
+        <h2>Warband</h2>
+        <article className="parameter-card spotlight-card">
+          <span className="eyebrow">Total health</span>
+          <HealthBar current={warbandHealth} max={warbandMaxHealth} tone="player" />
+          <span>{warband.squads.length} squads · {warband.potentials.length} potentials</span>
+          <span className="dim-copy">The squad cards below show each unit group in detail.</span>
+        </article>
         <div className="quick-stats">
           <div>
             <span className="summary-label">Warband health</span>
@@ -143,7 +152,11 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
           {warband.squads.map((squad) => (
             <article key={squad.id} className={`parameter-card squad-card ${squad.leader ? 'is-led' : ''}`}>
               <strong>{squadLabel(squad)}</strong>
-              <span className="squad-health">{healthText(squadHealth(squad, liveStats, run))}</span>
+              <HealthBar
+                current={squadHealth(squad, liveStats, run).current}
+                max={squadHealth(squad, liveStats, run).max}
+                tone="player"
+              />
               <span>{unitType(squad.typeId).lineage}</span>
               <span className="leader-line">Leader: {leaderText(squad.leader, run)}</span>
               <span>{squadStatsLine(squad, run)}</span>
@@ -216,12 +229,17 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
           </dl>
           <div className="parameter-list live-combatants">
             {liveStats.combatants.map((combatant) => (
-              <article key={`${combatant.groupIndex}-${combatant.label}`} className="parameter-card combatant-card">
+              <article
+                key={`${combatant.groupIndex}-${combatant.label}`}
+                className={`parameter-card combatant-card ${combatant.team === TEAM_A ? 'player-side' : 'enemy-side'}`}
+              >
                 <strong>{combatant.label}</strong>
-                <span className="leader-line">{combatant.leaderLabel ?? 'no leader'}</span>
-                <span className="squad-health">
-                  {combatant.currentHp.toFixed(0)} / {combatant.maxHp.toFixed(0)} hp
-                </span>
+                <span className="leader-line">{combatant.team === TEAM_A ? 'your side' : 'enemy side'} · {combatant.leaderLabel ?? 'no leader'}</span>
+                <HealthBar
+                  current={combatant.currentHp}
+                  max={combatant.maxHp}
+                  tone={combatant.team === TEAM_A ? 'player' : 'enemy'}
+                />
                 <span>{combatant.alive} / {combatant.started} bodies · discipline {(combatant.discipline * 100).toFixed(0)}%</span>
                 <span>{combatantStatsLine(combatant)}</span>
                 <span>{combatant.range > 40 ? `${combatant.range.toFixed(0)} range` : 'melee'} · {combatant.armor.toFixed(1)} arm · {combatant.attackInterval} tick interval</span>
