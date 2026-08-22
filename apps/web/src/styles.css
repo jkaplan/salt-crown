@@ -401,6 +401,26 @@ header nav button { flex: none; padding: 5px 14px; font-size: 12px; }
 }
 .offer.poor { opacity: 0.45; }
 
+.lead-chip {
+  margin-top: 7px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid #32281f;
+  background: #120f0c;
+}
+
+.lead-chip.active {
+  border-color: #6c5931;
+  background: #18130d;
+  color: #f0e0b0;
+}
+
+.lead-chip.inactive {
+  color: var(--dim);
+}
+
 .squad-head, .offer-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .name { font-weight: 600; }
 .name.mutant { color: #9ab84e; }
@@ -672,6 +692,13 @@ h2.spaced { margin-top: 22px; }
   color: #a08f52; margin-bottom: 6px;
 }
 .op-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 5px; }
+.op-note {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid #32281f;
+  color: #d9c56a;
+  font-size: 11px;
+}
 .op-none { margin: 9px 0 0; font-size: 11px; color: #6b6055; font-style: italic; }
 
 .potential-roll { margin-bottom: 18px; }

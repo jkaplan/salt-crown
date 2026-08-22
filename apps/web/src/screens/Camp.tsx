@@ -44,6 +44,17 @@ function parseLeaderKey(key: string): SquadLeader | null {
   return kind === 'officer' || kind === 'potential' ? { kind, id } : null
 }
 
+function leaderNote(squad: Squad, warband: Warband): string {
+  const leader = squad.leader
+  if (!leader) return 'No leader'
+  if (leader.kind === 'officer') {
+    const officer = warband.officers.find((o) => o.id === leader.id)
+    return officer ? `Led by ${officerTitle(officer)}` : 'Led by an officer'
+  }
+  const potential = warband.potentials.find((p) => p.id === leader.id)
+  return potential ? `Auto-led by ${potential.name}` : 'Auto-led by a Potential'
+}
+
 /**
  * A Potential: individually tracked, individually killable, worth caring
  * about — and, now, able to lead a squad of its own kind. Leading leaks its
@@ -167,9 +178,10 @@ function OfferCard({
               </span>
             </div>
           ))}
+          <div className="op-note">This batch will start with a Potential leading it.</div>
         </div>
       ) : (
-        <p className="op-none">No standouts. Bodies only.</p>
+        <p className="op-none">No standouts. Bodies only. No squad leader included.</p>
       )}
 
       <button disabled={!afford} onClick={() => onBuy(offer.id)}>
@@ -277,6 +289,9 @@ export default function Camp({ run, onBuy, onAssign, onMarch }: Props) {
                     <UnitName typeId={sq.typeId} />
                   </span>
                   <span className="count">×{sq.count}</span>
+                </div>
+                <div className={`lead-chip ${sq.leader ? 'active' : 'inactive'}`}>
+                  {leaderNote(sq, warband)}
                 </div>
                 <SquadLeaderSelect squad={sq} warband={warband} onAssign={onAssign} />
               </li>
