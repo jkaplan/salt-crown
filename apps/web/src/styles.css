@@ -473,18 +473,18 @@ button.march:hover:not(:disabled) { background: #914c28; }
 
 .battle-hud {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 6px;
+  left: 6px;
   z-index: 2;
-  width: min(320px, calc(100% - 16px));
-  max-height: min(280px, calc(100% - 88px));
+  width: min(300px, calc(100% - 12px));
+  max-height: min(240px, calc(100% - 82px));
   overflow-y: auto;
-  padding: 8px;
-  border: 1px solid rgba(44, 36, 29, 0.9);
+  padding: 6px;
+  border: 1px solid rgba(44, 36, 29, 0.82);
   border-radius: 8px;
-  background: rgba(10, 8, 7, 0.72);
-  backdrop-filter: blur(4px);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  background: rgba(10, 8, 7, 0.62);
+  backdrop-filter: blur(3px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
   pointer-events: none;
 }
 
@@ -492,34 +492,27 @@ button.march:hover:not(:disabled) { background: #914c28; }
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 6px;
-  color: #f0dfb0;
-  font-size: 9px;
+  margin-bottom: 4px;
+  color: #fff0cc;
+  font-size: 8px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
 }
 
-.battle-hud-list { display: grid; gap: 5px; }
+.battle-hud-list { display: grid; gap: 4px; }
 
 .battle-hud-row {
   display: grid;
-  gap: 3px;
-}
-
-.battle-hud-label {
-  font-size: 10px;
-  color: #f5ead6;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
-  line-height: 1.15;
+  gap: 2px;
 }
 
 .battle-hud-track {
   position: relative;
-  height: 16px;
+  height: 18px;
   border: 1px solid #362b21;
   border-radius: 999px;
   overflow: hidden;
-  background: #110d0b;
+  background: #130f0c;
 }
 
 .battle-hud-fill {
@@ -528,20 +521,34 @@ button.march:hover:not(:disabled) { background: #914c28; }
   transition: width 120ms linear;
 }
 
-.battle-hud-row.player .battle-hud-fill { background: linear-gradient(90deg, #4f9f93, #86d8cc); }
-.battle-hud-row.enemy .battle-hud-fill { background: linear-gradient(90deg, #9f5c38, #d97a4f); }
+.battle-hud-row.player .battle-hud-fill { background: linear-gradient(90deg, #3f7f75, #79cbbc); }
+.battle-hud-row.enemy .battle-hud-fill { background: linear-gradient(90deg, #8e4f31, #d56f41); }
 
+.battle-hud-meta,
 .battle-hud-number {
   position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
   font-size: 9px;
   line-height: 1;
-  color: #fff4e7;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
   font-variant-numeric: tabular-nums;
-  mix-blend-mode: normal;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+}
+
+.battle-hud-meta {
+  left: 8px;
+  color: #fff3dc;
+  max-width: calc(100% - 88px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.battle-hud-number {
+  right: 8px;
+  color: #fff7ec;
 }
 
 /* ---- report ---- */

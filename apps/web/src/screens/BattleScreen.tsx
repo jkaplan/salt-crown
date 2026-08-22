@@ -96,9 +96,11 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
                     key={`${combatant.groupIndex}-${combatant.label}`}
                     className={`battle-hud-row ${combatant.team === TEAM_A ? 'player' : 'enemy'}`}
                   >
-                    <div className="battle-hud-label">{combatant.label}</div>
                     <div className="battle-hud-track">
                       <div className="battle-hud-fill" style={{ width: `${ratio * 100}%` }} />
+                      <span className="battle-hud-meta">
+                        {combatant.label}
+                      </span>
                       <span className="battle-hud-number">
                         {combatant.currentHp.toFixed(0)} / {combatant.maxHp.toFixed(0)}
                       </span>
