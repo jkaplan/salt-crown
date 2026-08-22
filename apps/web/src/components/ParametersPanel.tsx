@@ -32,6 +32,17 @@ function squadStatsLine(squad: RunState['warband']['squads'][number], run: RunSt
   return `${stats.hp.toFixed(0)} hp · ${stats.damage.toFixed(1)} dmg · ${stats.armor.toFixed(1)} arm${stats.range > 40 ? ` · ${stats.range.toFixed(0)} range` : ''}`
 }
 
+function combatantStatsLine(combatant: NonNullable<ViewStats['combatants']>[number]): string {
+  return [
+    `${combatant.currentHp.toFixed(0)} hp / ${combatant.maxHp.toFixed(0)} max`,
+    `${combatant.damagePerHit.toFixed(1)} hit`,
+    `${combatant.dps.toFixed(1)} dps`,
+    `${combatant.moveSpeed.toFixed(1)} speed`,
+    `${(combatant.accuracy * 100).toFixed(0)}% acc`,
+    `${(combatant.evade * 100).toFixed(0)}% evade`,
+  ].join(' · ')
+}
+
 export default function ParametersPanel({ run, setup, liveStats }: Props) {
   const warband = run.warband
 
@@ -133,6 +144,18 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
             <dt>Sim</dt>
             <dd>{liveStats.simMs.toFixed(2)} ms/tick</dd>
           </dl>
+          <div className="parameter-list live-combatants">
+            {liveStats.combatants.map((combatant) => (
+              <article key={`${combatant.groupIndex}-${combatant.label}`} className="parameter-card">
+                <strong>{combatant.label}</strong>
+                <span>{combatant.leaderLabel ?? 'no leader'}</span>
+                <span>{combatant.currentHp.toFixed(0)} hp / {combatant.maxHp.toFixed(0)} max</span>
+                <span>{combatant.alive} / {combatant.started} bodies · discipline {(combatant.discipline * 100).toFixed(0)}%</span>
+                <span>{combatantStatsLine(combatant)}</span>
+                <span>{combatant.range > 40 ? `${combatant.range.toFixed(0)} range` : 'melee'} · {combatant.armor.toFixed(1)} arm · {combatant.attackInterval} tick interval</span>
+              </article>
+            ))}
+          </div>
         </section>
       )}
     </aside>

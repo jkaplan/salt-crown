@@ -12,6 +12,27 @@ export interface ViewStats {
   fps: number
   finished: boolean
   winner: Winner
+  combatants: CombatantSnapshot[]
+}
+
+export interface CombatantSnapshot {
+  groupIndex: number
+  label: string
+  leaderLabel: string | null
+  team: typeof TEAM_A | typeof TEAM_B
+  started: number
+  alive: number
+  currentHp: number
+  maxHp: number
+  damagePerHit: number
+  dps: number
+  discipline: number
+  armor: number
+  range: number
+  moveSpeed: number
+  accuracy: number
+  evade: number
+  attackInterval: number
 }
 
 export interface ProbeRow {
@@ -240,6 +261,37 @@ export class BattleView {
     const now = performance.now()
     if (now - this.lastEmit < 100) return
     this.lastEmit = now
+    const combatants: CombatantSnapshot[] = b.groups.map((group, gi) => {
+      const first = b.groupFirstUnit[gi]
+      const end = first + group.count
+      let currentHp = 0
+      for (let i = first; i < end; i++) {
+        if (b.alive[i] === 1) currentHp += b.hp[i]
+      }
+
+      const damagePerHit = group.stats.damage * b.groupEff[gi]
+      const dps = (damagePerHit * group.stats.accuracy * 20) / group.stats.attackInterval
+
+      return {
+        groupIndex: gi,
+        label: group.label,
+        leaderLabel: group.leaderLabel ?? null,
+        team: group.team,
+        started: b.groupStartCount[gi],
+        alive: b.groupAlive[gi],
+        currentHp,
+        maxHp: group.stats.hp * group.count,
+        damagePerHit,
+        dps,
+        discipline: b.groupEff[gi],
+        armor: group.stats.armor,
+        range: group.stats.range,
+        moveSpeed: group.stats.moveSpeed,
+        accuracy: group.stats.accuracy,
+        evade: group.stats.evade,
+        attackInterval: group.stats.attackInterval,
+      }
+    })
     this.onStats({
       tick: b.tick,
       aliveA: b.aliveA,
@@ -249,6 +301,7 @@ export class BattleView {
       fps: app.ticker.FPS,
       finished: b.finished,
       winner: b.winner,
+      combatants,
     })
   }
 
