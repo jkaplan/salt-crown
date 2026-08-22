@@ -1,5 +1,8 @@
 # Salt Crown — Cheatsheet
 
+Prefer the polished HTML version for reading:
+[docs/CHEATSHEET.html](docs/CHEATSHEET.html)
+
 Quick reference for units, mutations, officers, and game mechanics.
 
 ---
