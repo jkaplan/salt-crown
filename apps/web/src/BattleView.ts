@@ -170,72 +170,74 @@ function createBodyTexture(app: Application, kind: number): Texture {
       ])
       break
     case 2:
-      g.roundRect(-r, -r, r * 2, r * 2, 4)
+      g.roundRect(-r, -r, r * 2, r * 2, 6)
       break
     case 3:
       pathPolygon(g, [
         [0, -r],
-        [r * 0.88, r * 0.15],
-        [r * 0.5, r],
-        [-r * 0.5, r],
-        [-r * 0.88, r * 0.15],
+        [r, r],
+        [-r, r],
       ])
       break
     case 4:
       pathPolygon(g, [
         [0, -r],
-        [r * 0.76, -r * 0.2],
-        [r, r * 0.5],
-        [0, r * 0.18],
-        [-r, r * 0.5],
-        [-r * 0.76, -r * 0.2],
+        [r * 0.78, -r * 0.28],
+        [r, r * 0.18],
+        [r * 0.58, r],
+        [-r * 0.58, r],
+        [-r, r * 0.18],
+        [-r * 0.78, -r * 0.28],
       ])
       break
     case 5:
       pathPolygon(g, [
         [0, -r],
-        [r * 0.4, -r * 0.38],
-        [r, -r * 0.1],
-        [r * 0.54, r * 0.14],
-        [r * 0.72, r],
-        [0, r * 0.48],
-        [-r * 0.72, r],
-        [-r * 0.54, r * 0.14],
-        [-r, -r * 0.1],
-        [-r * 0.4, -r * 0.38],
+        [r * 0.36, -r * 0.52],
+        [r * 0.74, -r * 0.12],
+        [r * 0.46, r * 0.14],
+        [r * 0.64, r],
+        [0, r * 0.56],
+        [-r * 0.64, r],
+        [-r * 0.46, r * 0.14],
+        [-r * 0.74, -r * 0.12],
+        [-r * 0.36, -r * 0.52],
       ])
       break
     case 6:
       pathPolygon(g, [
         [0, -r],
-        [r * 0.42, -r * 0.14],
-        [r * 0.92, -r * 0.14],
-        [r * 0.58, r * 0.1],
-        [r * 0.84, r],
-        [0, r * 0.44],
-        [-r * 0.84, r],
-        [-r * 0.58, r * 0.1],
-        [-r * 0.92, -r * 0.14],
-        [-r * 0.42, -r * 0.14],
+        [r * 0.28, -r * 0.2],
+        [r, -r * 0.2],
+        [r * 0.46, r * 0.1],
+        [r * 0.62, r],
+        [0, r * 0.4],
+        [-r * 0.62, r],
+        [-r * 0.46, r * 0.1],
+        [-r, -r * 0.2],
+        [-r * 0.28, -r * 0.2],
       ])
       break
     default:
       pathPolygon(g, [
         [0, -r],
-        [r * 0.28, -r * 0.28],
-        [r, -r * 0.1],
-        [r * 0.44, r * 0.2],
-        [r * 0.6, r],
-        [0, r * 0.58],
-        [-r * 0.6, r],
-        [-r * 0.44, r * 0.2],
-        [-r, -r * 0.1],
-        [-r * 0.28, -r * 0.28],
+        [r * 0.26, -r * 0.38],
+        [r * 0.84, -r * 0.44],
+        [r * 0.46, 0],
+        [r * 0.84, r * 0.44],
+        [r * 0.26, r * 0.38],
+        [0, r],
+        [-r * 0.26, r * 0.38],
+        [-r * 0.84, r * 0.44],
+        [-r * 0.46, 0],
+        [-r * 0.84, -r * 0.44],
+        [-r * 0.26, -r * 0.38],
       ])
       break
   }
 
   g.fill(0xffffff)
+  g.stroke({ width: 2.5, color: 0xffffff, alignment: 0.5 })
   const texture = app.renderer.generateTexture(g)
   g.destroy()
   return texture
@@ -294,17 +296,17 @@ export class BattleView {
 
     this.playerGlow = new GlowFilter({
       color: 0x16f6ff,
-      distance: 10,
-      outerStrength: 2.2,
-      innerStrength: 0.35,
-      quality: 0.45,
+      distance: 18,
+      outerStrength: 3.8,
+      innerStrength: 0.6,
+      quality: 0.65,
     })
     this.enemyGlow = new GlowFilter({
       color: 0xff4bd6,
-      distance: 10,
-      outerStrength: 2.2,
-      innerStrength: 0.35,
-      quality: 0.45,
+      distance: 18,
+      outerStrength: 3.8,
+      innerStrength: 0.6,
+      quality: 0.65,
     })
 
     const g = new Graphics().circle(0, 0, 16).fill(0xffffff)
@@ -357,6 +359,7 @@ export class BattleView {
       sprite.width = group.stats.radius * 2
       sprite.height = group.stats.radius * 2
       sprite.filters = [group.team === TEAM_A ? this.playerGlow! : this.enemyGlow!]
+      sprite.blendMode = 'normal'
       sprite.x = b.x[i]
       sprite.y = b.y[i]
       this.sprites.push(sprite)
@@ -451,7 +454,7 @@ export class BattleView {
       const maxHp = Math.max(1, group.stats.hp)
       const health = clamp01(b.hp[i] / maxHp)
       const baseTint =
-        group.team === TEAM_A ? mixHex(group.color, 0x19f6ff, 0.28) : mixHex(group.color, 0xff4bd6, 0.18)
+        group.team === TEAM_A ? mixHex(group.color, 0x19f6ff, 0.45) : mixHex(group.color, 0xff4bd6, 0.3)
       sprite.tint = brightnessTint(baseTint, health)
       sprite.alpha = 0.92 + health * 0.08
       sprite.x = px[i] + (x[i] - px[i]) * alpha
