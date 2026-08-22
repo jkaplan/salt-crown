@@ -266,12 +266,55 @@ button.march:hover:not(:disabled) { background: #914c28; }
 .fled { color: #c9a870; }
 .held { color: #8fd3a8; }
 
+.battle-summary {
+  margin: 0 0 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #15110e;
+}
+
+.battle-summary h3 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #d9c56a;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summary-grid div {
+  display: grid;
+  gap: 2px;
+}
+
+.summary-label {
+  color: var(--dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.summary-grid strong {
+  font-size: 20px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
 table.losses { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
 table.losses th { text-align: right; }
 table.losses th:first-child, table.losses td:first-child { text-align: left; }
 table.losses td { padding: 5px 0; border-top: 1px solid #1e1813; }
 tr.routed td:first-child { color: var(--dim); }
 .broke { color: #d97a5f; font-size: 11px; }
+.losses th:nth-child(5), .losses td:nth-child(5),
+.losses th:nth-child(6), .losses td:nth-child(6),
+.losses th:nth-child(7), .losses td:nth-child(7) { text-align: right; }
 .report-card > button { width: 100%; padding: 11px; margin-top: 8px; }
 .seedbox { margin: 18px 0 10px; }
 

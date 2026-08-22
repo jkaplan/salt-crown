@@ -11,6 +11,13 @@ export default function Report({ report, onContinue, isLast }: Props) {
   const dead = report.squads.reduce((n, s) => n + s.dead, 0)
   const held = report.squads.reduce((n, s) => n + s.survived, 0)
   const enemyDead = report.enemy.reduce((n, s) => n + s.dead, 0)
+  const enemyDamageDealt = report.enemy.reduce((n, s) => n + s.damageDealt, 0)
+  const enemyDamageTaken = report.enemy.reduce((n, s) => n + s.damageTaken, 0)
+  const playerDamageDealt = report.squads.reduce((n, s) => n + s.damageDealt, 0)
+  const playerDamageTaken = report.squads.reduce((n, s) => n + s.damageTaken, 0)
+  const seconds = report.ticks / TICKS_PER_SECOND
+  const playerDps = seconds > 0 ? playerDamageDealt / seconds : 0
+  const enemyDps = seconds > 0 ? enemyDamageDealt / seconds : 0
   const lostPotentials = report.potentials.filter((p) => p.died)
   const livedPotentials = report.potentials.filter((p) => !p.died)
 
@@ -42,6 +49,36 @@ export default function Report({ report, onContinue, isLast }: Props) {
               {report.salvageEarned > 0 ? `+${report.salvageEarned}` : '0'}
             </span>
             <span className="label">salvage</span>
+          </div>
+        </div>
+
+        <div className="battle-summary">
+          <h3>Battle summary</h3>
+          <div className="summary-grid">
+            <div>
+              <span className="summary-label">Enemies killed</span>
+              <strong>{enemyDead}</strong>
+            </div>
+            <div>
+              <span className="summary-label">Your DPS</span>
+              <strong>{playerDps.toFixed(1)}</strong>
+            </div>
+            <div>
+              <span className="summary-label">Enemy DPS</span>
+              <strong>{enemyDps.toFixed(1)}</strong>
+            </div>
+            <div>
+              <span className="summary-label">Damage dealt</span>
+              <strong>{playerDamageDealt.toFixed(0)}</strong>
+            </div>
+            <div>
+              <span className="summary-label">Damage taken</span>
+              <strong>{playerDamageTaken.toFixed(0)}</strong>
+            </div>
+            <div>
+              <span className="summary-label">Enemy damage taken</span>
+              <strong>{enemyDamageTaken.toFixed(0)}</strong>
+            </div>
           </div>
         </div>
 
@@ -90,6 +127,8 @@ export default function Report({ report, onContinue, isLast }: Props) {
               <th title="Damage multiplier it ended on. Low means it was collapsing.">
                 Fighting at
               </th>
+              <th>Dealt</th>
+              <th>Taken</th>
             </tr>
           </thead>
           <tbody>
@@ -102,6 +141,8 @@ export default function Report({ report, onContinue, isLast }: Props) {
                   <td className="dead">{s.dead}</td>
                   <td>{s.survived}</td>
                   <td className={eff < 60 ? 'dead' : ''}>{eff}%</td>
+                  <td>{s.damageDealt.toFixed(0)}</td>
+                  <td>{s.damageTaken.toFixed(0)}</td>
                 </tr>
               )
             })}

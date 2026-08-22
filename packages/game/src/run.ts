@@ -20,6 +20,10 @@ export interface SquadLoss {
   survived: number
   /** Damage multiplier it ended on. Low means it was collapsing. */
   endEffectiveness: number
+  /** Total damage this squad dealt. */
+  damageDealt: number
+  /** Total damage this squad took. */
+  damageTaken: number
 }
 
 export interface PotentialLoss {
@@ -203,6 +207,8 @@ export function resolveBattle(
         dead: r.dead,
         survived: r.survived,
         endEffectiveness: r.endEffectiveness,
+        damageDealt: r.damageDealt,
+        damageTaken: r.damageTaken,
       })
       return { ...sq, count: r.survived }
     })

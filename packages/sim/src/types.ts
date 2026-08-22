@@ -78,6 +78,10 @@ export interface GroupResult {
   survived: number
   /** Damage multiplier it ended on — how far its morale had fallen. */
   endEffectiveness: number
+  /** Total damage this group dealt over the battle. */
+  damageDealt: number
+  /** Total damage this group absorbed over the battle. */
+  damageTaken: number
 }
 
 export type Winner = typeof TEAM_A | typeof TEAM_B | -1

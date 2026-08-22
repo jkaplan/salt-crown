@@ -59,6 +59,10 @@ export class Battle {
   readonly groupEff: Float32Array
   /** Index of the first unit in each group. Group members are contiguous. */
   readonly groupFirstUnit: Int32Array
+  /** Total damage dealt by each group over the battle. */
+  readonly groupDamageDealt: Float32Array
+  /** Total damage absorbed by each group over the battle. */
+  readonly groupDamageTaken: Float32Array
 
   private readonly maxHp: Float32Array
   private readonly cooldown: Int32Array
@@ -100,6 +104,8 @@ export class Battle {
     this.groupAlive = new Int32Array(gn)
     this.groupEff = new Float32Array(gn)
     this.groupFirstUnit = new Int32Array(gn)
+    this.groupDamageDealt = new Float32Array(gn)
+    this.groupDamageTaken = new Float32Array(gn)
 
     this.grid = new SpatialGrid(WORLD_W, WORLD_H, CELL_SIZE, total)
 
@@ -174,6 +180,8 @@ export class Battle {
       dead: this.groupStartCount[i] - this.groupAlive[i],
       survived: this.groupAlive[i],
       endEffectiveness: this.groupEff[i],
+      damageDealt: this.groupDamageDealt[i],
+      damageTaken: this.groupDamageTaken[i],
     }))
   }
 
@@ -252,8 +260,12 @@ export class Battle {
           const raw = st.damage * groupEff[gi] - tt.armor
           const dealt = raw > 1 ? raw : 1
           damage[t] += dealt
+          this.groupDamageDealt[gi] += dealt
+          this.groupDamageTaken[group[t]] += dealt
           if (tt.quills > 0 && st.range <= MELEE_RANGE) {
             damage[i] += dealt * tt.quills
+            this.groupDamageTaken[gi] += dealt * tt.quills
+            this.groupDamageDealt[group[t]] += dealt * tt.quills
           }
         }
       }
