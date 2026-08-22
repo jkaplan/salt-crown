@@ -2,6 +2,7 @@ import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js
 import { Battle, MS_PER_TICK, TEAM_A, TEAM_B, WORLD_H, WORLD_W } from '@salt/sim'
 import type { BattleConfig, GroupResult, Winner } from '@salt/sim'
 import { makeGroup } from '@salt/game'
+import { GlowFilter } from 'pixi-filters'
 
 export interface ViewStats {
   tick: number
@@ -43,7 +44,7 @@ export interface ProbeRow {
 
 /** Team B is tinted toward rust so the two sides stay readable at a glance. */
 const ENEMY_TINT = 0xc4653a
-const BODY_SHAPE_COUNT = 6
+const BODY_SHAPE_COUNT = 8
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
@@ -135,8 +136,8 @@ function brightnessTint(base: number, ratio: number): number {
   const tone = hexToHsl(base)
   const vibrant = {
     h: tone.h,
-    s: Math.max(0.88, Math.min(1, tone.s + 0.34)),
-    l: 0.34 + clamp01(ratio) * 0.42,
+    s: Math.max(0.96, Math.min(1, tone.s + 0.42)),
+    l: 0.41 + clamp01(ratio) * 0.31,
   }
   return hslToHex(vibrant.h, vibrant.s, vibrant.l)
 }
@@ -169,34 +170,67 @@ function createBodyTexture(app: Application, kind: number): Texture {
       ])
       break
     case 2:
-      g.rect(-r, -r, r * 2, r * 2)
+      g.roundRect(-r, -r, r * 2, r * 2, 4)
       break
     case 3:
       pathPolygon(g, [
         [0, -r],
-        [r, r],
-        [-r, r],
+        [r * 0.88, r * 0.15],
+        [r * 0.5, r],
+        [-r * 0.5, r],
+        [-r * 0.88, r * 0.15],
       ])
       break
     case 4:
       pathPolygon(g, [
         [0, -r],
-        [r * 0.95, -r * 0.3],
-        [r * 0.6, r],
-        [-r * 0.6, r],
-        [-r * 0.95, -r * 0.3],
+        [r * 0.76, -r * 0.2],
+        [r, r * 0.5],
+        [0, r * 0.18],
+        [-r, r * 0.5],
+        [-r * 0.76, -r * 0.2],
+      ])
+      break
+    case 5:
+      pathPolygon(g, [
+        [0, -r],
+        [r * 0.4, -r * 0.38],
+        [r, -r * 0.1],
+        [r * 0.54, r * 0.14],
+        [r * 0.72, r],
+        [0, r * 0.48],
+        [-r * 0.72, r],
+        [-r * 0.54, r * 0.14],
+        [-r, -r * 0.1],
+        [-r * 0.4, -r * 0.38],
+      ])
+      break
+    case 6:
+      pathPolygon(g, [
+        [0, -r],
+        [r * 0.42, -r * 0.14],
+        [r * 0.92, -r * 0.14],
+        [r * 0.58, r * 0.1],
+        [r * 0.84, r],
+        [0, r * 0.44],
+        [-r * 0.84, r],
+        [-r * 0.58, r * 0.1],
+        [-r * 0.92, -r * 0.14],
+        [-r * 0.42, -r * 0.14],
       ])
       break
     default:
       pathPolygon(g, [
         [0, -r],
-        [r * 0.45, -r * 0.45],
-        [r, 0],
-        [r * 0.45, r * 0.45],
-        [0, r],
-        [-r * 0.45, r * 0.45],
-        [-r, 0],
-        [-r * 0.45, -r * 0.45],
+        [r * 0.28, -r * 0.28],
+        [r, -r * 0.1],
+        [r * 0.44, r * 0.2],
+        [r * 0.6, r],
+        [0, r * 0.58],
+        [-r * 0.6, r],
+        [-r * 0.44, r * 0.2],
+        [-r, -r * 0.1],
+        [-r * 0.28, -r * 0.28],
       ])
       break
   }
@@ -231,6 +265,8 @@ export class BattleView {
   private world = new Container()
   private texture: Texture | null = null
   private bodyTextures: Texture[] = []
+  private playerGlow: GlowFilter | null = null
+  private enemyGlow: GlowFilter | null = null
   private sprites: Sprite[] = []
   private banners: Banner[] = []
   private battle: Battle | null = null
@@ -247,14 +283,29 @@ export class BattleView {
   async init(host: HTMLElement): Promise<void> {
     const app = new Application()
     await app.init({
-      background: 0x100d0c,
-      antialias: false,
+      background: 0x070611,
+      antialias: true,
       resizeTo: host,
       preference: 'webgl',
     })
     this.app = app
     host.appendChild(app.canvas)
     app.stage.addChild(this.world)
+
+    this.playerGlow = new GlowFilter({
+      color: 0x16f6ff,
+      distance: 10,
+      outerStrength: 2.2,
+      innerStrength: 0.35,
+      quality: 0.45,
+    })
+    this.enemyGlow = new GlowFilter({
+      color: 0xff4bd6,
+      distance: 10,
+      outerStrength: 2.2,
+      innerStrength: 0.35,
+      quality: 0.45,
+    })
 
     const g = new Graphics().circle(0, 0, 16).fill(0xffffff)
     this.texture = app.renderer.generateTexture(g)
@@ -270,6 +321,10 @@ export class BattleView {
     this.app.ticker.remove(this.frame)
     for (const texture of this.bodyTextures) texture.destroy(true)
     this.bodyTextures = []
+    this.playerGlow?.destroy()
+    this.enemyGlow?.destroy()
+    this.playerGlow = null
+    this.enemyGlow = null
     this.app.destroy(true, { children: true, texture: true })
     this.app = null
     this.battle = null
@@ -301,6 +356,7 @@ export class BattleView {
       sprite.anchor.set(0.5)
       sprite.width = group.stats.radius * 2
       sprite.height = group.stats.radius * 2
+      sprite.filters = [group.team === TEAM_A ? this.playerGlow! : this.enemyGlow!]
       sprite.x = b.x[i]
       sprite.y = b.y[i]
       this.sprites.push(sprite)
@@ -394,7 +450,8 @@ export class BattleView {
       }
       const maxHp = Math.max(1, group.stats.hp)
       const health = clamp01(b.hp[i] / maxHp)
-      const baseTint = group.team === TEAM_A ? mixHex(group.color, 0x8bffff, 0.1) : mixHex(group.color, ENEMY_TINT, 0.45)
+      const baseTint =
+        group.team === TEAM_A ? mixHex(group.color, 0x19f6ff, 0.28) : mixHex(group.color, 0xff4bd6, 0.18)
       sprite.tint = brightnessTint(baseTint, health)
       sprite.alpha = 0.92 + health * 0.08
       sprite.x = px[i] + (x[i] - px[i]) * alpha
