@@ -54,6 +54,108 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
+.spotlight-section {
+  background: linear-gradient(180deg, #17130f 0%, #130f0c 100%);
+}
+
+.spotlight-card {
+  border-color: #5a4a2a;
+  box-shadow: inset 0 0 0 1px rgba(216, 185, 120, 0.08);
+}
+
+.eyebrow {
+  color: #d9c56a;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.spotlight-card strong {
+  font-size: 16px;
+  color: #f0e0b0;
+}
+
+.quick-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.quick-stats div {
+  padding: 8px 10px;
+  border: 1px solid #32281f;
+  border-radius: 6px;
+  background: #15110e;
+}
+
+.quick-stats strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.squad-card.is-led {
+  border-color: #6c5931;
+  background: linear-gradient(180deg, #17130f 0%, #15110e 100%);
+}
+
+.squad-health {
+  color: #f0e0b0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.leader-line {
+  color: #d9c56a !important;
+}
+
+.potential-card {
+  border-color: #3f4e26;
+  background: linear-gradient(180deg, #14170f 0%, #15110e 100%);
+}
+
+.combatant-card {
+  border-color: #3b342a;
+  background: linear-gradient(180deg, #17130f 0%, #14110e 100%);
+}
+
+.combatant-card strong {
+  font-size: 14px;
+}
+
+.combatant-card span {
+  line-height: 1.3;
+}
+
+.combatant-card .squad-health {
+  font-size: 13px;
+}
+
+.combatant-card .leader-line {
+  font-size: 11px;
+}
+
+.combatant-card .squad-health,
+.combatant-card .leader-line {
+  font-weight: 600;
+}
+
+.combatant-card .leader-line,
+.squad-card .leader-line {
+  display: block;
+}
+
+.combatant-card .parameter-card,
+.squad-card .parameter-card {
+  gap: 3px;
+}
+
+.combatant-card span:last-child {
+  color: #b6a691;
+}
+
 .parameter-list {
   display: grid;
   gap: 8px;

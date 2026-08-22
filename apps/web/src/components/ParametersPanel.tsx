@@ -16,6 +16,11 @@ interface Props {
   liveStats: ViewStats | null
 }
 
+interface HealthSnapshot {
+  current: number
+  max: number
+}
+
 function leaderText(leader: SquadLeader | null, run: RunState): string {
   if (!leader) return 'none'
   if (leader.kind === 'officer') {
@@ -34,20 +39,84 @@ function squadStatsLine(squad: RunState['warband']['squads'][number], run: RunSt
 
 function combatantStatsLine(combatant: NonNullable<ViewStats['combatants']>[number]): string {
   return [
-    `${combatant.currentHp.toFixed(0)} hp / ${combatant.maxHp.toFixed(0)} max`,
-    `${combatant.damagePerHit.toFixed(1)} hit`,
     `${combatant.dps.toFixed(1)} dps`,
+    `${combatant.damagePerHit.toFixed(1)} hit`,
+    `${combatant.currentHp.toFixed(0)} / ${combatant.maxHp.toFixed(0)} hp`,
     `${combatant.moveSpeed.toFixed(1)} speed`,
     `${(combatant.accuracy * 100).toFixed(0)}% acc`,
     `${(combatant.evade * 100).toFixed(0)}% evade`,
   ].join(' · ')
 }
 
+function squadHealth(
+  squad: RunState['warband']['squads'][number],
+  liveStats: ViewStats | null,
+  run: RunState,
+): HealthSnapshot {
+  const combatant = liveStats?.combatants.find((entry) => entry.label === squadLabel(squad))
+  if (combatant) {
+    return { current: combatant.currentHp, max: combatant.maxHp }
+  }
+
+  const stats = resolveSquadStats(
+    squad,
+    findOfficer(run.warband, squad),
+    run.warband.potentials.find((potential) => potential.id === squad.leader?.id) ?? null,
+  )
+  return { current: stats.hp * squad.count, max: stats.hp * squad.count }
+}
+
+function healthText(snapshot: HealthSnapshot): string {
+  return `${snapshot.current.toFixed(0)} / ${snapshot.max.toFixed(0)} hp`
+}
+
 export default function ParametersPanel({ run, setup, liveStats }: Props) {
   const warband = run.warband
+  const leadingSquad = warband.squads.find((squad) => squad.leader)
+  const warbandHealth = warband.squads.reduce(
+    (sum, squad) => sum + squadHealth(squad, liveStats, run).current,
+    0,
+  )
+  const warbandMaxHealth = warband.squads.reduce(
+    (sum, squad) => sum + squadHealth(squad, liveStats, run).max,
+    0,
+  )
 
   return (
     <aside className="parameters-panel">
+      <section className="spotlight-section">
+        <h2>Command</h2>
+        {leadingSquad ? (
+          <article className="parameter-card spotlight-card">
+            <span className="eyebrow">Warband leader</span>
+            <strong>{squadLabel(leadingSquad)}</strong>
+            <span>Leader: {leaderText(leadingSquad.leader, run)}</span>
+            <span>{healthText(squadHealth(leadingSquad, liveStats, run))}</span>
+            <span>{squadStatsLine(leadingSquad, run)}</span>
+          </article>
+        ) : (
+          <article className="parameter-card spotlight-card">
+            <span className="eyebrow">Warband leader</span>
+            <strong>No squad leader assigned</strong>
+            <span>Assign an officer or potential to bring a squad forward.</span>
+          </article>
+        )}
+        <div className="quick-stats">
+          <div>
+            <span className="summary-label">Warband health</span>
+            <strong>{healthText({ current: warbandHealth, max: warbandMaxHealth })}</strong>
+          </div>
+          <div>
+            <span className="summary-label">Potentials</span>
+            <strong>{warband.potentials.length}</strong>
+          </div>
+          <div>
+            <span className="summary-label">Bodies</span>
+            <strong>{warband.squads.reduce((sum, squad) => sum + squad.count, 0)}</strong>
+          </div>
+        </div>
+      </section>
+
       <section>
         <h2>Run</h2>
         <dl>
@@ -72,10 +141,11 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
         <h2>Squads</h2>
         <div className="parameter-list">
           {warband.squads.map((squad) => (
-            <article key={squad.id} className="parameter-card">
+            <article key={squad.id} className={`parameter-card squad-card ${squad.leader ? 'is-led' : ''}`}>
               <strong>{squadLabel(squad)}</strong>
+              <span className="squad-health">{healthText(squadHealth(squad, liveStats, run))}</span>
               <span>{unitType(squad.typeId).lineage}</span>
-              <span>Leader: {leaderText(squad.leader, run)}</span>
+              <span className="leader-line">Leader: {leaderText(squad.leader, run)}</span>
               <span>{squadStatsLine(squad, run)}</span>
             </article>
           ))}
@@ -100,8 +170,8 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
           {warband.potentials.map((potential) => {
             const stats = resolvePotentialStats(potential)
             return (
-              <article key={potential.id} className="parameter-card">
-                  <strong>{potentialTitle(potential, unitType(potential.typeId).name)}</strong>
+              <article key={potential.id} className="parameter-card potential-card">
+                <strong>{potentialTitle(potential, unitType(potential.typeId).name)}</strong>
                 <span>{stats.hp.toFixed(0)} hp · {stats.damage.toFixed(1)} dmg · {stats.armor.toFixed(1)} arm</span>
                 <span>{potential.mutations.length} mutation{potential.mutations.length === 1 ? '' : 's'}</span>
               </article>
@@ -146,10 +216,12 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
           </dl>
           <div className="parameter-list live-combatants">
             {liveStats.combatants.map((combatant) => (
-              <article key={`${combatant.groupIndex}-${combatant.label}`} className="parameter-card">
+              <article key={`${combatant.groupIndex}-${combatant.label}`} className="parameter-card combatant-card">
                 <strong>{combatant.label}</strong>
-                <span>{combatant.leaderLabel ?? 'no leader'}</span>
-                <span>{combatant.currentHp.toFixed(0)} hp / {combatant.maxHp.toFixed(0)} max</span>
+                <span className="leader-line">{combatant.leaderLabel ?? 'no leader'}</span>
+                <span className="squad-health">
+                  {combatant.currentHp.toFixed(0)} / {combatant.maxHp.toFixed(0)} hp
+                </span>
                 <span>{combatant.alive} / {combatant.started} bodies · discipline {(combatant.discipline * 100).toFixed(0)}%</span>
                 <span>{combatantStatsLine(combatant)}</span>
                 <span>{combatant.range > 40 ? `${combatant.range.toFixed(0)} range` : 'melee'} · {combatant.armor.toFixed(1)} arm · {combatant.attackInterval} tick interval</span>
