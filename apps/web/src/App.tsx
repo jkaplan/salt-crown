@@ -19,15 +19,19 @@ import Report from './screens/Report'
 import Skirmish from './screens/Skirmish'
 import StartScreen from './screens/StartScreen'
 import LeaderSelect from './screens/LeaderSelect'
+import ParametersPanel from './components/ParametersPanel'
+import type { ViewStats } from './BattleView'
 
 type Mode = 'campaign' | 'skirmish'
 
 export default function App() {
   const [mode, setMode] = useState<Mode>('campaign')
+  const [panelOpen, setPanelOpen] = useState(true)
   const [seedText, setSeedText] = useState('salt-crown')
   const [phase, setPhase] = useState<'start' | 'leader' | 'campaign'>('start')
   const [run, setRun] = useState<RunState>(() => newRun('salt-crown'))
   const [setup, setSetup] = useState<BattleSetup | null>(null)
+  const [liveStats, setLiveStats] = useState<ViewStats | null>(null)
 
   const onMarch = useCallback(() => {
     const built = buildBattle(run)
@@ -55,15 +59,17 @@ export default function App() {
     setRun(newRun(seedText, leader))
     setSetup(null)
     setPhase('campaign')
+    setLiveStats(null)
   }
 
   const restart = () => {
     setPhase('start')
+    setLiveStats(null)
   }
 
   if (mode === 'skirmish') {
     return (
-      <Shell mode={mode} setMode={setMode}>
+      <Shell mode={mode} setMode={setMode} panelOpen={panelOpen} setPanelOpen={setPanelOpen} run={run} setup={setup} liveStats={liveStats}>
         <Skirmish />
       </Shell>
     )
@@ -71,7 +77,7 @@ export default function App() {
 
   if (mode === 'campaign' && phase === 'start') {
     return (
-      <Shell mode={mode} setMode={setMode}>
+      <Shell mode={mode} setMode={setMode} panelOpen={panelOpen} setPanelOpen={setPanelOpen} run={run} setup={setup} liveStats={liveStats}>
         <StartScreen
           seedText={seedText}
           onSeedChange={setSeedText}
@@ -83,7 +89,7 @@ export default function App() {
 
   if (mode === 'campaign' && phase === 'leader') {
     return (
-      <Shell mode={mode} setMode={setMode}>
+      <Shell mode={mode} setMode={setMode} panelOpen={panelOpen} setPanelOpen={setPanelOpen} run={run} setup={setup} liveStats={liveStats}>
         <LeaderSelect
           seed={seedText}
           onSelect={startCampaign}
@@ -93,7 +99,7 @@ export default function App() {
   }
 
   return (
-    <Shell mode={mode} setMode={setMode}>
+    <Shell mode={mode} setMode={setMode} panelOpen={panelOpen} setPanelOpen={setPanelOpen} run={run} setup={setup} liveStats={liveStats}>
       {run.phase === 'camp' && (
         <Camp
           run={run}
@@ -107,6 +113,7 @@ export default function App() {
         <BattleScreen
           config={setup.config}
           title={`${run.encounter.name} — ${run.encounterIndex + 1}/${ENCOUNTERS_PER_RUN}`}
+          onStats={setLiveStats}
           onDone={onDone}
         />
       )}
@@ -148,10 +155,20 @@ export default function App() {
 function Shell({
   mode,
   setMode,
+  panelOpen,
+  setPanelOpen,
+  run,
+  setup,
+  liveStats,
   children,
 }: {
   mode: Mode
   setMode: (m: Mode) => void
+  panelOpen: boolean
+  setPanelOpen: (open: boolean) => void
+  run: RunState
+  setup: BattleSetup | null
+  liveStats: ViewStats | null
   children: React.ReactNode
 }) {
   return (
@@ -166,9 +183,15 @@ function Shell({
           <button className={mode === 'skirmish' ? 'on' : ''} onClick={() => setMode('skirmish')}>
             Skirmish
           </button>
+          <button className={panelOpen ? 'on' : ''} onClick={() => setPanelOpen(!panelOpen)}>
+            Parameters
+          </button>
         </nav>
       </header>
-      {children}
+      <div className={panelOpen ? 'shell shell-docked' : 'shell'}>
+        <div className="shell-main">{children}</div>
+        {panelOpen && <ParametersPanel run={run} setup={setup} liveStats={liveStats} />}
+      </div>
     </div>
   )
 }

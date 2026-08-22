@@ -8,6 +8,7 @@ const SPEEDS = [1, 2, 4, 8]
 interface Props {
   config: BattleConfig
   title: string
+  onStats?: (stats: ViewStats | null) => void
   onDone: (results: GroupResult[], winner: Winner, ticks: number) => void
 }
 
@@ -15,7 +16,7 @@ interface Props {
  * Pure auto battler: speed controls only. No positioning, no commands. All the
  * decisions were made in camp — see docs/V0-DESIGN.md §6.
  */
-export default function BattleScreen({ config, title, onDone }: Props) {
+export default function BattleScreen({ config, title, onStats, onDone }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<BattleView | null>(null)
   const doneRef = useRef(onDone)
@@ -47,10 +48,15 @@ export default function BattleScreen({ config, title, onDone }: Props) {
 
     return () => {
       cancelled = true
+      onStats?.(null)
       viewRef.current = null
       view.destroy()
     }
-  }, [config])
+  }, [config, onStats])
+
+  useEffect(() => {
+    onStats?.(stats)
+  }, [onStats, stats])
 
   const setSpeedTo = (s: number) => {
     if (viewRef.current) viewRef.current.speed = s
