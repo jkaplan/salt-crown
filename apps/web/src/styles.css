@@ -337,11 +337,63 @@ header nav button { flex: none; padding: 5px 14px; font-size: 12px; }
 .camp-bar b { font-variant-numeric: tabular-nums; }
 .salvage { color: #e0b25e; }
 
-.camp-cols { display: grid; grid-template-columns: 1fr 1fr 340px; gap: 0; align-items: start; }
+.camp-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 16px 20px 10px;
+  align-items: stretch;
+}
+
+.hero-card {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid #32281f;
+  border-radius: 8px;
+  background: #15110e;
+}
+
+.hero-primary {
+  border-color: #5a4a2a;
+  background: linear-gradient(180deg, #17130f 0%, #13100d 100%);
+}
+
+.hero-label {
+  color: #d9c56a;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.hero-card strong {
+  color: #f0e0b0;
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.hero-card span {
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.hero-march {
+  align-self: stretch;
+  min-width: 120px;
+  font-size: 14px;
+}
+
+.camp-cols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr); gap: 0; align-items: start; }
 .col { padding: 16px 20px; border-right: 1px solid var(--line); }
 .col:last-child { border-right: none; }
 
+.operations-col {
+  background: linear-gradient(180deg, #140f0d 0%, #120f0c 100%);
+}
+
 .squads, .offers { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+.compact-list .potential { padding-bottom: 8px; }
 
 .squad, .offer {
   border: 1px solid var(--line); border-radius: 4px;
@@ -636,7 +688,14 @@ h2.spaced { margin-top: 22px; }
 .pot-list li.pot-dead .potential-name { color: #d0605a; text-decoration: line-through; }
 .pot-list .dim { font-size: 11px; }
 
-.camp-cols { grid-template-columns: 1fr 1fr 1fr 320px; }
+@media (max-width: 1200px) {
+  .camp-hero { grid-template-columns: 1fr 1fr; }
+  .hero-march { grid-column: 1 / -1; }
+  .camp-cols { grid-template-columns: 1fr; }
+  .col { border-right: none; border-bottom: 1px solid var(--line); }
+  .col:last-child { border-bottom: none; }
+  .operations-col { background: none; }
+}
 
 /* ---- start screen ---- */
 .start-screen {

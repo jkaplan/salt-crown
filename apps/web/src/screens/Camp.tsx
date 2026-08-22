@@ -245,6 +245,27 @@ export default function Camp({ run, onBuy, onAssign, onMarch }: Props) {
         </div>
       </div>
 
+      <div className="camp-hero">
+        <div className="hero-card hero-primary">
+          <span className="hero-label">Ready to march</span>
+          <strong>{encounter.name}</strong>
+          <span>{encounter.flavour}</span>
+        </div>
+        <div className="hero-card">
+          <span className="hero-label">Warband</span>
+          <strong>{bodies}</strong>
+          <span>{warband.squads.length} squads · {warband.potentials.length} potentials</span>
+        </div>
+        <div className="hero-card">
+          <span className="hero-label">Salvage</span>
+          <strong className="salvage">{warband.salvage}</strong>
+          <span>{encounter.reward} if you win</span>
+        </div>
+        <button className="march hero-march" onClick={onMarch} disabled={bodies === 0}>
+          March
+        </button>
+      </div>
+
       <div className="camp-cols">
         <section className="col">
           <h2>Squads</h2>
@@ -289,9 +310,9 @@ export default function Camp({ run, onBuy, onAssign, onMarch }: Props) {
           </div>
         </section>
 
-        <section className="col">
+        <section className="col operations-col">
           <h2>Potentials</h2>
-          <ul className="squads">
+          <ul className="squads compact-list">
             {warband.potentials.map((p) => (
               <PotentialCard key={p.id} potential={p} warband={warband} onAssign={onAssign} />
             ))}
@@ -301,34 +322,26 @@ export default function Camp({ run, onBuy, onAssign, onMarch }: Props) {
               </p>
             )}
           </ul>
-        </section>
 
-        <section className="col">
-          <h2>Recruit</h2>
+          <h2 className="spaced">Recruit</h2>
           <ul className="offers">
             {run.offers.map((o) => (
               <OfferCard key={o.id} offer={o} salvage={warband.salvage} onBuy={onBuy} />
             ))}
             {run.offers.length === 0 && <p className="hint">Nothing left on offer.</p>}
           </ul>
-        </section>
 
-        <section className="col">
-          <h2>Next</h2>
-          <div className="encounter">
-            <div className="enc-name">{encounter.name}</div>
+          <h2 className="spaced">Next</h2>
+          <div className="encounter compact-encounter">
             <p className="blurb">{encounter.flavour}</p>
             <dl>
-              <dt>Their bodies</dt>
+              <dt>Enemy bodies</dt>
               <dd>{encounter.bodies}</dd>
-              <dt>Yours</dt>
+              <dt>Your bodies</dt>
               <dd>{bodies}</dd>
               <dt>Salvage if you win</dt>
               <dd className="salvage">{encounter.reward}</dd>
             </dl>
-            <button className="march" onClick={onMarch} disabled={bodies === 0}>
-              March
-            </button>
             <p className="hint">
               Battles are fought to the finish and losing ends the run. A bleeding squad hits
               softer — mutants collapse fast, True Kin hold together.
