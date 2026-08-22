@@ -92,10 +92,6 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
         <div className="stage" ref={hostRef} />
         {stats && (
           <div className="battle-hud">
-            <div className="battle-hud-head">
-              <span>Squad health</span>
-              <span>{stats.tick}t</span>
-            </div>
             <div className="battle-momentum">
               <div className="battle-momentum-label">
                 <span>Momentum</span>
@@ -118,9 +114,7 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
                   >
                     <div className="battle-hud-track">
                       <div className="battle-hud-fill" style={{ width: `${ratio * 100}%` }} />
-                      <span className="battle-hud-meta">
-                        {combatant.label}
-                      </span>
+                      <span className="battle-hud-meta">{combatant.label}</span>
                       <span className="battle-hud-number">
                         {combatant.currentHp.toFixed(0)} / {combatant.maxHp.toFixed(0)}
                       </span>
