@@ -99,9 +99,9 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
                     <div className="battle-hud-label">{combatant.label}</div>
                     <div className="battle-hud-track">
                       <div className="battle-hud-fill" style={{ width: `${ratio * 100}%` }} />
-                    </div>
-                    <div className="battle-hud-text">
-                      {combatant.currentHp.toFixed(0)} / {combatant.maxHp.toFixed(0)}
+                      <span className="battle-hud-number">
+                        {combatant.currentHp.toFixed(0)} / {combatant.maxHp.toFixed(0)}
+                      </span>
                     </div>
                   </div>
                 )
