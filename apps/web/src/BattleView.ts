@@ -44,6 +44,102 @@ export interface ProbeRow {
 /** Team B is tinted toward rust so the two sides stay readable at a glance. */
 const ENEMY_TINT = 0xc4653a
 
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value))
+}
+
+function mixChannel(from: number, to: number, t: number): number {
+  return Math.round(from + (to - from) * t)
+}
+
+function hexToRgb(color: number): { r: number; g: number; b: number } {
+  return {
+    r: (color >> 16) & 0xff,
+    g: (color >> 8) & 0xff,
+    b: color & 0xff,
+  }
+}
+
+function rgbToHex(r: number, g: number, b: number): number {
+  return ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff)
+}
+
+function mixHex(a: number, b: number, t: number): number {
+  const left = hexToRgb(a)
+  const right = hexToRgb(b)
+  return rgbToHex(
+    mixChannel(left.r, right.r, t),
+    mixChannel(left.g, right.g, t),
+    mixChannel(left.b, right.b, t),
+  )
+}
+
+function hexToHsl(color: number): { h: number; s: number; l: number } {
+  const { r, g, b } = hexToRgb(color)
+  const red = r / 255
+  const green = g / 255
+  const blue = b / 255
+  const max = Math.max(red, green, blue)
+  const min = Math.min(red, green, blue)
+  const lightness = (max + min) / 2
+
+  if (max === min) {
+    return { h: 0, s: 0, l: lightness }
+  }
+
+  const delta = max - min
+  const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min)
+  let hue = 0
+
+  switch (max) {
+    case red:
+      hue = (green - blue) / delta + (green < blue ? 6 : 0)
+      break
+    case green:
+      hue = (blue - red) / delta + 2
+      break
+    default:
+      hue = (red - green) / delta + 4
+      break
+  }
+
+  return { h: hue / 6, s: saturation, l: lightness }
+}
+
+function hslToHex(h: number, s: number, l: number): number {
+  if (s === 0) {
+    const v = Math.round(l * 255)
+    return rgbToHex(v, v, v)
+  }
+
+  const hueToChannel = (p: number, q: number, t: number): number => {
+    let value = t
+    if (value < 0) value += 1
+    if (value > 1) value -= 1
+    if (value < 1 / 6) return p + (q - p) * 6 * value
+    if (value < 1 / 2) return q
+    if (value < 2 / 3) return p + (q - p) * (2 / 3 - value) * 6
+    return p
+  }
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+  const p = 2 * l - q
+  const red = hueToChannel(p, q, h + 1 / 3)
+  const green = hueToChannel(p, q, h)
+  const blue = hueToChannel(p, q, h - 1 / 3)
+  return rgbToHex(Math.round(red * 255), Math.round(green * 255), Math.round(blue * 255))
+}
+
+function brightnessTint(base: number, ratio: number): number {
+  const tone = hexToHsl(base)
+  const vibrant = {
+    h: tone.h,
+    s: Math.max(0.75, Math.min(1, tone.s + 0.2)),
+    l: 0.28 + clamp01(ratio) * 0.46,
+  }
+  return hslToHex(vibrant.h, vibrant.s, vibrant.l)
+}
+
 /**
  * A led squad's standard. Marks who the leaders are on the field — otherwise
  * an officer is an invisible stat modifier and you can't tell a led squad from
@@ -132,7 +228,6 @@ export class BattleView {
       sprite.anchor.set(0.5)
       sprite.width = group.stats.radius * 2
       sprite.height = group.stats.radius * 2
-      sprite.tint = group.team === TEAM_A ? group.color : ENEMY_TINT
       sprite.x = b.x[i]
       sprite.y = b.y[i]
       this.sprites.push(sprite)
@@ -219,10 +314,16 @@ export class BattleView {
     const sprites = this.sprites
     for (let i = 0; i < b.count; i++) {
       const sprite = sprites[i]
+      const group = b.groups[b.group[i]]
       if (alive[i] === 0) {
         if (sprite.visible) sprite.visible = false
         continue
       }
+      const maxHp = Math.max(1, group.stats.hp)
+      const health = clamp01(b.hp[i] / maxHp)
+      const baseTint = group.team === TEAM_A ? group.color : mixHex(group.color, ENEMY_TINT, 0.35)
+      sprite.tint = brightnessTint(baseTint, health)
+      sprite.alpha = 0.92 + health * 0.08
       sprite.x = px[i] + (x[i] - px[i]) * alpha
       sprite.y = py[i] + (y[i] - py[i]) * alpha
     }

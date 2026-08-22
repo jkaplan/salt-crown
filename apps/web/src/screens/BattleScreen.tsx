@@ -72,11 +72,6 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
     setPaused(viewRef.current.paused)
   }
 
-  const combatants = stats
-    ? [...stats.combatants].sort(
-        (a, b) => Number(a.team !== TEAM_A) - Number(b.team !== TEAM_A) || a.groupIndex - b.groupIndex,
-      )
-    : []
   const playerPower = stats
     ? stats.combatants.filter((combatant) => combatant.team === TEAM_A).reduce((sum, combatant) => sum + combatant.currentHp, 0)
     : 0
@@ -92,9 +87,9 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
         <div className="stage" ref={hostRef} />
         {stats && (
           <div className="battle-hud">
-            <div className="battle-momentum">
+            <div className="battle-momentum compact">
               <div className="battle-momentum-label">
-                <span>Momentum</span>
+                <span>Power</span>
                 <span>
                   {playerPower.toFixed(0)} / {enemyPower.toFixed(0)}
                 </span>
@@ -103,25 +98,6 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
                 <div className="battle-momentum-center" />
                 <div className="battle-momentum-marker" style={{ left: `${momentum * 100}%` }} />
               </div>
-            </div>
-            <div className="battle-hud-list">
-              {combatants.map((combatant) => {
-                const ratio = combatant.maxHp > 0 ? Math.max(0, Math.min(1, combatant.currentHp / combatant.maxHp)) : 0
-                return (
-                  <div
-                    key={`${combatant.groupIndex}-${combatant.label}`}
-                    className={`battle-hud-row ${combatant.team === TEAM_A ? 'player' : 'enemy'}`}
-                  >
-                    <div className="battle-hud-track">
-                      <div className="battle-hud-fill" style={{ width: `${ratio * 100}%` }} />
-                      <span className="battle-hud-meta">{combatant.label}</span>
-                      <span className="battle-hud-number">
-                        {combatant.currentHp.toFixed(0)} / {combatant.maxHp.toFixed(0)}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
             </div>
           </div>
         )}
