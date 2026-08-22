@@ -6,7 +6,7 @@ import type { BattleConfig, GroupResult, SimGroup, Winner } from './types.js'
 const CELL_SIZE = 48
 const DEFAULT_MAX_TICKS = 20 * 180
 const ROWS = 30
-const SPACING = 24
+const SPACING = 28
 
 /** Forward neighbours only — E, SE, S, SW — so each pair is visited once. */
 const NEIGHBOR_DX = [1, 1, 0, -1]
@@ -138,15 +138,17 @@ export class Battle {
         .filter((e) => e.g.team === team)
         .sort((a, b) => a.g.stats.range - b.g.stats.range || a.i - b.i)
 
-      const anchorX = team === TEAM_A ? 520 : 1080
+      const anchorX = WORLD_W / 2 + (team === TEAM_A ? -200 : 200)
       const dir = team === TEAM_A ? -1 : 1
       let col = 0
 
       for (const { g, i } of order) {
         this.groupFirstUnit[i] = idx
+        const commanderOffset = g.leaderLabel ? this.rng.int(g.count) : -1
         for (let k = 0; k < g.count; k++, idx++) {
           const row = k % ROWS
           const colOffset = (k / ROWS) | 0
+          const commanderBias = k === commanderOffset ? -0.38 : 0
           this.group[idx] = i
           this.team[idx] = team
           this.hp[idx] = g.stats.hp
@@ -154,7 +156,7 @@ export class Battle {
           this.alive[idx] = 1
           this.cooldown[idx] = 0
           this.target[idx] = -1
-          this.x[idx] = anchorX + dir * (col + colOffset) * SPACING + this.rng.range(-3, 3)
+          this.x[idx] = anchorX + dir * (col + colOffset + commanderBias) * SPACING + this.rng.range(-3, 3)
           this.y[idx] = centreY + (row - (ROWS - 1) / 2) * SPACING + this.rng.range(-3, 3)
         }
         col += Math.ceil(g.count / ROWS)
