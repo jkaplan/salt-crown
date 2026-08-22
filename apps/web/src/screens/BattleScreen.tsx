@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { BattleConfig, GroupResult, Winner } from '@salt/sim'
+import { TEAM_A, type BattleConfig, type GroupResult, type Winner } from '@salt/sim'
 import { BattleView } from '../BattleView'
 import type { ViewStats } from '../BattleView'
 
@@ -24,6 +24,7 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
 
   const [stats, setStats] = useState<ViewStats | null>(null)
   const [speed, setSpeed] = useState(1)
+  const [paused, setPaused] = useState(true)
   const [finished, setFinished] = useState(false)
 
   useEffect(() => {
@@ -43,6 +44,8 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
         setFinished(true)
         doneRef.current(results, winner, ticks)
       }
+      view.paused = true
+      setPaused(true)
       view.start(config)
     })
 
@@ -63,9 +66,50 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
     setSpeed(s)
   }
 
+  const togglePause = () => {
+    if (!viewRef.current) return
+    viewRef.current.paused = !viewRef.current.paused
+    setPaused(viewRef.current.paused)
+  }
+
+  const combatants = stats
+    ? [...stats.combatants].sort(
+        (a, b) => Number(a.team !== TEAM_A) - Number(b.team !== TEAM_A) || a.groupIndex - b.groupIndex,
+      )
+    : []
+
   return (
     <div className="battle">
-      <div className="stage" ref={hostRef} />
+      <div className="stage-wrap">
+        <div className="stage" ref={hostRef} />
+        {stats && (
+          <div className="battle-hud">
+            <div className="battle-hud-head">
+              <span>Squad health</span>
+              <span>{stats.tick}t</span>
+            </div>
+            <div className="battle-hud-list">
+              {combatants.map((combatant) => {
+                const ratio = combatant.maxHp > 0 ? Math.max(0, Math.min(1, combatant.currentHp / combatant.maxHp)) : 0
+                return (
+                  <div
+                    key={`${combatant.groupIndex}-${combatant.label}`}
+                    className={`battle-hud-row ${combatant.team === TEAM_A ? 'player' : 'enemy'}`}
+                  >
+                    <div className="battle-hud-label">{combatant.label}</div>
+                    <div className="battle-hud-track">
+                      <div className="battle-hud-fill" style={{ width: `${ratio * 100}%` }} />
+                    </div>
+                    <div className="battle-hud-text">
+                      {combatant.currentHp.toFixed(0)} / {combatant.maxHp.toFixed(0)}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
       <div className="battle-bar">
         <div className="battle-title">{title}</div>
         <div className="counts">
@@ -73,6 +117,7 @@ export default function BattleScreen({ config, title, onStats, onDone }: Props) 
           <span className="vs">vs</span>
           <span className="b">{stats?.aliveB ?? 0}</span>
         </div>
+        <button onClick={togglePause}>{paused ? 'Resume' : 'Pause'}</button>
         <div className="speeds">
           {SPEEDS.map((s) => (
             <button key={s} className={s === speed ? 'on' : ''} onClick={() => setSpeedTo(s)}>
