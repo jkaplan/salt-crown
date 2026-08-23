@@ -723,3 +723,64 @@ select option {
 .pace-fast { color: #8fc7d3; }
 /* Position number sits after the pace chip, so it stops claiming the gap. */
 .squad-row .row-pos { margin-left: 0; }
+
+/* ================================================================ frames ==
+ * Final sweep. A surface is only justified on something you press. Content
+ * groups by space and type weight, never by a box.
+ * ========================================================================= */
+
+/* Report: the numbers are the point; the boxes around them were not. */
+.tally { gap: 18px 24px; }
+.tally > div {
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  gap: 1px;
+}
+.big { font-size: 30px; line-height: 1.1; }
+
+.battle-summary, .potential-roll { gap: 8px; }
+.summary-grid { gap: 14px 24px; }
+.summary-grid > div { background: none; padding: 0; }
+.summary-grid strong { font-size: 17px; }
+
+/* March card: keep the accent edge, drop the panel it was painted on. */
+.march-card {
+  background: none;
+  border-radius: 0;
+  padding: 0 0 0 16px;
+  gap: 16px;
+}
+
+/* Docked panel and its contents. */
+.parameters-panel { background: none; }
+.parameter-card, .combatant-card, .spotlight-card {
+  background: none;
+  border-radius: 0;
+  padding: 10px 0;
+}
+.parameter-list > li + li .parameter-card,
+.live-combatants > li + li .combatant-card { border-top: 1px solid var(--hair); }
+
+.leader-card { gap: 10px; }
+.infantry:hover { border-color: transparent; }
+
+/* Clearer hierarchy: one heading style, one label style, everywhere. */
+.section h2,
+.battle-summary h3,
+.potential-roll h3,
+.skirmish h2,
+.title {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 650;
+}
+.tally .label, .summary-label, .status span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.status b { text-transform: none; letter-spacing: 0; }

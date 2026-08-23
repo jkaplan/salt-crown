@@ -45,6 +45,8 @@ export interface ProbeRow {
 /** Team B is tinted toward rust so the two sides stay readable at a glance. */
 const ENEMY_TINT = 0xc4653a
 const BODY_SHAPE_COUNT = 8
+/** Quantisation of the health-to-tint lookup table. */
+const TINT_STEPS = 48
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
@@ -237,7 +239,11 @@ function createBodyTexture(app: Application, kind: number): Texture {
   }
 
   g.fill(0xffffff)
-  g.stroke({ width: 2.5, color: 0xffffff, alignment: 0.5 })
+  // A DARK outline, not a white one. Tint multiplies, so near-black stays
+  // near-black while the fill takes the team colour — which is what puts a
+  // visible edge between two bodies standing shoulder to shoulder. Stroking
+  // in white (as this did) meant a crowd rendered as one continuous mass.
+  g.stroke({ width: 3.5, color: 0x0a0908, alignment: 0.5 })
   const texture = app.renderer.generateTexture(g)
   g.destroy()
   return texture
@@ -277,6 +283,11 @@ export class BattleView {
   private banners: Banner[] = []
   private battle: Battle | null = null
   private displayHealth: Float32Array = new Float32Array(0)
+  /** Per-unit caches, filled once per battle so draw() touches no objects. */
+  private invMaxHp: Float32Array = new Float32Array(0)
+  private unitIsPlayer: Uint8Array = new Uint8Array(0)
+  private playerTints: number[] = []
+  private enemyTints: number[] = []
   private acc = 0
   private simMsAvg = 0
   private lastEmit = 0
@@ -301,6 +312,23 @@ export class BattleView {
     return mixHex(this.teamBaseColor(team), 0xffffff, 0.52)
   }
 
+  /**
+   * Health-driven tint, precomputed.
+   *
+   * This used to be an RGB -> HSL -> RGB round trip per sprite per frame. At a
+   * couple of thousand bodies that is >100k colour-space conversions a second,
+   * and it was most of what was left of the framerate. Health only varies 0..1,
+   * so quantise it and look the answer up instead.
+   */
+  private buildTintTables(): void {
+    const steps = TINT_STEPS
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps
+      this.playerTints[i] = brightnessTint(this.playerColor, t)
+      this.enemyTints[i] = brightnessTint(mixHex(ENEMY_TINT, 0xff4bd6, 0.3), t)
+    }
+  }
+
   private applyTheme(): void {
     if (this.playerGlow) {
       this.playerGlow.color = this.playerColor
@@ -308,6 +336,7 @@ export class BattleView {
     if (this.enemyGlow) {
       this.enemyGlow.color = mixHex(ENEMY_TINT, 0xff4bd6, 0.45)
     }
+    this.buildTintTables()
 
     if (!this.battle) return
     for (const banner of this.banners) {
@@ -330,19 +359,22 @@ export class BattleView {
     host.appendChild(app.canvas)
     app.stage.addChild(this.world)
 
+    // Tight, weak glow. At distance 10 / strength 1.8 the bloom from each
+    // body filled the gaps to its neighbours, so a formation read as one
+    // luminous mass. The glow is atmosphere; the dark outline does the work.
     this.playerGlow = new GlowFilter({
       color: 0x16f6ff,
-      distance: 10,
-      outerStrength: 1.8,
-      innerStrength: 0.35,
-      quality: 0.5,
+      distance: 5,
+      outerStrength: 0.9,
+      innerStrength: 0.2,
+      quality: 0.35,
     })
     this.enemyGlow = new GlowFilter({
       color: 0xff4bd6,
-      distance: 10,
-      outerStrength: 1.8,
-      innerStrength: 0.35,
-      quality: 0.5,
+      distance: 5,
+      outerStrength: 0.9,
+      innerStrength: 0.2,
+      quality: 0.35,
     })
     // One filter per layer. This is the whole reason the layers exist.
     this.playerLayer.filters = [this.playerGlow]
@@ -404,6 +436,8 @@ export class BattleView {
 
     const b = this.battle
     this.displayHealth = new Float32Array(b.count)
+    this.invMaxHp = new Float32Array(b.count)
+    this.unitIsPlayer = new Uint8Array(b.count)
     for (let i = 0; i < b.count; i++) {
       const group = config.groups[b.group[i]]
       const textureIndex = group.shape % this.bodyTextures.length
@@ -415,6 +449,8 @@ export class BattleView {
       sprite.x = b.x[i]
       sprite.y = b.y[i]
       this.displayHealth[i] = 1
+      this.invMaxHp[i] = 1 / Math.max(1, group.stats.hp)
+      this.unitIsPlayer[i] = group.team === TEAM_A ? 1 : 0
       this.sprites.push(sprite)
       // Sorted into a per-team layer so the glow can be applied ONCE to the
       // layer instead of once per sprite. A filter on an individual sprite
@@ -526,23 +562,31 @@ export class BattleView {
     const { x, y, px, py, alive } = b
     const sprites = this.sprites
     const visualHealth = this.displayHealth
+    // Hoisted out of the loop: these were object lookups and colour-space
+    // maths repeated for every body on every frame.
+    const invMaxHp = this.invMaxHp
+    const isPlayer = this.unitIsPlayer
+    const playerTints = this.playerTints
+    const enemyTints = this.enemyTints
+    const hp = b.hp
+
     for (let i = 0; i < b.count; i++) {
       const sprite = sprites[i]
-      const group = b.groups[b.group[i]]
-      const maxHp = Math.max(1, group.stats.hp)
-      const health = alive[i] === 1 ? clamp01(b.hp[i] / maxHp) : 0
+      const health = alive[i] === 1 ? clamp01(hp[i] * invMaxHp[i]) : 0
       const eased = visualHealth[i] + (health - visualHealth[i]) * 0.22
       visualHealth[i] = eased
-      const teamColor = this.teamBaseColor(group.team)
-      const baseTint =
-        group.team === TEAM_A ? teamColor : mixHex(teamColor, 0xff4bd6, 0.3)
 
-      const curve = clamp01(eased) * clamp01(eased)
-      const size = 0.03 + curve * 1.2
-      sprite.scale.set(size)
-      sprite.tint = brightnessTint(baseTint, curve)
+      if (eased <= 0.01) {
+        if (sprite.visible) sprite.visible = false
+        continue
+      }
+
+      const curve = eased * eased
+      sprite.visible = true
+      sprite.scale.set(0.03 + curve * 1.2)
+      const step = (curve * TINT_STEPS) | 0
+      sprite.tint = isPlayer[i] === 1 ? playerTints[step] : enemyTints[step]
       sprite.alpha = 0.03 + curve * 0.97
-      sprite.visible = eased > 0.01
       sprite.x = px[i] + (x[i] - px[i]) * alpha
       sprite.y = py[i] + (y[i] - py[i]) * alpha
     }

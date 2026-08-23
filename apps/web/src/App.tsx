@@ -28,7 +28,8 @@ type Setup = 'start' | 'leader'
 
 export default function App() {
   const [mode, setMode] = useState<Mode>('campaign')
-  const [panelOpen, setPanelOpen] = useState(true)
+  // Closed by default. It is a debug readout, not part of playing.
+  const [panelOpen, setPanelOpen] = useState(false)
   const [seedText, setSeedText] = useState('salt-crown')
   const [setupPhase, setSetupPhase] = useState<Setup>('start')
   const [playerColor, setPlayerColor] = useState('#7fc7bb')
