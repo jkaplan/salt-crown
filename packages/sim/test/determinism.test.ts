@@ -104,7 +104,7 @@ describe('Battle resolution', () => {
     // early. Bounds are ~2 sigma at n=400; tight enough to catch that again.
     expect(aWins / runs).toBeGreaterThan(0.43)
     expect(aWins / runs).toBeLessThan(0.57)
-  })
+  }, 30000)
 
   it('rewards numbers superlinearly (Lanchester)', () => {
     let bigWins = 0

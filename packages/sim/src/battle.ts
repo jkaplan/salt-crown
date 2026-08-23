@@ -15,9 +15,7 @@ const SEPARATION_BUFFER = 10
 const SEPARATION_PASSES = 3
 const RANGE_HYSTERESIS = 6
 /** Lateral correction is damped so lines close head-on rather than orbiting. */
-const LATERAL_DAMPING = 0.85
-const MELEE_KNOCKBACK = 2.4
-const RANGED_KNOCKBACK = 0.9
+const LATERAL_DAMPING = 0.3
 const ARENA_SCALE_THRESHOLD = 240
 const ARENA_SCALE_STEP = 120
 const ARENA_GROWTH_W = 140
@@ -106,7 +104,13 @@ export class Battle {
   private readonly target: Int32Array
   private readonly sepX: Float32Array
   private readonly sepY: Float32Array
-  private readonly knockX: Float32Array
+  /**
+   * Tick each unit last landed a blow. Render-only — the renderer turns this
+   * into a lunge. Knockback used to live in the sim and physically shoved both
+   * parties apart on every hit, so units walked back in the next tick and the
+   * whole line vibrated. The bump is a visual, so it belongs in the view.
+   */
+  readonly lastAttackTick: Int32Array
   /** Damage accumulated this tick, applied in phase 2. */
   private readonly damage: Float32Array
 
@@ -138,7 +142,7 @@ export class Battle {
     this.target = new Int32Array(total)
     this.sepX = new Float32Array(total)
     this.sepY = new Float32Array(total)
-    this.knockX = new Float32Array(total)
+    this.lastAttackTick = new Int32Array(total).fill(-999)
     this.damage = new Float32Array(total)
 
     const gn = config.groups.length
@@ -248,7 +252,7 @@ export class Battle {
     if (this.finished) return
     this.tick++
 
-    const { x, y, px, py, hp, maxHp, alive, cooldown, target, damage, group, groupEff, knockX, rng } = this
+    const { x, y, px, py, hp, maxHp, alive, cooldown, target, damage, group, groupEff, rng } = this
     const groups = this.groups
     const count = this.count
 
@@ -256,7 +260,6 @@ export class Battle {
     py.set(y)
     this.grid.build(count, px, py, alive)
     damage.fill(0)
-    knockX.fill(0)
     this.updateMorale()
 
     // Phase 1 — intent. Reads only the snapshot; writes movement and damage.
@@ -317,11 +320,7 @@ export class Battle {
           const dealt = raw > 1 ? raw : 1
           damage[t] += dealt
 
-          const dir = dx >= 0 ? 1 : -1
-          const baseKnock = st.range <= MELEE_RANGE ? MELEE_KNOCKBACK : RANGED_KNOCKBACK
-          const knock = Math.min(baseKnock, dealt * 0.14)
-          knockX[t] += dir * knock
-          knockX[i] -= dir * knock * 0.45
+          this.lastAttackTick[i] = this.tick
 
           this.groupDamageDealt[gi] += dealt
           this.groupDamageTaken[group[t]] += dealt
@@ -339,11 +338,6 @@ export class Battle {
       if (alive[i] === 0 || damage[i] === 0) continue
       hp[i] -= damage[i]
       if (hp[i] <= 0) this.kill(i)
-    }
-
-    for (let i = 0; i < count; i++) {
-      if (alive[i] === 0) continue
-      x[i] = clamp(x[i] + knockX[i], 0, this.worldW)
     }
 
     this.separate()

@@ -395,7 +395,7 @@ button.buy:hover:not(:disabled) { background: var(--gold); color: #17120a; }
 .pot-list li.pot-dead .potential-name { color: var(--danger); text-decoration: line-through; }
 
 /* Wide tables scroll in their own container; the page body never does. */
-.losses { display: block; overflow-x: auto; width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.losses { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .losses th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); text-align: right; padding: 0 0 6px 12px; white-space: nowrap; }
 .losses td { padding: 6px 0 6px 12px; text-align: right; font-size: 13px; white-space: nowrap; }
 .losses th:first-child, .losses td:first-child { text-align: left; padding-left: 0; }
@@ -784,3 +784,21 @@ select option {
   color: var(--faint);
 }
 .status b { text-transform: none; letter-spacing: 0; }
+
+/* Momentum: fills outward from the centre in the leading side's colour, so a
+   won battle leaves the bar completely full of that colour. */
+.battle-momentum-track { position: relative; overflow: hidden; height: 8px; }
+.battle-momentum-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transition: width 200ms ease-out, background 200ms ease-out;
+}
+.battle-momentum-center {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.28);
+}

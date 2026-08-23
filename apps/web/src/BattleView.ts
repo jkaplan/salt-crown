@@ -47,6 +47,9 @@ const ENEMY_TINT = 0xc4653a
 const BODY_SHAPE_COUNT = 8
 /** Quantisation of the health-to-tint lookup table. */
 const TINT_STEPS = 48
+/** Visual-only attack lunge: how far a body leans in, and for how long. */
+const LUNGE_DISTANCE = 7
+const LUNGE_TICKS = 4
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
@@ -144,99 +147,87 @@ function brightnessTint(base: number, ratio: number): number {
   return hslToHex(vibrant.h, vibrant.s, vibrant.l)
 }
 
-function pathPolygon(g: Graphics, points: Array<[number, number]>): Graphics {
-  const [firstX, firstY] = points[0]
-  g.moveTo(firstX, firstY)
-  for (let i = 1; i < points.length; i++) {
-    const [x, y] = points[i]
-    g.lineTo(x, y)
-  }
-  g.closePath()
-  return g
-}
+const BODY_VARIANTS = 4
 
-function createBodyTexture(app: Application, kind: number): Texture {
-  const g = new Graphics()
-  const r = 16
+/**
+ * Every silhouette as a point list, so distortion applies uniformly and the
+ * shape still identifies the unit type.
+ */
+function shapeOutline(kind: number, r: number): Array<[number, number]> {
+  const ring = (n: number, radius: number): Array<[number, number]> =>
+    Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2 - Math.PI / 2
+      return [Math.cos(a) * radius, Math.sin(a) * radius] as [number, number]
+    })
 
   switch (kind) {
     case 0:
-      g.circle(0, 0, r)
-      break
+      return ring(11, r)
     case 1:
-      pathPolygon(g, [
-        [0, -r],
-        [r, 0],
-        [0, r],
-        [-r, 0],
-      ])
-      break
+      return [[0, -r], [r, 0], [0, r], [-r, 0]]
     case 2:
-      g.roundRect(-r, -r, r * 2, r * 2, 6)
-      break
+      return [[-r, -r], [r, -r], [r, r], [-r, r]]
     case 3:
-      pathPolygon(g, [
-        [0, -r],
-        [r, r],
-        [-r, r],
-      ])
-      break
+      return [[0, -r], [r, r], [-r, r]]
     case 4:
-      pathPolygon(g, [
-        [0, -r],
-        [r * 0.78, -r * 0.28],
-        [r, r * 0.18],
-        [r * 0.58, r],
-        [-r * 0.58, r],
-        [-r, r * 0.18],
-        [-r * 0.78, -r * 0.28],
-      ])
-      break
+      return [
+        [0, -r], [r * 0.78, -r * 0.28], [r, r * 0.18], [r * 0.58, r],
+        [-r * 0.58, r], [-r, r * 0.18], [-r * 0.78, -r * 0.28],
+      ]
     case 5:
-      pathPolygon(g, [
-        [0, -r],
-        [r * 0.36, -r * 0.52],
-        [r * 0.74, -r * 0.12],
-        [r * 0.46, r * 0.14],
-        [r * 0.64, r],
-        [0, r * 0.56],
-        [-r * 0.64, r],
-        [-r * 0.46, r * 0.14],
-        [-r * 0.74, -r * 0.12],
-        [-r * 0.36, -r * 0.52],
-      ])
-      break
+      return [
+        [0, -r], [r * 0.36, -r * 0.52], [r * 0.74, -r * 0.12], [r * 0.46, r * 0.14],
+        [r * 0.64, r], [0, r * 0.56], [-r * 0.64, r], [-r * 0.46, r * 0.14],
+        [-r * 0.74, -r * 0.12], [-r * 0.36, -r * 0.52],
+      ]
     case 6:
-      pathPolygon(g, [
-        [0, -r],
-        [r * 0.28, -r * 0.2],
-        [r, -r * 0.2],
-        [r * 0.46, r * 0.1],
-        [r * 0.62, r],
-        [0, r * 0.4],
-        [-r * 0.62, r],
-        [-r * 0.46, r * 0.1],
-        [-r, -r * 0.2],
-        [-r * 0.28, -r * 0.2],
-      ])
-      break
+      return [
+        [0, -r], [r * 0.28, -r * 0.2], [r, -r * 0.2], [r * 0.46, r * 0.1],
+        [r * 0.62, r], [0, r * 0.4], [-r * 0.62, r], [-r * 0.46, r * 0.1],
+        [-r, -r * 0.2], [-r * 0.28, -r * 0.2],
+      ]
     default:
-      pathPolygon(g, [
-        [0, -r],
-        [r * 0.26, -r * 0.38],
-        [r * 0.84, -r * 0.44],
-        [r * 0.46, 0],
-        [r * 0.84, r * 0.44],
-        [r * 0.26, r * 0.38],
-        [0, r],
-        [-r * 0.26, r * 0.38],
-        [-r * 0.84, r * 0.44],
-        [-r * 0.46, 0],
-        [-r * 0.84, -r * 0.44],
-        [-r * 0.26, -r * 0.38],
-      ])
-      break
+      return ring(7, r)
   }
+}
+
+/**
+ * Deterministic per-vertex distortion.
+ *
+ * Clean geometry reads as manufactured, and these are bred, patched-together
+ * things. Every outline gets pushed around a little — enough to look grown
+ * rather than stamped, not enough to lose the shape that identifies the unit.
+ *
+ * Baked into several variants per shape, so a rank of twenty is twenty
+ * slightly different bodies instead of one sprite repeated twenty times.
+ */
+function distort(points: Array<[number, number]>, variant: number): Array<[number, number]> {
+  let seed = ((variant + 1) * 2654435761) >>> 0
+  const next = () => {
+    seed = (seed + 0x9e3779b9) >>> 0
+    let z = seed
+    z = Math.imul(z ^ (z >>> 16), 0x21f0aaad) >>> 0
+    z = Math.imul(z ^ (z >>> 15), 0x735a2d97) >>> 0
+    return ((z ^ (z >>> 15)) >>> 0) / 4294967296
+  }
+
+  return points.map(([x, y]) => {
+    const scale = 0.86 + next() * 0.3
+    return [x * scale + (next() - 0.5) * 4.6, y * scale + (next() - 0.5) * 4.6] as [
+      number,
+      number,
+    ]
+  })
+}
+
+function createBodyTexture(app: Application, kind: number, variant: number): Texture {
+  const g = new Graphics()
+  const points = distort(shapeOutline(kind, 16), kind * BODY_VARIANTS + variant)
+
+  const [fx, fy] = points[0]
+  g.moveTo(fx, fy)
+  for (let i = 1; i < points.length; i++) g.lineTo(points[i][0], points[i][1])
+  g.closePath()
 
   g.fill(0xffffff)
   // A DARK outline, not a white one. Tint multiplies, so near-black stays
@@ -387,7 +378,11 @@ export class BattleView {
     this.texture = app.renderer.generateTexture(g)
     g.destroy()
 
-    this.bodyTextures = Array.from({ length: BODY_SHAPE_COUNT }, (_, kind) => createBodyTexture(app, kind))
+    // shape * BODY_VARIANTS + variant. Several distorted cuts of each shape
+    // so a rank of twenty is not one sprite stamped twenty times.
+    this.bodyTextures = Array.from({ length: BODY_SHAPE_COUNT * BODY_VARIANTS }, (_, i) =>
+      createBodyTexture(app, (i / BODY_VARIANTS) | 0, i % BODY_VARIANTS),
+    )
 
     app.ticker.add(this.frame)
   }
@@ -440,7 +435,8 @@ export class BattleView {
     this.unitIsPlayer = new Uint8Array(b.count)
     for (let i = 0; i < b.count; i++) {
       const group = config.groups[b.group[i]]
-      const textureIndex = group.shape % this.bodyTextures.length
+      const variant = i % BODY_VARIANTS
+      const textureIndex = (group.shape % BODY_SHAPE_COUNT) * BODY_VARIANTS + variant
       const sprite = new Sprite(this.bodyTextures[textureIndex])
       sprite.anchor.set(0.5)
       sprite.width = group.stats.radius * 2
@@ -569,6 +565,8 @@ export class BattleView {
     const playerTints = this.playerTints
     const enemyTints = this.enemyTints
     const hp = b.hp
+    const lastAttack = b.lastAttackTick
+    const tick = b.tick
 
     for (let i = 0; i < b.count; i++) {
       const sprite = sprites[i]
@@ -583,11 +581,29 @@ export class BattleView {
 
       const curve = eased * eased
       sprite.visible = true
-      sprite.scale.set(0.03 + curve * 1.2)
       const step = (curve * TINT_STEPS) | 0
       sprite.tint = isPlayer[i] === 1 ? playerTints[step] : enemyTints[step]
       sprite.alpha = 0.03 + curve * 0.97
-      sprite.x = px[i] + (x[i] - px[i]) * alpha
+
+      /*
+       * The bump. A short shove toward the enemy on the frame a blow lands,
+       * easing back over LUNGE_TICKS. Purely cosmetic — the sim never moves
+       * for it, which is the whole point: knockback in the sim made both
+       * parties physically recoil and then walk back in, so the line
+       * vibrated. Here it reads as bodies leaning into each other.
+       */
+      const since = tick - lastAttack[i]
+      let lungeX = 0
+      let punch = 0
+      if (since >= 0 && since < LUNGE_TICKS) {
+        const t = 1 - since / LUNGE_TICKS
+        const eaased = t * t
+        lungeX = (isPlayer[i] === 1 ? 1 : -1) * LUNGE_DISTANCE * eaased
+        punch = eaased * 0.12
+      }
+
+      sprite.scale.set(0.03 + curve * 1.2 + punch)
+      sprite.x = px[i] + (x[i] - px[i]) * alpha + lungeX
       sprite.y = py[i] + (y[i] - py[i]) * alpha
     }
 

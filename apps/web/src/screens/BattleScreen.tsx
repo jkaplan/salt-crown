@@ -123,31 +123,23 @@ export default function BattleScreen({ config, title, playerColor = '#7fc7bb', o
     : 0
   const totalPower = playerPower + enemyPower
   const momentum = totalPower > 0 ? playerPower / totalPower : 0.5
-  const markerPct = Math.min(100, Math.max(0, momentum * 100))
-  const neutral = 'rgba(154, 160, 166, 0.84)'
   const enemyColor = '#d98552'
-  const sideColor = momentum >= 0.5 ? playerColor : enemyColor
-  const drift = Math.abs(momentum - 0.5) * 100
-  const powerTrackStyle = momentum === 0.5
-    ? {
-        background: neutral,
-        transition: 'background 180ms ease-out',
-        borderColor: playerColor,
-        boxShadow: `0 0 10px color-mix(in srgb, ${playerColor} 45%, transparent)`,
-      }
-    : momentum > 0.5
-      ? {
-          background: `linear-gradient(90deg, ${neutral} 0%, ${neutral} 50%, ${playerColor} 50%, ${playerColor} ${50 + drift}%, ${neutral} ${50 + drift}%, ${neutral} 100%)`,
-          transition: 'background 180ms ease-out',
-          borderColor: playerColor,
-          boxShadow: `0 0 12px color-mix(in srgb, ${playerColor} 55%, transparent)`,
-        }
-      : {
-          background: `linear-gradient(90deg, ${neutral} 0%, ${neutral} ${50 - drift}%, ${enemyColor} ${50 - drift}%, ${enemyColor} 50%, ${neutral} 50%, ${neutral} 100%)`,
-          transition: 'background 180ms ease-out',
-          borderColor: playerColor,
-          boxShadow: `0 0 10px color-mix(in srgb, ${playerColor} 40%, transparent)`,
-        }
+  const winning = momentum >= 0.5
+  const sideColor = winning ? playerColor : enemyColor
+
+  /*
+   * Fills outward from the centre in the leading side's colour, so a won
+   * battle ends with the bar completely full of that colour. Half the width
+   * per side means 0.5 is empty and 1.0 (or 0.0) is a full bar.
+   */
+  const fillPct = Math.min(100, Math.abs(momentum - 0.5) * 200)
+  const fillStyle = {
+    width: `${fillPct / 2}%`,
+    background: sideColor,
+    boxShadow: `0 0 14px ${sideColor}`,
+    // Grow from the centre line toward this side's end of the track.
+    [winning ? 'left' : 'right']: '50%',
+  } as React.CSSProperties
 
   return (
     <div className="battle">
@@ -162,17 +154,9 @@ export default function BattleScreen({ config, title, playerColor = '#7fc7bb', o
                   {playerPower.toFixed(0)} / {enemyPower.toFixed(0)}
                 </span>
               </div>
-              <div className="battle-momentum-track" style={powerTrackStyle}>
+              <div className="battle-momentum-track">
+                <div className="battle-momentum-fill" style={fillStyle} />
                 <div className="battle-momentum-center" />
-                <div
-                  className="battle-momentum-marker"
-                  style={{
-                    left: `${markerPct}%`,
-                    background: sideColor,
-                    borderColor: sideColor,
-                    boxShadow: `0 0 0 2px rgba(0, 0, 0, 0.25), 0 0 12px ${sideColor}`,
-                  }}
-                />
               </div>
             </div>
           </div>

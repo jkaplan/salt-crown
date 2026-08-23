@@ -127,8 +127,6 @@ export default function Report({ report, onContinue, isLast }: Props) {
               <th title="Damage multiplier it ended on. Low means it was collapsing.">
                 Fighting at
               </th>
-              <th>Dealt</th>
-              <th>Taken</th>
             </tr>
           </thead>
           <tbody>
@@ -141,8 +139,6 @@ export default function Report({ report, onContinue, isLast }: Props) {
                   <td className="dead">{s.dead}</td>
                   <td>{s.survived}</td>
                   <td className={eff < 60 ? 'dead' : ''}>{eff}%</td>
-                  <td>{s.damageDealt.toFixed(0)}</td>
-                  <td>{s.damageTaken.toFixed(0)}</td>
                 </tr>
               )
             })}
