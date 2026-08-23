@@ -706,3 +706,20 @@ select option {
 /* No frame around the infantry breakdown either. */
 .infantry, .inf-head, .inf-breakdown { background: none; border: 0; }
 .inf-breakdown li { border-top: 1px solid var(--hair); }
+
+/* Pace: the stat the battle-line order is actually about. */
+.pace {
+  margin-left: auto;
+  flex: none;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.pace-slow { color: #c98f6a; }
+.pace-mid { color: var(--dim); }
+.pace-fast { color: #8fc7d3; }
+/* Position number sits after the pace chip, so it stops claiming the gap. */
+.squad-row .row-pos { margin-left: 0; }

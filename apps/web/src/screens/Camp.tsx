@@ -52,11 +52,25 @@ function Stats({ s }: { s: ResolvedStats }) {
           'melee'
         )}
       </span>
+      <span title="Move speed — decides who reaches the enemy first">
+        <b>{s.moveSpeed.toFixed(1)}</b> spd
+      </span>
       {s.regen > 0 && <span className="trait">regen</span>}
       {s.quills > 0 && <span className="trait">quills</span>}
       {s.frenzy > 0 && <span className="trait">frenzy</span>}
     </div>
   )
+}
+
+/**
+ * Move speed decides who reaches the enemy first, so it is the stat the
+ * battle-line order is actually about. Spelled out as a word next to the
+ * number, because "3.4" only means something once you know the range.
+ */
+function pace(moveSpeed: number): { label: string; tone: string } {
+  if (moveSpeed <= 3.2) return { label: 'slow', tone: 'pace-slow' }
+  if (moveSpeed <= 5.5) return { label: 'steady', tone: 'pace-mid' }
+  return { label: 'fast', tone: 'pace-fast' }
 }
 
 function leaderKey(leader: SquadLeader | null): string {
@@ -175,6 +189,9 @@ function SquadRow({
         <span className="row-name">
           <UnitName typeId={squad.typeId} />
           <span className="mult">×{squad.count}</span>
+        </span>
+        <span className={`pace ${pace(stats.moveSpeed).tone}`} title="Move speed">
+          {stats.moveSpeed.toFixed(1)} {pace(stats.moveSpeed).label}
         </span>
         <span className="row-pos">{index + 1}</span>
       </div>
