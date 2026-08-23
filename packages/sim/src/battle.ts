@@ -12,10 +12,13 @@ const LINE_SPACING = 44
 const SQUAD_GAP_LINES = 1.2
 const FORMATION_OFFSET = 150
 const SEPARATION_BUFFER = 10
-const SEPARATION_PASSES = 3
-const RANGE_HYSTERESIS = 6
+const SEPARATION_PASSES = 2
+/** Dead band: how far past reach a unit tolerates before closing again. */
+const RANGE_HYSTERESIS = 14
+/** Fraction of the overlap correction applied per pass. <1 settles, 1 snaps. */
+const SEPARATION_STRENGTH = 0.45
 /** Lateral correction is damped so lines close head-on rather than orbiting. */
-const LATERAL_DAMPING = 0.3
+const LATERAL_DAMPING = 1
 const ARENA_SCALE_THRESHOLD = 240
 const ARENA_SCALE_STEP = 120
 const ARENA_GROWTH_W = 140
@@ -102,6 +105,8 @@ export class Battle {
   private readonly maxHp: Float32Array
   private readonly cooldown: Int32Array
   private readonly target: Int32Array
+  /** Whether a unit is already in contact; drives the movement dead band. */
+  private readonly engaged: Uint8Array
   private readonly sepX: Float32Array
   private readonly sepY: Float32Array
   /**
@@ -140,6 +145,7 @@ export class Battle {
     this.alive = new Uint8Array(total)
     this.cooldown = new Int32Array(total)
     this.target = new Int32Array(total)
+    this.engaged = new Uint8Array(total)
     this.sepX = new Float32Array(total)
     this.sepY = new Float32Array(total)
     this.lastAttackTick = new Int32Array(total).fill(-999)
@@ -252,7 +258,7 @@ export class Battle {
     if (this.finished) return
     this.tick++
 
-    const { x, y, px, py, hp, maxHp, alive, cooldown, target, damage, group, groupEff, rng } = this
+    const { x, y, px, py, hp, maxHp, alive, cooldown, target, damage, group, groupEff, engaged, rng } = this
     const groups = this.groups
     const count = this.count
 
@@ -285,21 +291,35 @@ export class Battle {
       const dx = px[t] - px[i]
       const dy = py[t] - py[i]
       const tt = groups[group[t]].stats
-      const engageRange = st.range + tt.radius + RANGE_HYSTERESIS
+      const attackRange = st.range + tt.radius
       const d2 = dx * dx + dy * dy
 
-      if (d2 > engageRange * engageRange) {
+      /*
+       * A real dead band, not just a wider stop distance.
+       *
+       * Closing stops exactly AT attack range, so any nudge from separation
+       * put a unit a hair outside and it stepped precisely back next tick —
+       * a perfect one-tick limit cycle, which is what the jitter was. Once
+       * engaged, a unit now tolerates being pushed RANGE_HYSTERESIS past its
+       * reach before it bothers closing again, and keeps swinging throughout.
+       */
+      const band = engaged[i] === 1 ? attackRange + RANGE_HYSTERESIS : attackRange
+
+      if (d2 > band * band) {
+        engaged[i] = 0
         const d = Math.sqrt(d2)
         if (d > 1e-6) {
-          // Clamping the step to the remaining gap is what kills the jitter —
-          // a unit can never overshoot into its target and bounce back out.
-          const step = Math.min(st.moveSpeed, d - engageRange)
+          const step = Math.min(st.moveSpeed, d - attackRange)
           // Lane-style approach: close head-on, and correct laterally only
           // gently, so lines converge instead of orbiting each other.
           x[i] += (dx / d) * step
           y[i] += (dy / d) * step * LATERAL_DAMPING
         }
-      } else if (cooldown[i] === 0) {
+        continue
+      }
+
+      engaged[i] = 1
+      if (cooldown[i] === 0) {
         // Frenzy: swings come faster the closer to death this unit is.
         let interval = st.attackInterval
         if (st.frenzy > 0) {
@@ -503,7 +523,7 @@ export class Battle {
 
     if (d2 > 1e-6) {
       const d = Math.sqrt(d2)
-      const amount = (minD - d) * 0.5
+      const amount = (minD - d) * 0.5 * SEPARATION_STRENGTH
       const ux = (dx / d) * amount
       const uy = (dy / d) * amount
       sepX[i] -= ux
