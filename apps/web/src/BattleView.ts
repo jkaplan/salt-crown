@@ -267,11 +267,13 @@ export class BattleView {
   private world = new Container()
   private texture: Texture | null = null
   private bodyTextures: Texture[] = []
+  private playerColor = 0x7fc7bb
   private playerGlow: GlowFilter | null = null
   private enemyGlow: GlowFilter | null = null
   private sprites: Sprite[] = []
   private banners: Banner[] = []
   private battle: Battle | null = null
+  private displayHealth: Float32Array = new Float32Array(0)
   private acc = 0
   private simMsAvg = 0
   private lastEmit = 0
@@ -281,6 +283,37 @@ export class BattleView {
   onStats: ((s: ViewStats) => void) | null = null
   onFinished: ((results: GroupResult[], winner: Winner, ticks: number) => void) | null = null
   private reported = false
+
+  private parseColor(color: string): number | null {
+    const normalized = color.startsWith('#') ? color.slice(1) : color
+    const parsed = Number.parseInt(normalized, 16)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  private teamBaseColor(team: typeof TEAM_A | typeof TEAM_B): number {
+    return team === TEAM_A ? this.playerColor : ENEMY_TINT
+  }
+
+  private teamAccentColor(team: typeof TEAM_A | typeof TEAM_B): number {
+    return mixHex(this.teamBaseColor(team), 0xffffff, 0.52)
+  }
+
+  private applyTheme(): void {
+    if (this.playerGlow) {
+      this.playerGlow.color = this.playerColor
+    }
+    if (this.enemyGlow) {
+      this.enemyGlow.color = mixHex(ENEMY_TINT, 0xff4bd6, 0.45)
+    }
+
+    if (!this.battle) return
+    for (const banner of this.banners) {
+      const group = this.battle.groups[banner.groupIndex]
+      const accent = this.teamAccentColor(group.team)
+      banner.ring.tint = accent
+      banner.label.style.fill = accent
+    }
+  }
 
   async init(host: HTMLElement): Promise<void> {
     const app = new Application()
@@ -296,18 +329,19 @@ export class BattleView {
 
     this.playerGlow = new GlowFilter({
       color: 0x16f6ff,
-      distance: 18,
-      outerStrength: 3.8,
-      innerStrength: 0.6,
-      quality: 0.65,
+      distance: 10,
+      outerStrength: 1.8,
+      innerStrength: 0.35,
+      quality: 0.5,
     })
     this.enemyGlow = new GlowFilter({
       color: 0xff4bd6,
-      distance: 18,
-      outerStrength: 3.8,
-      innerStrength: 0.6,
-      quality: 0.65,
+      distance: 10,
+      outerStrength: 1.8,
+      innerStrength: 0.35,
+      quality: 0.5,
     })
+    this.applyTheme()
 
     const g = new Graphics().circle(0, 0, 16).fill(0xffffff)
     this.texture = app.renderer.generateTexture(g)
@@ -316,6 +350,14 @@ export class BattleView {
     this.bodyTextures = Array.from({ length: BODY_SHAPE_COUNT }, (_, kind) => createBodyTexture(app, kind))
 
     app.ticker.add(this.frame)
+  }
+
+  setPlayerColor(color: string): void {
+    const parsed = this.parseColor(color)
+    if (parsed !== null) {
+      this.playerColor = parsed
+      this.applyTheme()
+    }
   }
 
   destroy(): void {
@@ -330,6 +372,7 @@ export class BattleView {
     this.app.destroy(true, { children: true, texture: true })
     this.app = null
     this.battle = null
+    this.displayHealth = new Float32Array(0)
     this.sprites = []
   }
 
@@ -351,10 +394,11 @@ export class BattleView {
     this.banners = []
 
     const b = this.battle
+    this.displayHealth = new Float32Array(b.count)
     for (let i = 0; i < b.count; i++) {
       const group = config.groups[b.group[i]]
-      const groupIndex = b.group[i]
-      const sprite = new Sprite(this.bodyTextures[groupIndex % this.bodyTextures.length])
+      const textureIndex = group.shape % this.bodyTextures.length
+      const sprite = new Sprite(this.bodyTextures[textureIndex])
       sprite.anchor.set(0.5)
       sprite.width = group.stats.radius * 2
       sprite.height = group.stats.radius * 2
@@ -362,6 +406,7 @@ export class BattleView {
       sprite.blendMode = 'normal'
       sprite.x = b.x[i]
       sprite.y = b.y[i]
+      this.displayHealth[i] = 1
       this.sprites.push(sprite)
       this.world.addChild(sprite)
     }
@@ -377,7 +422,7 @@ export class BattleView {
       ring.width = 46
       ring.height = 46
       ring.alpha = 0.28
-      ring.tint = friendly ? 0xffe9b0 : 0xffb08a
+      ring.tint = this.teamAccentColor(group.team)
 
       const label = new Text({
         text: group.leaderLabel,
@@ -385,7 +430,7 @@ export class BattleView {
           fontFamily: 'ui-sans-serif, system-ui, sans-serif',
           fontSize: 15,
           fontWeight: '600',
-          fill: friendly ? 0xffe9b0 : 0xffb08a,
+          fill: this.teamAccentColor(group.team),
           stroke: { color: 0x0a0807, width: 4 },
         },
       })
@@ -395,6 +440,7 @@ export class BattleView {
       this.world.addChild(label)
       this.banners.push({ groupIndex: gi, ring, label })
     })
+    this.applyTheme()
   }
 
   private frame = (): void => {
@@ -431,12 +477,36 @@ export class BattleView {
 
   /** World is a fixed 1600x900; scale it to fit whatever the host gives us. */
   private layout(app: Application): void {
+    const battle = this.battle
+    const worldW = battle ? battle.worldW : WORLD_W
+    const worldH = battle ? battle.worldH : WORLD_H
     const w = app.renderer.width
     const h = app.renderer.height
-    const scale = Math.min(w / WORLD_W, h / WORLD_H)
+    const scale = Math.min(w / worldW, h / worldH)
+
+    let focusX = worldW / 2
+    let focusY = worldH / 2
+    if (battle) {
+      const { x, y, alive, count } = battle
+      let aliveCount = 0
+      let sumX = 0
+      let sumY = 0
+      for (let i = 0; i < count; i++) {
+        if (alive[i] === 0) continue
+        sumX += x[i]
+        sumY += y[i]
+        aliveCount++
+      }
+      if (aliveCount > 0) {
+        focusX = sumX / aliveCount
+        focusY = sumY / aliveCount
+      }
+    }
+
     this.world.scale.set(scale)
-    this.world.x = (w - WORLD_W * scale) / 2
-    this.world.y = (h - WORLD_H * scale) / 2
+    this.world.pivot.set(focusX, focusY)
+    this.world.x = w / 2
+    this.world.y = h / 2
   }
 
   private draw(alpha: number): void {
@@ -444,19 +514,24 @@ export class BattleView {
     if (!b) return
     const { x, y, px, py, alive } = b
     const sprites = this.sprites
+    const visualHealth = this.displayHealth
     for (let i = 0; i < b.count; i++) {
       const sprite = sprites[i]
       const group = b.groups[b.group[i]]
-      if (alive[i] === 0) {
-        if (sprite.visible) sprite.visible = false
-        continue
-      }
       const maxHp = Math.max(1, group.stats.hp)
-      const health = clamp01(b.hp[i] / maxHp)
+      const health = alive[i] === 1 ? clamp01(b.hp[i] / maxHp) : 0
+      const eased = visualHealth[i] + (health - visualHealth[i]) * 0.22
+      visualHealth[i] = eased
+      const teamColor = this.teamBaseColor(group.team)
       const baseTint =
-        group.team === TEAM_A ? mixHex(group.color, 0x19f6ff, 0.45) : mixHex(group.color, 0xff4bd6, 0.3)
-      sprite.tint = brightnessTint(baseTint, health)
-      sprite.alpha = 0.92 + health * 0.08
+        group.team === TEAM_A ? teamColor : mixHex(teamColor, 0xff4bd6, 0.3)
+
+      const curve = clamp01(eased) * clamp01(eased)
+      const size = 0.03 + curve * 1.2
+      sprite.scale.set(size)
+      sprite.tint = brightnessTint(baseTint, curve)
+      sprite.alpha = 0.03 + curve * 0.97
+      sprite.visible = eased > 0.01
       sprite.x = px[i] + (x[i] - px[i]) * alpha
       sprite.y = py[i] + (y[i] - py[i]) * alpha
     }

@@ -44,6 +44,13 @@ export interface Warband {
   salvage: number
 }
 
+const BODY_SHAPE_COUNT = 8
+
+export function squadShape(typeId: number): number {
+  const n = typeId % BODY_SHAPE_COUNT
+  return n < 0 ? n + BODY_SHAPE_COUNT : n
+}
+
 export function unitType(typeId: number): UnitType {
   return UNIT_TYPES[typeId]
 }
@@ -202,6 +209,7 @@ export function toSimGroups(
       count: sq.count,
       label: squadLabel(sq),
       color: unitType(sq.typeId).color,
+      shape: squadShape(sq.typeId),
       stats: resolveSquadStats(sq, officer, leader),
       discipline: resolveDiscipline(sq.typeId, officer),
       leaderLabel: officer ? officerTitle(officer) : leader ? leader.name : null,
@@ -217,6 +225,7 @@ export function toSimGroups(
       count: 1,
       label: potentialTitle(p, type.name),
       color: type.color,
+      shape: squadShape(p.typeId),
       stats: resolvePotentialStats(p),
       // A Potential is one body; morale scaling on a group of one is noise.
       discipline: 1,
@@ -245,6 +254,7 @@ export function makeGroup(
     count,
     label: `${unitType(typeId).name} ×${count}`,
     color: unitType(typeId).color,
+    shape: squadShape(typeId),
     stats: clamp(s),
     discipline: resolveDiscipline(typeId, null),
     leaderLabel: null,

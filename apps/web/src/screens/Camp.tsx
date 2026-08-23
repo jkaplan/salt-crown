@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { Fragment, type DragEvent, useState } from 'react'
 import {
   ENCOUNTERS_PER_RUN,
   OFFICER_RANKS_BY_ID,
+  findLeadingPotential,
+  findOfficer,
   fodderByType,
   officerTitle,
   resolvePotentialStats,
@@ -13,11 +15,13 @@ import {
 import type { Offer, Potential, RunState, Squad, SquadLeader, Warband } from '@salt/game'
 import MutationTag from '../components/MutationTag'
 import UnitName from '../components/UnitName'
+import UnitShape from '../components/UnitShape'
 
 interface Props {
   run: RunState
   onBuy: (offerId: string) => void
   onAssign: (squadId: string, leader: SquadLeader | null) => void
+  onPlaceSquad: (squadId: string, toIndex: number) => void
   onMarch: () => void
 }
 
@@ -32,6 +36,12 @@ function statLine(s: ReturnType<typeof resolveSquadStats>) {
   if (s.quills > 0) bits.push('quills')
   if (s.frenzy > 0) bits.push('frenzy')
   return bits.join(' · ')
+}
+
+function speedLane(moveSpeed: number): 'front' | 'middle' | 'back' {
+  if (moveSpeed <= 2.2) return 'front'
+  if (moveSpeed >= 3.2) return 'back'
+  return 'middle'
 }
 
 function leaderKey(leader: SquadLeader | null): string {
@@ -83,6 +93,7 @@ function PotentialCard({
       <div className="squad-head">
         <span className="name potential-name">{potential.name}</span>
         <span className="count">
+          <UnitShape typeId={potential.typeId} />
           <UnitName typeId={potential.typeId} />
         </span>
       </div>
@@ -157,11 +168,17 @@ function OfferCard({
     <li className={`offer ${afford ? '' : 'poor'}`}>
       <div className="offer-head">
         <span className="name">
+            <UnitShape typeId={offer.typeId} />
           <UnitName typeId={offer.typeId} /> ×{offer.count}
         </span>
         <span className="cost">{offer.cost}</span>
       </div>
       <div className="statline">{statLine(stats)}</div>
+      <div className="quick-breakdown">
+        <span className="pill">SPD {stats.moveSpeed.toFixed(1)}</span>
+        <span className="pill">RNG {stats.range.toFixed(0)}</span>
+        <span className="pill">HP {stats.hp.toFixed(0)}</span>
+      </div>
 
       {offer.potentials.length > 0 ? (
         <div className="offer-potentials">
@@ -224,9 +241,11 @@ function SquadLeaderSelect({
   )
 }
 
-export default function Camp({ run, onBuy, onAssign, onMarch }: Props) {
+export default function Camp({ run, onBuy, onAssign, onPlaceSquad, onMarch }: Props) {
   const { warband, encounter } = run
   const [openInfantry, setOpenInfantry] = useState(false)
+  const [dragSquadId, setDragSquadId] = useState<string | null>(null)
+  const [dropSlot, setDropSlot] = useState<number | null>(null)
   const bodies = totalBodies(warband)
   const fodder = totalFodder(warband)
   const breakdown = fodderByType(warband)
@@ -235,6 +254,37 @@ export default function Camp({ run, onBuy, onAssign, onMarch }: Props) {
     warband.officers.length +
     warband.potentials.length -
     leadingSquads.length
+
+  const onDragStartSquad = (event: DragEvent<HTMLLIElement>, squadId: string) => {
+    setDragSquadId(squadId)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', squadId)
+  }
+
+  const onDragOverSlot = (event: DragEvent<HTMLLIElement>, slot: number) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    if (dropSlot !== slot) setDropSlot(slot)
+  }
+
+  const onDropSlot = (event: DragEvent<HTMLLIElement>, slot: number) => {
+    event.preventDefault()
+    const payload = event.dataTransfer.getData('text/plain')
+    if (!dragSquadId && !payload) return
+    if (!dragSquadId && payload) setDragSquadId(payload)
+    commitDrop(slot)
+  }
+
+  const commitDrop = (slot: number) => {
+    if (!dragSquadId) return
+    const from = warband.squads.findIndex((sq) => sq.id === dragSquadId)
+    if (from < 0) return
+    let to = slot
+    if (from < to) to -= 1
+    if (to !== from) onPlaceSquad(dragSquadId, to)
+    setDragSquadId(null)
+    setDropSlot(null)
+  }
 
   return (
     <div className="camp">
@@ -281,21 +331,62 @@ export default function Camp({ run, onBuy, onAssign, onMarch }: Props) {
       <div className="camp-cols">
         <section className="col">
           <h2>Squads</h2>
-          <ul className="squads">
-            {warband.squads.map((sq) => (
-              <li key={sq.id} className="squad">
+          <p className="hint ordering-hint">Ordering tip: slower squads up front, faster squads in back.</p>
+          <ul className="squads squad-order-list">
+            {warband.squads.map((sq, index) => {
+              const officer = findOfficer(warband, sq)
+              const leadingPotential = findLeadingPotential(warband, sq)
+              const stats = resolveSquadStats(sq, officer, leadingPotential)
+              const lane = speedLane(stats.moveSpeed)
+
+              return (
+              <Fragment key={sq.id}>
+                <li
+                  className={dropSlot === index ? 'drop-slot active' : 'drop-slot'}
+                  onDragOver={(e) => onDragOverSlot(e, index)}
+                  onDrop={(e) => onDropSlot(e, index)}
+                />
+              <li
+                className={dragSquadId === sq.id ? 'squad dragging' : 'squad'}
+                draggable
+                onDragStart={(e) => onDragStartSquad(e, sq.id)}
+                onDragOver={(e) => onDragOverSlot(e, index)}
+                onDrop={(e) => onDropSlot(e, index)}
+                onDragEnd={() => {
+                  setDragSquadId(null)
+                  setDropSlot(null)
+                }}
+              >
                 <div className="squad-head">
                   <span className="name">
+                    <UnitShape typeId={sq.typeId} />
                     <UnitName typeId={sq.typeId} />
                   </span>
                   <span className="count">×{sq.count}</span>
+                </div>
+                <div className="squad-order-controls">
+                  <span className="order-label">Line {index + 1}</span>
+                  <span className="drag-hint">{lane === 'front' ? 'Frontline pace' : lane === 'back' ? 'Backline pace' : 'Midline pace'} · drag to reorder</span>
+                </div>
+                <div className="quick-breakdown">
+                  <span className="pill">SPD {stats.moveSpeed.toFixed(1)}</span>
+                  <span className="pill">RNG {stats.range.toFixed(0)}</span>
+                  <span className="pill">HP {stats.hp.toFixed(0)}</span>
+                  <span className="pill">ARM {stats.armor.toFixed(1)}</span>
                 </div>
                 <div className={`lead-chip ${sq.leader ? 'active' : 'inactive'}`}>
                   {leaderNote(sq, warband)}
                 </div>
                 <SquadLeaderSelect squad={sq} warband={warband} onAssign={onAssign} />
               </li>
-            ))}
+              </Fragment>
+              )
+            })}
+            <li
+              className={dropSlot === warband.squads.length ? 'drop-slot active' : 'drop-slot'}
+              onDragOver={(e) => onDragOverSlot(e, warband.squads.length)}
+              onDrop={(e) => onDropSlot(e, warband.squads.length)}
+            />
             {warband.squads.length === 0 && <p className="hint">No squads.</p>}
           </ul>
           {idleLeaders > 0 && (

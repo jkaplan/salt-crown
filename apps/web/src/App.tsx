@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, type CSSProperties } from 'react'
 import {
   ENCOUNTERS_PER_RUN,
   advance,
@@ -7,6 +7,7 @@ import {
   buy,
   march,
   newRun,
+  placeSquad,
   resolveBattle,
   totalBodies,
 } from '@salt/game'
@@ -29,6 +30,7 @@ export default function App() {
   const [panelOpen, setPanelOpen] = useState(true)
   const [seedText, setSeedText] = useState('salt-crown')
   const [phase, setPhase] = useState<'start' | 'leader' | 'campaign'>('start')
+  const [playerColor, setPlayerColor] = useState('#7fc7bb')
   const [run, setRun] = useState<RunState>(() => newRun('salt-crown'))
   const [setup, setSetup] = useState<BattleSetup | null>(null)
   const [liveStats, setLiveStats] = useState<ViewStats | null>(null)
@@ -69,7 +71,7 @@ export default function App() {
 
   if (mode === 'skirmish') {
     return (
-      <Shell mode={mode} setMode={setMode} panelOpen={panelOpen} setPanelOpen={setPanelOpen} run={run} setup={setup} liveStats={liveStats}>
+      <Shell mode={mode} setMode={setMode} panelOpen={panelOpen} setPanelOpen={setPanelOpen} run={run} setup={setup} liveStats={liveStats} playerColor={playerColor}>
         <Skirmish />
       </Shell>
     )
@@ -77,10 +79,12 @@ export default function App() {
 
   if (mode === 'campaign' && phase === 'start') {
     return (
-      <Shell mode={mode} setMode={setMode} panelOpen={panelOpen} setPanelOpen={setPanelOpen} run={run} setup={setup} liveStats={liveStats}>
+      <Shell mode={mode} setMode={setMode} panelOpen={panelOpen} setPanelOpen={setPanelOpen} run={run} setup={setup} liveStats={liveStats} playerColor={playerColor}>
         <StartScreen
           seedText={seedText}
+          playerColor={playerColor}
           onSeedChange={setSeedText}
+          onPlayerColorChange={setPlayerColor}
           onStart={startSeedSelection}
         />
       </Shell>
@@ -89,7 +93,7 @@ export default function App() {
 
   if (mode === 'campaign' && phase === 'leader') {
     return (
-      <Shell mode={mode} setMode={setMode} panelOpen={panelOpen} setPanelOpen={setPanelOpen} run={run} setup={setup} liveStats={liveStats}>
+      <Shell mode={mode} setMode={setMode} panelOpen={panelOpen} setPanelOpen={setPanelOpen} run={run} setup={setup} liveStats={liveStats} playerColor={playerColor}>
         <LeaderSelect
           seed={seedText}
           onSelect={startCampaign}
@@ -99,12 +103,13 @@ export default function App() {
   }
 
   return (
-    <Shell mode={mode} setMode={setMode} panelOpen={panelOpen} setPanelOpen={setPanelOpen} run={run} setup={setup} liveStats={liveStats}>
+    <Shell mode={mode} setMode={setMode} panelOpen={panelOpen} setPanelOpen={setPanelOpen} run={run} setup={setup} liveStats={liveStats} playerColor={playerColor}>
       {run.phase === 'camp' && (
         <Camp
           run={run}
           onBuy={(id) => setRun(buy(run, id))}
           onAssign={(sq, leader) => setRun(assignLeader(run, sq, leader))}
+          onPlaceSquad={(sq, toIndex) => setRun(placeSquad(run, sq, toIndex))}
           onMarch={onMarch}
         />
       )}
@@ -112,6 +117,7 @@ export default function App() {
       {run.phase === 'battle' && setup && (
         <BattleScreen
           config={setup.config}
+          playerColor={playerColor}
           title={`${run.encounter.name} — ${run.encounterIndex + 1}/${ENCOUNTERS_PER_RUN}`}
           onStats={setLiveStats}
           onDone={onDone}
@@ -160,6 +166,7 @@ function Shell({
   run,
   setup,
   liveStats,
+  playerColor,
   children,
 }: {
   mode: Mode
@@ -169,10 +176,13 @@ function Shell({
   run: RunState
   setup: BattleSetup | null
   liveStats: ViewStats | null
+  playerColor: string
   children: React.ReactNode
 }) {
+  const shellStyle: CSSProperties = { ['--a' as string]: playerColor }
+
   return (
-    <div className="app">
+    <div className="app" style={shellStyle}>
       <header>
         <h1>Salt Crown</h1>
         <span className="milestone">M1</span>

@@ -19,7 +19,8 @@ export default function UnitName({ typeId }: { typeId: number }) {
         <span className="tip-desc">{type.description}</span>
         <span className="tip-effect">
           {s.hp} hp · {s.damage} dmg · {s.armor} armour ·{' '}
-          {s.range > 40 ? `${s.range} range` : 'melee'}
+          {s.range > 40 ? `${s.range} range` : 'melee'} · {s.moveSpeed.toFixed(1)} speed ·{' '}
+          {(s.accuracy * 100).toFixed(0)}% acc
         </span>
         <span className="tip-scale">
           {type.cost} salvage each

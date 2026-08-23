@@ -148,6 +148,37 @@ export function assignLeader(
   return { ...state, warband: { ...state.warband, squads } }
 }
 
+/**
+ * Reorders squads in camp. Order matters because squad order feeds directly
+ * into battle formation placement.
+ */
+export function moveSquad(state: RunState, squadId: string, dir: -1 | 1): RunState {
+  const from = state.warband.squads.findIndex((sq) => sq.id === squadId)
+  if (from < 0) return state
+  const to = from + dir
+  if (to < 0 || to >= state.warband.squads.length) return state
+
+  const squads = [...state.warband.squads]
+  const [picked] = squads.splice(from, 1)
+  squads.splice(to, 0, picked)
+  return { ...state, warband: { ...state.warband, squads } }
+}
+
+/**
+ * Places a squad at an explicit index, used by drag-and-drop ordering.
+ */
+export function placeSquad(state: RunState, squadId: string, toIndex: number): RunState {
+  const from = state.warband.squads.findIndex((sq) => sq.id === squadId)
+  if (from < 0) return state
+  if (toIndex < 0 || toIndex >= state.warband.squads.length) return state
+  if (from === toIndex) return state
+
+  const squads = [...state.warband.squads]
+  const [picked] = squads.splice(from, 1)
+  squads.splice(toIndex, 0, picked)
+  return { ...state, warband: { ...state.warband, squads } }
+}
+
 export interface BattleSetup {
   config: BattleConfig
   /** Parallel to the leading team-A groups in `config.groups`. */

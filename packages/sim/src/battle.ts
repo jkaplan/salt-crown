@@ -6,7 +6,40 @@ import type { BattleConfig, GroupResult, SimGroup, Winner } from './types.js'
 const CELL_SIZE = 48
 const DEFAULT_MAX_TICKS = 20 * 180
 const ROWS = 30
-const SPACING = 28
+const MAX_FIGHTERS_PER_LINE = 10
+const ROW_SPACING = 36
+const LINE_SPACING = 44
+const SQUAD_GAP_LINES = 1.2
+const FORMATION_OFFSET = 150
+const SEPARATION_BUFFER = 10
+const SEPARATION_PASSES = 3
+const RANGE_HYSTERESIS = 6
+const MELEE_KNOCKBACK = 2.4
+const RANGED_KNOCKBACK = 0.9
+const ARENA_SCALE_THRESHOLD = 240
+const ARENA_SCALE_STEP = 120
+const ARENA_GROWTH_W = 140
+const ARENA_GROWTH_H = 80
+const MAX_WORLD_W = 3200
+const MAX_WORLD_H = 1800
+
+function clamp(value: number, min: number, max: number): number {
+  if (value < min) return min
+  if (value > max) return max
+  return value
+}
+
+function scaledArenaSize(totalCombatants: number): { width: number; height: number } {
+  if (totalCombatants <= ARENA_SCALE_THRESHOLD) {
+    return { width: WORLD_W, height: WORLD_H }
+  }
+  const extra = totalCombatants - ARENA_SCALE_THRESHOLD
+  const steps = Math.ceil(extra / ARENA_SCALE_STEP)
+  return {
+    width: Math.min(MAX_WORLD_W, WORLD_W + steps * ARENA_GROWTH_W),
+    height: Math.min(MAX_WORLD_H, WORLD_H + steps * ARENA_GROWTH_H),
+  }
+}
 
 /** Forward neighbours only — E, SE, S, SW — so each pair is visited once. */
 const NEIGHBOR_DX = [1, 1, 0, -1]
@@ -34,6 +67,8 @@ function hashBytes(h: number, view: ArrayBufferView): number {
  */
 export class Battle {
   readonly count: number
+  readonly worldW: number
+  readonly worldH: number
   readonly groups: readonly SimGroup[]
   readonly maxTicks: number
 
@@ -69,6 +104,7 @@ export class Battle {
   private readonly target: Int32Array
   private readonly sepX: Float32Array
   private readonly sepY: Float32Array
+  private readonly knockX: Float32Array
   /** Damage accumulated this tick, applied in phase 2. */
   private readonly damage: Float32Array
 
@@ -83,6 +119,9 @@ export class Battle {
     let total = 0
     for (const g of config.groups) total += g.count
     this.count = total
+    const arena = scaledArenaSize(total)
+    this.worldW = arena.width
+    this.worldH = arena.height
 
     this.x = new Float32Array(total)
     this.y = new Float32Array(total)
@@ -97,6 +136,7 @@ export class Battle {
     this.target = new Int32Array(total)
     this.sepX = new Float32Array(total)
     this.sepY = new Float32Array(total)
+    this.knockX = new Float32Array(total)
     this.damage = new Float32Array(total)
 
     const gn = config.groups.length
@@ -107,7 +147,7 @@ export class Battle {
     this.groupDamageDealt = new Float32Array(gn)
     this.groupDamageTaken = new Float32Array(gn)
 
-    this.grid = new SpatialGrid(WORLD_W, WORLD_H, CELL_SIZE, total)
+    this.grid = new SpatialGrid(this.worldW, this.worldH, CELL_SIZE, total)
 
     this.place()
 
@@ -129,7 +169,9 @@ export class Battle {
    * screen the shooters.
    */
   private place(): void {
-    const centreY = WORLD_H / 2
+    const centreY = this.worldH / 2
+    const rowsByViewport = Math.max(1, Math.min(ROWS, Math.floor((this.worldH - 40) / ROW_SPACING)))
+    const rowsPerColumn = Math.min(MAX_FIGHTERS_PER_LINE, rowsByViewport)
     let idx = 0
 
     for (const team of [TEAM_A, TEAM_B] as const) {
@@ -138,7 +180,7 @@ export class Battle {
         .filter((e) => e.g.team === team)
         .sort((a, b) => a.g.stats.range - b.g.stats.range || a.i - b.i)
 
-      const anchorX = WORLD_W / 2 + (team === TEAM_A ? -200 : 200)
+      const anchorX = this.worldW / 2 + (team === TEAM_A ? -FORMATION_OFFSET : FORMATION_OFFSET)
       const dir = team === TEAM_A ? -1 : 1
       let col = 0
 
@@ -146,9 +188,13 @@ export class Battle {
         this.groupFirstUnit[i] = idx
         const commanderOffset = g.leaderLabel ? this.rng.int(g.count) : -1
         for (let k = 0; k < g.count; k++, idx++) {
-          const row = k % ROWS
-          const colOffset = (k / ROWS) | 0
+          const row = k % rowsPerColumn
+          const colOffset = (k / rowsPerColumn) | 0
           const commanderBias = k === commanderOffset ? -0.38 : 0
+          const radius = g.stats.radius
+          const rawX =
+            anchorX + dir * (col + colOffset + commanderBias) * LINE_SPACING + this.rng.range(-3, 3)
+          const rawY = centreY + (row - (rowsPerColumn - 1) / 2) * ROW_SPACING + this.rng.range(-3, 3)
           this.group[idx] = i
           this.team[idx] = team
           this.hp[idx] = g.stats.hp
@@ -156,10 +202,10 @@ export class Battle {
           this.alive[idx] = 1
           this.cooldown[idx] = 0
           this.target[idx] = -1
-          this.x[idx] = anchorX + dir * (col + colOffset + commanderBias) * SPACING + this.rng.range(-3, 3)
-          this.y[idx] = centreY + (row - (ROWS - 1) / 2) * SPACING + this.rng.range(-3, 3)
+          this.x[idx] = clamp(rawX, radius, this.worldW - radius)
+          this.y[idx] = clamp(rawY, radius, this.worldH - radius)
         }
-        col += Math.ceil(g.count / ROWS)
+        col += Math.ceil(g.count / rowsPerColumn) + SQUAD_GAP_LINES
       }
     }
   }
@@ -200,7 +246,7 @@ export class Battle {
     if (this.finished) return
     this.tick++
 
-    const { x, y, px, py, hp, maxHp, alive, cooldown, target, damage, group, groupEff, rng } = this
+    const { x, y, px, py, hp, maxHp, alive, cooldown, target, damage, group, groupEff, knockX, rng } = this
     const groups = this.groups
     const count = this.count
 
@@ -208,6 +254,7 @@ export class Battle {
     py.set(y)
     this.grid.build(count, px, py, alive)
     damage.fill(0)
+    knockX.fill(0)
     this.updateMorale()
 
     // Phase 1 — intent. Reads only the snapshot; writes movement and damage.
@@ -231,15 +278,15 @@ export class Battle {
       if (t < 0) continue
 
       const dx = px[t] - px[i]
-      const dy = py[t] - py[i]
-      const d2 = dx * dx + dy * dy
+      const tt = groups[group[t]].stats
+      const engageRange = st.range + tt.radius + RANGE_HYSTERESIS
+      const absDx = Math.abs(dx)
 
-      if (d2 > st.range * st.range) {
-        const d = Math.sqrt(d2)
-        if (d > 1e-6) {
-          const inv = st.moveSpeed / d
-          x[i] += dx * inv
-          y[i] += dy * inv
+      if (absDx > engageRange) {
+        if (absDx > 1e-6) {
+          const gap = absDx - engageRange
+          const step = Math.min(st.moveSpeed * 0.65, gap)
+          x[i] += dx > 0 ? step : -step
         }
       } else if (cooldown[i] === 0) {
         // Frenzy: swings come faster the closer to death this unit is.
@@ -251,7 +298,6 @@ export class Battle {
         }
         cooldown[i] = interval
 
-        const tt = groups[group[t]].stats
         let chance = st.accuracy - tt.evade
         if (chance < 0.05) chance = 0.05
         else if (chance > 0.95) chance = 0.95
@@ -262,6 +308,13 @@ export class Battle {
           const raw = st.damage * groupEff[gi] - tt.armor
           const dealt = raw > 1 ? raw : 1
           damage[t] += dealt
+
+          const dir = dx >= 0 ? 1 : -1
+          const baseKnock = st.range <= MELEE_RANGE ? MELEE_KNOCKBACK : RANGED_KNOCKBACK
+          const knock = Math.min(baseKnock, dealt * 0.14)
+          knockX[t] += dir * knock
+          knockX[i] -= dir * knock * 0.45
+
           this.groupDamageDealt[gi] += dealt
           this.groupDamageTaken[group[t]] += dealt
           if (tt.quills > 0 && st.range <= MELEE_RANGE) {
@@ -278,6 +331,11 @@ export class Battle {
       if (alive[i] === 0 || damage[i] === 0) continue
       hp[i] -= damage[i]
       if (hp[i] <= 0) this.kill(i)
+    }
+
+    for (let i = 0; i < count; i++) {
+      if (alive[i] === 0) continue
+      x[i] = clamp(x[i] + knockX[i], 0, this.worldW)
     }
 
     this.separate()
@@ -381,46 +439,49 @@ export class Battle {
     const { starts, items, cols, rows } = grid
     const count = this.count
 
-    sepX.fill(0)
-    sepY.fill(0)
+    for (let pass = 0; pass < SEPARATION_PASSES; pass++) {
+      grid.build(count, x, y, alive)
+      sepX.fill(0)
+      sepY.fill(0)
 
-    for (let gy = 0; gy < rows; gy++) {
-      for (let gx = 0; gx < cols; gx++) {
-        const c = gy * cols + gx
-        const s = starts[c]
-        const e = starts[c + 1]
-        if (s === e) continue
+      for (let gy = 0; gy < rows; gy++) {
+        for (let gx = 0; gx < cols; gx++) {
+          const c = gy * cols + gx
+          const s = starts[c]
+          const e = starts[c + 1]
+          if (s === e) continue
 
-        for (let a = s; a < e; a++) {
-          const i = items[a]
-          for (let b = a + 1; b < e; b++) this.pushApart(i, items[b])
-        }
-
-        for (let n = 0; n < 4; n++) {
-          const nx = gx + NEIGHBOR_DX[n]
-          const ny = gy + NEIGHBOR_DY[n]
-          if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue
-          const c2 = ny * cols + nx
-          const s2 = starts[c2]
-          const e2 = starts[c2 + 1]
           for (let a = s; a < e; a++) {
             const i = items[a]
-            for (let b = s2; b < e2; b++) this.pushApart(i, items[b])
+            for (let b = a + 1; b < e; b++) this.pushApart(i, items[b])
+          }
+
+          for (let n = 0; n < 4; n++) {
+            const nx = gx + NEIGHBOR_DX[n]
+            const ny = gy + NEIGHBOR_DY[n]
+            if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue
+            const c2 = ny * cols + nx
+            const s2 = starts[c2]
+            const e2 = starts[c2 + 1]
+            for (let a = s; a < e; a++) {
+              const i = items[a]
+              for (let b = s2; b < e2; b++) this.pushApart(i, items[b])
+            }
           }
         }
       }
-    }
 
-    for (let i = 0; i < count; i++) {
-      if (alive[i] === 0) continue
-      let nx = x[i] + sepX[i]
-      let ny = y[i] + sepY[i]
-      if (nx < 0) nx = 0
-      else if (nx > WORLD_W) nx = WORLD_W
-      if (ny < 0) ny = 0
-      else if (ny > WORLD_H) ny = WORLD_H
-      x[i] = nx
-      y[i] = ny
+      for (let i = 0; i < count; i++) {
+        if (alive[i] === 0) continue
+        let nx = x[i] + sepX[i]
+        let ny = y[i] + sepY[i]
+        if (nx < 0) nx = 0
+        else if (nx > this.worldW) nx = this.worldW
+        if (ny < 0) ny = 0
+        else if (ny > this.worldH) ny = this.worldH
+        x[i] = nx
+        y[i] = ny
+      }
     }
   }
 
@@ -429,7 +490,8 @@ export class Battle {
     const dx = x[j] - x[i]
     const dy = y[j] - y[i]
     const d2 = dx * dx + dy * dy
-    const minD = groups[group[i]].stats.radius + groups[group[j]].stats.radius
+    const baseMinD = groups[group[i]].stats.radius + groups[group[j]].stats.radius
+    const minD = baseMinD + SEPARATION_BUFFER
     if (d2 >= minD * minD) return
 
     if (d2 > 1e-6) {
@@ -443,8 +505,8 @@ export class Battle {
       sepY[j] += uy
     } else {
       // Exactly coincident. Nudge by index so the tie-break is deterministic.
-      sepX[i] -= 0.05
-      sepX[j] += 0.05
+      sepX[i] -= 0.12
+      sepX[j] += 0.12
     }
   }
 

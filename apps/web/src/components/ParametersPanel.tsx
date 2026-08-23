@@ -41,7 +41,14 @@ function leaderText(leader: SquadLeader | null, run: RunState): string {
 
 function squadStatsLine(squad: RunState['warband']['squads'][number], run: RunState): string {
   const stats = resolveSquadStats(squad, findOfficer(run.warband, squad))
-  return `${stats.hp.toFixed(0)} hp · ${stats.damage.toFixed(1)} dmg · ${stats.armor.toFixed(1)} arm${stats.range > 40 ? ` · ${stats.range.toFixed(0)} range` : ''}`
+  return [
+    `${stats.hp.toFixed(0)} hp`,
+    `${stats.damage.toFixed(1)} dmg`,
+    `${stats.armor.toFixed(1)} arm`,
+    stats.range > 40 ? `${stats.range.toFixed(0)} range` : 'melee',
+    `${stats.moveSpeed.toFixed(1)} speed`,
+    `${(stats.accuracy * 100).toFixed(0)}% acc`,
+  ].join(' · ')
 }
 
 function combatantStatsLine(combatant: NonNullable<ViewStats['combatants']>[number]): string {
@@ -185,7 +192,7 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
             return (
               <article key={potential.id} className="parameter-card potential-card">
                 <strong>{potentialTitle(potential, unitType(potential.typeId).name)}</strong>
-                <span>{stats.hp.toFixed(0)} hp · {stats.damage.toFixed(1)} dmg · {stats.armor.toFixed(1)} arm</span>
+                <span>{stats.hp.toFixed(0)} hp · {stats.damage.toFixed(1)} dmg · {stats.armor.toFixed(1)} arm · {stats.moveSpeed.toFixed(1)} speed · {(stats.accuracy * 100).toFixed(0)}% acc</span>
                 <span>{potential.mutations.length} mutation{potential.mutations.length === 1 ? '' : 's'}</span>
               </article>
             )
@@ -203,7 +210,7 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
                 <span>{group.count} bodies · discipline {(group.discipline * 100).toFixed(0)}%</span>
                 <span>Leader: {group.leaderLabel ?? 'none'}</span>
                 <span>{group.stats.hp.toFixed(0)} hp · {group.stats.damage.toFixed(1)} dmg · {group.stats.armor.toFixed(1)} arm</span>
-                <span>{group.stats.range > 40 ? `${group.stats.range.toFixed(0)} range` : 'melee'} · {group.stats.attackInterval} tick interval</span>
+                <span>{group.stats.range > 40 ? `${group.stats.range.toFixed(0)} range` : 'melee'} · {group.stats.moveSpeed.toFixed(1)} speed · {(group.stats.accuracy * 100).toFixed(0)}% acc · {group.stats.attackInterval} tick interval</span>
               </article>
             ))}
           </div>

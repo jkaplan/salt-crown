@@ -47,6 +47,8 @@ export interface SimGroup {
   count: number
   label: string
   color: number
+  /** Stable body shape index used by the renderer. */
+  shape: number
   stats: ResolvedStats
   /**
    * How well this group keeps fighting as it bleeds: the damage multiplier it

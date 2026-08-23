@@ -13,13 +13,19 @@ function generateRandomSeed(): string {
   return `${pick(WORLD_WORDS)}-${pick(WORLD_WORDS)}`.toLowerCase()
 }
 
+const PLAYER_PALETTE = ['#7fc7bb', '#9ac7ff', '#d7b3ff', '#ffbe7a', '#8fe38c']
+
 export default function StartScreen({
   seedText,
+  playerColor,
   onSeedChange,
+  onPlayerColorChange,
   onStart,
 }: {
   seedText: string
+  playerColor: string
   onSeedChange: (seed: string) => void
+  onPlayerColorChange: (color: string) => void
   onStart: () => void
 }) {
   const handleSubmit = (e: React.FormEvent) => {
@@ -57,6 +63,23 @@ export default function StartScreen({
               , or anything.
             </span>
           </label>
+
+          <div className="palette-block">
+            <span className="label">Choose your color</span>
+            <div className="color-palette">
+              {PLAYER_PALETTE.map((swatch) => (
+                <button
+                  key={swatch}
+                  type="button"
+                  className={swatch === playerColor ? 'swatch on' : 'swatch'}
+                  onClick={() => onPlayerColorChange(swatch)}
+                  aria-label={`Choose ${swatch} as your color`}
+                  style={{ background: swatch }}
+                />
+              ))}
+            </div>
+          </div>
+
           <button type="submit" className="start-btn">
             Begin Campaign
           </button>

@@ -279,7 +279,7 @@ input[type="text"], input:not([type]) {
   font: inherit;
 }
 
-input[type="range"] { width: 100%; margin-top: 6px; accent-color: var(--b); }
+input[type="range"] { width: 100%; margin-top: 6px; accent-color: var(--a); }
 
 .row { display: flex; gap: 6px; }
 .row + .row { margin-top: 6px; }
@@ -296,7 +296,7 @@ button {
 }
 button:hover:not(:disabled) { background: #2c231a; }
 button:disabled { opacity: 0.5; cursor: default; }
-button.on { background: var(--b); border-color: var(--b); color: #1a1108; }
+button.on { background: var(--a); border-color: var(--a); color: #101614; }
 
 dl {
   display: grid;
@@ -355,19 +355,19 @@ header nav button { flex: none; padding: 5px 14px; font-size: 12px; }
 }
 
 .hero-primary {
-  border-color: #5a4a2a;
+  border-color: color-mix(in srgb, var(--a) 44%, #5a4a2a);
   background: linear-gradient(180deg, #17130f 0%, #13100d 100%);
 }
 
 .hero-label {
-  color: #d9c56a;
+  color: color-mix(in srgb, var(--a) 62%, #f0e0b0);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
 
 .hero-card strong {
-  color: #f0e0b0;
+  color: color-mix(in srgb, var(--a) 34%, #f0e0b0);
   font-size: 18px;
   line-height: 1.1;
 }
@@ -421,12 +421,108 @@ header nav button { flex: none; padding: 5px 14px; font-size: 12px; }
   color: var(--dim);
 }
 
+.squad-order-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.order-label {
+  margin-right: auto;
+  color: var(--dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.drag-hint {
+  color: color-mix(in srgb, var(--a) 54%, var(--dim));
+  font-size: 11px;
+}
+
+.ordering-hint {
+  margin-top: -2px;
+  margin-bottom: 10px;
+}
+
+.quick-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--a) 26%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--a) 8%, #16120f);
+  color: color-mix(in srgb, var(--a) 48%, var(--ink));
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.squad-order-list .drop-slot {
+  list-style: none;
+  height: 14px;
+  margin: 2px 0;
+  border-radius: 999px;
+  border: 1px dashed transparent;
+  background: transparent;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.squad-order-list .drop-slot.active {
+  border-color: color-mix(in srgb, var(--a) 50%, transparent);
+  background: color-mix(in srgb, var(--a) 18%, transparent);
+}
+
+.squad-order-list .squad {
+  cursor: grab;
+}
+
+.squad-order-list .squad.dragging {
+  opacity: 0.65;
+  border-color: color-mix(in srgb, var(--a) 40%, var(--line));
+}
+
 .squad-head, .offer-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .name { font-weight: 600; }
+.name {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
 .name.mutant { color: #9ab84e; }
 .name.truekin { color: #d8b978; }
 .count { color: var(--dim); font-variant-numeric: tabular-nums; }
 .cost { color: #e0b25e; font-variant-numeric: tabular-nums; }
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.unit-shape {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--a) 68%, #f2e4c6);
+  opacity: 0.92;
+}
+
+.unit-shape-fill {
+  fill: currentColor;
+  stroke: color-mix(in srgb, currentColor 58%, #070504);
+  stroke-width: 2.1;
+  vector-effect: non-scaling-stroke;
+}
 
 .tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 7px 0 0; }
 .tag {
@@ -744,11 +840,12 @@ h2.spaced { margin-top: 22px; }
 
 .start-card {
   width: min(500px, 100%);
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--a) 30%, var(--line));
   border-radius: 8px;
   background: var(--panel);
   padding: 48px 40px;
   text-align: center;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a) 10%, transparent);
 }
 
 .start-card h1 {
@@ -756,6 +853,7 @@ h2.spaced { margin-top: 22px; }
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin: 0 0 16px;
+  color: color-mix(in srgb, var(--a) 30%, var(--ink));
 }
 
 .tagline {
@@ -824,7 +922,40 @@ h2.spaced { margin-top: 22px; }
 
 .start-card input[type="text"]:focus {
   outline: none;
-  border-color: var(--b);
+  border-color: var(--a);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--a) 20%, transparent);
+}
+
+.palette-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.color-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.swatch:hover {
+  transform: translateY(-1px);
+}
+
+.swatch.on {
+  border-color: color-mix(in srgb, var(--a) 70%, #f3e5c1);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12), 0 0 0 4px color-mix(in srgb, var(--a) 28%, transparent);
 }
 
 .start-card .hint {
@@ -844,18 +975,19 @@ h2.spaced { margin-top: 22px; }
 
 .start-btn {
   padding: 12px;
-  background: var(--b);
-  border: 1px solid var(--b);
+  background: var(--a);
+  border: 1px solid var(--a);
   border-radius: 3px;
-  color: #1a1108;
+  color: #101614;
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, box-shadow 0.2s;
 }
 
 .start-btn:hover {
-  background: #e89660;
+  background: color-mix(in srgb, var(--a) 84%, white);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--a) 34%, transparent);
 }
 
 /* ---- leader select ---- */
@@ -868,7 +1000,7 @@ h2.spaced { margin-top: 22px; }
 
 .leader-card {
   width: min(600px, 100%);
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--a) 26%, var(--line));
   border-radius: 8px;
   background: var(--panel);
   padding: 40px;
@@ -913,7 +1045,8 @@ h2.spaced { margin-top: 22px; }
 
 .leader-option:hover {
   background: #1c1813;
-  border-color: var(--b);
+  border-color: var(--a);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--a) 26%, transparent);
 }
 
 .leader-head {
@@ -983,7 +1116,8 @@ h2.spaced { margin-top: 22px; }
 
 .name-input:focus {
   outline: none;
-  border-color: var(--b);
+  border-color: var(--a);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--a) 20%, transparent);
 }
 
 .house-label {
