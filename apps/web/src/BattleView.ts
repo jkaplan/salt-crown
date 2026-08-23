@@ -47,9 +47,9 @@ const ENEMY_TINT = 0xc4653a
 const BODY_SHAPE_COUNT = 8
 /** Quantisation of the health-to-tint lookup table. */
 const TINT_STEPS = 48
-/** Visual-only attack lunge: how far a body leans in, and for how long. */
-const LUNGE_DISTANCE = 7
-const LUNGE_TICKS = 4
+/** Attack flash: how long the strike reads for, and its colour resolution. */
+const FLASH_TICKS = 5
+const FLASH_STEPS = 12
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
@@ -279,6 +279,9 @@ export class BattleView {
   private unitIsPlayer: Uint8Array = new Uint8Array(0)
   private playerTints: number[] = []
   private enemyTints: number[] = []
+  /** Strike flash, indexed by intensity. */
+  private playerFlash: number[] = []
+  private enemyFlash: number[] = []
   private acc = 0
   private simMsAvg = 0
   private lastEmit = 0
@@ -317,6 +320,16 @@ export class BattleView {
       const t = i / steps
       this.playerTints[i] = brightnessTint(this.playerColor, t)
       this.enemyTints[i] = brightnessTint(mixHex(ENEMY_TINT, 0xff4bd6, 0.3), t)
+    }
+
+    // Strike flash, indexed by intensity: the team colour at full brightness
+    // pushed toward white.
+    const playerFull = brightnessTint(this.playerColor, 1)
+    const enemyFull = brightnessTint(mixHex(ENEMY_TINT, 0xff4bd6, 0.3), 1)
+    for (let i = 0; i <= FLASH_STEPS; i++) {
+      const t = (i / FLASH_STEPS) * 0.8
+      this.playerFlash[i] = mixHex(playerFull, 0xffffff, t)
+      this.enemyFlash[i] = mixHex(enemyFull, 0xffffff, t)
     }
   }
 
@@ -564,6 +577,8 @@ export class BattleView {
     const isPlayer = this.unitIsPlayer
     const playerTints = this.playerTints
     const enemyTints = this.enemyTints
+    const playerFlash = this.playerFlash
+    const enemyFlash = this.enemyFlash
     const hp = b.hp
     const lastAttack = b.lastAttackTick
     const tick = b.tick
@@ -586,24 +601,28 @@ export class BattleView {
       sprite.alpha = 0.03 + curve * 0.97
 
       /*
-       * The bump. A short shove toward the enemy on the frame a blow lands,
-       * easing back over LUNGE_TICKS. Purely cosmetic — the sim never moves
-       * for it, which is the whole point: knockback in the sim made both
-       * parties physically recoil and then walk back in, so the line
-       * vibrated. Here it reads as bodies leaning into each other.
+       * Attacks flash rather than lunge.
+       *
+       * A positional lunge was 7px on a body only 14-24px across, firing on
+       * every swing — with a few hundred units at different phases that reads
+       * as the whole field vibrating, which is exactly what it looked like.
+       * The sim itself moves 0.5px/tick while engaged, so anything that
+       * shifts a body is louder than the actual combat.
+       *
+       * A brightness spike plus a symmetric scale pulse says "this one just
+       * struck" without translating anything.
        */
       const since = tick - lastAttack[i]
-      let lungeX = 0
-      let punch = 0
-      if (since >= 0 && since < LUNGE_TICKS) {
-        const t = 1 - since / LUNGE_TICKS
-        const eaased = t * t
-        lungeX = (isPlayer[i] === 1 ? 1 : -1) * LUNGE_DISTANCE * eaased
-        punch = eaased * 0.12
+      if (since >= 0 && since < FLASH_TICKS) {
+        const f = 1 - since / FLASH_TICKS
+        const fs = (f * f * FLASH_STEPS) | 0
+        sprite.tint = isPlayer[i] === 1 ? playerFlash[fs] : enemyFlash[fs]
+        sprite.scale.set(0.03 + curve * 1.2 + f * f * 0.09)
+      } else {
+        sprite.scale.set(0.03 + curve * 1.2)
       }
 
-      sprite.scale.set(0.03 + curve * 1.2 + punch)
-      sprite.x = px[i] + (x[i] - px[i]) * alpha + lungeX
+      sprite.x = px[i] + (x[i] - px[i]) * alpha
       sprite.y = py[i] + (y[i] - py[i]) * alpha
     }
 
