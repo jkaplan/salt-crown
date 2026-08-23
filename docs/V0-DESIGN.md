@@ -320,6 +320,10 @@ A slave, elevated to Firstborn by their owner as a House affectation, who walked
 
 The asymmetry is almost entirely **data** — starting roster, recruit price modifiers — not new systems. That's why two origins are affordable in V0 while House-specific bonuses are not.
 
+**Founding mutations.** Where the Scion picks a commander from three rolled Officers, the Freed Firstborn picks **up to 3 mutations** for themselves at run start. That's the mutant origin's character-creation step, and it's the right shape for it: the True Kin start is about *who leads you*, the mutant start is about *what you are*.
+
+It also seeds the whole run — those three mutations are the ones that leak to every squad you lead, so the opening choice sets the build you're pushing toward rather than just a stat bump. Picking fewer than 3 should be worth something (salvage, or a higher-level roll on the ones you do take), so "narrow and deep" is a real alternative to "wide and shallow."
+
 *Later: individual Houses as sub-origins with their own traditions and bonuses. V0.1.*
 
 ## 14. Open decisions
