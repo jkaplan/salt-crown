@@ -14,6 +14,8 @@ const FORMATION_OFFSET = 150
 const SEPARATION_BUFFER = 10
 const SEPARATION_PASSES = 3
 const RANGE_HYSTERESIS = 6
+/** Lateral correction is damped so lines close head-on rather than orbiting. */
+const LATERAL_DAMPING = 0.85
 const MELEE_KNOCKBACK = 2.4
 const RANGED_KNOCKBACK = 0.9
 const ARENA_SCALE_THRESHOLD = 240
@@ -278,15 +280,21 @@ export class Battle {
       if (t < 0) continue
 
       const dx = px[t] - px[i]
+      const dy = py[t] - py[i]
       const tt = groups[group[t]].stats
       const engageRange = st.range + tt.radius + RANGE_HYSTERESIS
-      const absDx = Math.abs(dx)
+      const d2 = dx * dx + dy * dy
 
-      if (absDx > engageRange) {
-        if (absDx > 1e-6) {
-          const gap = absDx - engageRange
-          const step = Math.min(st.moveSpeed * 0.65, gap)
-          x[i] += dx > 0 ? step : -step
+      if (d2 > engageRange * engageRange) {
+        const d = Math.sqrt(d2)
+        if (d > 1e-6) {
+          // Clamping the step to the remaining gap is what kills the jitter —
+          // a unit can never overshoot into its target and bounce back out.
+          const step = Math.min(st.moveSpeed, d - engageRange)
+          // Lane-style approach: close head-on, and correct laterally only
+          // gently, so lines converge instead of orbiting each other.
+          x[i] += (dx / d) * step
+          y[i] += (dy / d) * step * LATERAL_DAMPING
         }
       } else if (cooldown[i] === 0) {
         // Frenzy: swings come faster the closer to death this unit is.
@@ -439,8 +447,13 @@ export class Battle {
     const { starts, items, cols, rows } = grid
     const count = this.count
 
+    // Built once, not once per pass. Separation is iterative relaxation and
+    // positions drift only a little between passes, so a slightly stale grid
+    // costs nothing — while rebuilding it three times a tick was most of a 3x
+    // slowdown against the M0 baseline.
+    grid.build(count, x, y, alive)
+
     for (let pass = 0; pass < SEPARATION_PASSES; pass++) {
-      grid.build(count, x, y, alive)
       sepX.fill(0)
       sepY.fill(0)
 

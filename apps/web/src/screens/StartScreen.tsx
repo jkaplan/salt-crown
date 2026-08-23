@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 // World words for seed generation
 const WORLD_WORDS = [
   'Rust', 'Ash', 'Weir', 'Gutter', 'Cinder', 'Thrum', 'Chorus', 'Ashfall',

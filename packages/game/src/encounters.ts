@@ -54,7 +54,7 @@ export interface Encounter {
  * breaking the game isn't a reward. See docs/V0-DESIGN.md §7.
  */
 export function generateEncounter(rng: Rng, index: number): Encounter {
-  let budget = Math.round(80 + index * 62 + index * index * 8.5)
+  let budget = Math.round(72 + 53 * index + 6.5 * index * index)
   const truekinChance = 0.12 + index * 0.07
 
   const squads: Warband['squads'] = []

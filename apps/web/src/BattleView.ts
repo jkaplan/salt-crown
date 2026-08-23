@@ -415,7 +415,6 @@ export class BattleView {
     const tex = this.texture
     config.groups.forEach((group, gi) => {
       if (!group.leaderLabel) return
-      const friendly = group.team === TEAM_A
 
       const ring = new Sprite(tex)
       ring.anchor.set(0.5)
