@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   ENCOUNTERS_PER_RUN,
   OFFICER_RANKS_BY_ID,
@@ -23,6 +23,7 @@ interface Props {
   onBuy: (offerId: string) => void
   onAssign: (squadId: string, leader: SquadLeader | null) => void
   onMoveSquad: (squadId: string, dir: -1 | 1) => void
+  onPlaceSquad: (squadId: string, toIndex: number) => void
   onMarch: () => void
 }
 
@@ -120,45 +121,62 @@ function SquadRow({
   index,
   total,
   warband,
+  dragging,
+  insertBefore,
   onAssign,
   onMoveSquad,
+  onGripDown,
 }: {
   squad: Squad
   index: number
   total: number
   warband: Warband
+  dragging: boolean
+  insertBefore: boolean
   onAssign: Props['onAssign']
   onMoveSquad: Props['onMoveSquad']
+  onGripDown: (e: React.PointerEvent, squadId: string) => void
 }) {
   const officer = findOfficer(warband, squad)
   const potential = findLeadingPotential(warband, squad)
   const stats = resolveSquadStats(squad, officer, potential)
 
+  const className = [
+    'row',
+    'squad-row',
+    dragging ? 'dragging' : '',
+    insertBefore ? 'insert-before' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <li className="row squad-row">
+    <li className={className} data-squad-row>
       <div className="row-main">
+        {/* Grip is both the drag handle and the keyboard control, so reordering
+            works with a mouse, a finger, or arrow keys. */}
+        <button
+          className="grip"
+          onPointerDown={(e) => onGripDown(e, squad.id)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp' && index > 0) {
+              e.preventDefault()
+              onMoveSquad(squad.id, -1)
+            } else if (e.key === 'ArrowDown' && index < total - 1) {
+              e.preventDefault()
+              onMoveSquad(squad.id, 1)
+            }
+          }}
+          aria-label={`Reorder ${unitType(squad.typeId).name}, position ${index + 1} of ${total}`}
+        >
+          ⠿
+        </button>
         <UnitShape typeId={squad.typeId} />
         <span className="row-name">
           <UnitName typeId={squad.typeId} />
           <span className="mult">×{squad.count}</span>
         </span>
         <span className="row-pos">{index + 1}</span>
-        <span className="reorder">
-          <button
-            onClick={() => onMoveSquad(squad.id, -1)}
-            disabled={index === 0}
-            aria-label="Move forward"
-          >
-            ↑
-          </button>
-          <button
-            onClick={() => onMoveSquad(squad.id, 1)}
-            disabled={index === total - 1}
-            aria-label="Move back"
-          >
-            ↓
-          </button>
-        </span>
       </div>
       <Stats s={stats} />
       <LeaderSelect squad={squad} warband={warband} onAssign={onAssign} />
@@ -216,15 +234,17 @@ function OfferRow({
     const rank = OFFICER_RANKS_BY_ID.get(offer.officer.rankId)
     return (
       <li className={`row offer${afford ? '' : ' poor'}`}>
-        <div className="row-main">
-          <span className="row-name">
-            <b className="truekin">{officerTitle(offer.officer)}</b>
-            <span className="dim">{rank?.effect}</span>
+        {/* The whole row is the button. A small button inside a row is a
+            needlessly small target and was easy to miss entirely. */}
+        <button className="offer-hit" disabled={!afford} onClick={() => onBuy(offer.id)}>
+          <span className="row-main">
+            <span className="row-name">
+              <b className="truekin">{officerTitle(offer.officer)}</b>
+              <span className="dim">{rank?.effect}</span>
+            </span>
+            <span className="price-tag">{afford ? `Hire ${offer.cost}` : `${offer.cost}`}</span>
           </span>
-          <button className="buy" disabled={!afford} onClick={() => onBuy(offer.id)}>
-            {offer.cost}
-          </button>
-        </div>
+        </button>
       </li>
     )
   }
@@ -236,33 +256,31 @@ function OfferRow({
 
   return (
     <li className={`row offer${afford ? '' : ' poor'}`}>
-      <div className="row-main">
-        <UnitShape typeId={offer.typeId} />
-        <span className="row-name">
-          <UnitName typeId={offer.typeId} />
-          <span className="mult">×{offer.count}</span>
+      <button className="offer-hit" disabled={!afford} onClick={() => onBuy(offer.id)}>
+        <span className="row-main">
+          <UnitShape typeId={offer.typeId} />
+          <span className="row-name">
+            <span className={unitType(offer.typeId).lineage}>{unitType(offer.typeId).name}</span>
+            <span className="mult">×{offer.count}</span>
+          </span>
+          <span className="price-tag">{afford ? `Recruit ${offer.cost}` : `${offer.cost}`}</span>
         </span>
-        <button className="buy" disabled={!afford} onClick={() => onBuy(offer.id)}>
-          {offer.cost}
-        </button>
-      </div>
-      <Stats s={stats} />
-      {offer.potentials.length > 0 ? (
-        <div className="standouts">
-          {offer.potentials.map((p) => (
-            <div key={p.id} className="standout">
-              <b className="potential-name">{p.name}</b>
-              <span className="tags">
-                {p.mutations.map((m) => (
-                  <MutationTag key={m.id} roll={m} hot />
-                ))}
+        <Stats s={stats} />
+        {offer.potentials.length > 0 ? (
+          <span className="standouts">
+            {offer.potentials.map((p) => (
+              <span key={p.id} className="standout">
+                <b className="potential-name">{p.name}</b>
+                <span className="dim">
+                  {p.mutations.map((m) => `${m.id} ${m.level}`).join(', ')}
+                </span>
               </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="row-note">Bodies only — no standouts.</div>
-      )}
+            ))}
+          </span>
+        ) : (
+          <span className="row-note">Bodies only — no standouts.</span>
+        )}
+      </button>
     </li>
   )
 }
@@ -287,9 +305,50 @@ function Section({
   )
 }
 
-export default function Camp({ run, onBuy, onAssign, onMoveSquad, onMarch }: Props) {
+export default function Camp({ run, onBuy, onAssign, onMoveSquad, onPlaceSquad, onMarch }: Props) {
   const { warband, encounter } = run
+  const [tab, setTab] = useState<'warband' | 'recruit'>('warband')
   const [openInfantry, setOpenInfantry] = useState(false)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [dropAt, setDropAt] = useState<number | null>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+
+  /**
+   * Pointer events rather than HTML5 drag-and-drop. The previous version used
+   * `draggable` + dataTransfer, which needed three reliability fixes and does
+   * not fire at all on touch — it would have been dead on a phone.
+   */
+  const onGripDown = (e: React.PointerEvent, squadId: string) => {
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setDragId(squadId)
+    setDropAt(warband.squads.findIndex((s) => s.id === squadId))
+  }
+
+  const onGripMove = (e: React.PointerEvent) => {
+    if (!dragId || !listRef.current) return
+    const rows = Array.from(listRef.current.querySelectorAll('[data-squad-row]'))
+    let target = rows.length
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i].getBoundingClientRect()
+      if (e.clientY < r.top + r.height / 2) {
+        target = i
+        break
+      }
+    }
+    if (target !== dropAt) setDropAt(target)
+  }
+
+  const onGripUp = () => {
+    if (dragId && dropAt !== null) {
+      const from = warband.squads.findIndex((s) => s.id === dragId)
+      // Removing the dragged row first shifts every later slot down by one.
+      const to = from < dropAt ? dropAt - 1 : dropAt
+      if (from >= 0 && to !== from) onPlaceSquad(dragId, to)
+    }
+    setDragId(null)
+    setDropAt(null)
+  }
   const bodies = totalBodies(warband)
   const fodder = totalFodder(warband)
   const idle =
@@ -330,10 +389,33 @@ export default function Camp({ run, onBuy, onAssign, onMoveSquad, onMarch }: Pro
         </button>
       </div>
 
+      <nav className="tabs" role="tablist">
+        {(['warband', 'recruit'] as const).map((t) => (
+          <button
+            key={t}
+            role="tab"
+            aria-selected={tab === t}
+            className={tab === t ? 'tab on' : 'tab'}
+            onClick={() => setTab(t)}
+          >
+            {t === 'warband' ? 'Warband' : 'Recruit'}
+            <span className="tab-count">
+              {t === 'warband' ? warband.squads.length : run.offers.length}
+            </span>
+          </button>
+        ))}
+      </nav>
+
       <div className="camp-body">
-        <div className="camp-col">
+        <div className="camp-col" hidden={tab !== 'warband'}>
           <Section title="Battle line" meta="front → back">
-            <ul className="rows">
+            <ul
+              className={dragId ? 'rows dragging-list' : 'rows'}
+              ref={listRef}
+              onPointerMove={onGripMove}
+              onPointerUp={onGripUp}
+              onPointerCancel={onGripUp}
+            >
               {warband.squads.map((sq, i) => (
                 <SquadRow
                   key={sq.id}
@@ -341,8 +423,11 @@ export default function Camp({ run, onBuy, onAssign, onMoveSquad, onMarch }: Pro
                   index={i}
                   total={warband.squads.length}
                   warband={warband}
+                  dragging={dragId === sq.id}
+                  insertBefore={dragId !== null && dropAt === i}
                   onAssign={onAssign}
                   onMoveSquad={onMoveSquad}
+                  onGripDown={onGripDown}
                 />
               ))}
             </ul>
@@ -369,7 +454,7 @@ export default function Camp({ run, onBuy, onAssign, onMoveSquad, onMarch }: Pro
           </Section>
         </div>
 
-        <div className="camp-col">
+        <div className="camp-col" hidden={tab !== 'recruit'}>
           <Section title="Recruit" meta={`${warband.salvage} salvage`}>
             <ul className="rows">
               {run.offers.map((o) => (

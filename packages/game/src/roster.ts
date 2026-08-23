@@ -187,8 +187,8 @@ export interface GroupSource {
  * parallel list saying where each group came from, so losses can be applied
  * back afterwards.
  *
- * A Potential that is leading a squad still fights as part of it here — it
- * does not also appear as its own group. Only unassigned Potentials get one.
+ * Every Potential gets its own group, leading or not, so that all of them can
+ * fight and all of them can die.
  */
 export function toSimGroups(
   w: Warband,
@@ -196,9 +196,6 @@ export function toSimGroups(
 ): { groups: SimGroup[]; sources: GroupSource[] } {
   const groups: SimGroup[] = []
   const sources: GroupSource[] = []
-  const leading = new Set(
-    w.squads.filter((sq) => sq.leader?.kind === 'potential').map((sq) => sq.leader!.id),
-  )
 
   for (const sq of w.squads) {
     if (sq.count <= 0) continue
@@ -210,15 +207,26 @@ export function toSimGroups(
       label: squadLabel(sq),
       color: unitType(sq.typeId).color,
       shape: squadShape(sq.typeId),
+      // The leader's mutations leak into the squad's stats...
       stats: resolveSquadStats(sq, officer, leader),
       discipline: resolveDiscipline(sq.typeId, officer),
-      leaderLabel: officer ? officerTitle(officer) : leader ? leader.name : null,
+      // ...but a Potential leader carries its own banner on its own group
+      // below, so only an officer labels the squad itself.
+      leaderLabel: officer ? officerTitle(officer) : null,
     })
     sources.push({ kind: 'squad', id: sq.id })
   }
 
+  /*
+   * EVERY Potential fights as its own body, including one that is leading.
+   *
+   * Leading Potentials used to be skipped here. That dropped a body from the
+   * field, and — because resolveBattle maps outcomes back through these
+   * groups — meant a leading Potential could never be recorded as dead. The
+   * best standout in the warband became immortal the moment you promoted it,
+   * which destroys the permadeath the tier exists for.
+   */
   for (const p of w.potentials) {
-    if (leading.has(p.id)) continue
     const type = unitType(p.typeId)
     groups.push({
       team,

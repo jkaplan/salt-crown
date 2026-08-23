@@ -16,7 +16,8 @@
     "sim:batch": "tsx tools/batch.ts",
     "sim:perf": "tsx tools/batch.ts --perf",
     "sim:campaign": "tsx tools/campaign.ts",
-    "sim:matchup": "tsx tools/matchup.ts"
+    "sim:matchup": "tsx tools/matchup.ts",
+    "sim:leaders": "tsx tools/leaders.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

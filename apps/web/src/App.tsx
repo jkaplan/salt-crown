@@ -7,6 +7,7 @@ import {
   buy,
   march,
   moveSquad,
+  placeSquad,
   newRun,
   resolveBattle,
   totalBodies,
@@ -126,6 +127,7 @@ export default function App() {
                   onBuy={(id) => setRun(buy(run, id))}
                   onAssign={(sq, leader) => setRun(assignLeader(run, sq, leader))}
                   onMoveSquad={(sq, dir) => setRun(moveSquad(run, sq, dir))}
+                  onPlaceSquad={(sq, to) => setRun(placeSquad(run, sq, to))}
                   onMarch={onMarch}
                 />
               )}

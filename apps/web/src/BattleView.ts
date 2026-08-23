@@ -265,6 +265,9 @@ interface Banner {
 export class BattleView {
   private app: Application | null = null
   private world = new Container()
+  /** Per-team layers so each glow filter is applied once, not per sprite. */
+  private playerLayer = new Container()
+  private enemyLayer = new Container()
   private texture: Texture | null = null
   private bodyTextures: Texture[] = []
   private playerColor = 0x7fc7bb
@@ -341,6 +344,11 @@ export class BattleView {
       innerStrength: 0.35,
       quality: 0.5,
     })
+    // One filter per layer. This is the whole reason the layers exist.
+    this.playerLayer.filters = [this.playerGlow]
+    this.enemyLayer.filters = [this.enemyGlow]
+    this.world.addChild(this.enemyLayer)
+    this.world.addChild(this.playerLayer)
     this.applyTheme()
 
     const g = new Graphics().circle(0, 0, 16).fill(0xffffff)
@@ -384,7 +392,8 @@ export class BattleView {
     this.simMsAvg = 0
     this.reported = false
 
-    this.world.removeChildren()
+    this.playerLayer.removeChildren()
+    this.enemyLayer.removeChildren()
     for (const s of this.sprites) s.destroy()
     for (const b of this.banners) {
       b.ring.destroy()
@@ -402,13 +411,16 @@ export class BattleView {
       sprite.anchor.set(0.5)
       sprite.width = group.stats.radius * 2
       sprite.height = group.stats.radius * 2
-      sprite.filters = [group.team === TEAM_A ? this.playerGlow! : this.enemyGlow!]
       sprite.blendMode = 'normal'
       sprite.x = b.x[i]
       sprite.y = b.y[i]
       this.displayHealth[i] = 1
       this.sprites.push(sprite)
-      this.world.addChild(sprite)
+      // Sorted into a per-team layer so the glow can be applied ONCE to the
+      // layer instead of once per sprite. A filter on an individual sprite
+      // forces its own render-target switch and filter pass, which destroys
+      // batching — at a few hundred bodies that alone cost ~12fps.
+      ;(group.team === TEAM_A ? this.playerLayer : this.enemyLayer).addChild(sprite)
     }
 
     // Banners last, so they draw over the bodies.

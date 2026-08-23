@@ -184,21 +184,24 @@ button.march:hover:not(:disabled) { filter: brightness(1.12); background: var(--
   color: var(--faint);
 }
 
-/* Rows: no borders. Separation is a background step plus space. */
-.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.rows.tight { gap: 2px; }
+/*
+ * Rows are NOT cards. No background, no radius, no outline — a hairline
+ * between them and nothing else. Every surface added here reads as a frame,
+ * and frames nested in frames is the thing being fixed.
+ */
+.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.rows.tight { gap: 0; }
 
 .row {
-  background: var(--surface);
-  border-radius: var(--radius);
-  padding: 11px 12px;
+  padding: 12px 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
 }
-.row.inline { flex-direction: row; align-items: center; gap: 8px; padding: 7px 12px; }
-.row.poor { opacity: 0.45; }
+.rows > .row + .row { border-top: 1px solid var(--hair); }
+.row.inline { flex-direction: row; align-items: center; gap: 8px; padding: 8px 0; }
+.row.poor { opacity: 0.4; }
 
 .row-main { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .row-name {
@@ -592,3 +595,114 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
   padding-left: 0;
 }
 .commander-select .back-btn:hover { background: transparent; color: var(--ink); }
+
+/* ------------------------------------------------------- drag reordering -- */
+
+.grip {
+  flex: none;
+  min-height: 34px;
+  min-width: 30px;
+  padding: 0;
+  background: transparent;
+  color: var(--faint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;              /* stop the browser scrolling mid-drag */
+}
+.grip:hover { background: var(--surface-2); color: var(--ink); }
+.grip:active { cursor: grabbing; }
+
+.dragging-list { user-select: none; }
+.squad-row.dragging { opacity: 0.4; }
+
+/* Insertion line, drawn above the row the drop would land before. */
+.squad-row.insert-before { position: relative; }
+.squad-row.insert-before::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--a);
+}
+
+.buy .price {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+  margin-left: 2px;
+}
+
+/* ------------------------------------------------------------ tabs / v2 -- */
+
+.tabs { display: flex; gap: 4px; }
+.tab {
+  flex: 1;
+  background: transparent;
+  color: var(--dim);
+  padding: 10px 12px;
+  border-radius: 0;
+  box-shadow: inset 0 -2px 0 var(--hair);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.tab:hover:not(:disabled) { background: transparent; color: var(--ink); }
+.tab.on { color: var(--ink); box-shadow: inset 0 -2px 0 var(--a); background: transparent; }
+.tab-count { color: var(--faint); font-variant-numeric: tabular-nums; font-size: 12px; }
+
+/* The whole offer is the hit target, and it is not a card. */
+.offer-hit {
+  width: 100%;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  min-height: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: inherit;
+  font: inherit;
+}
+.offer-hit:hover:not(:disabled) { background: transparent; }
+.offer-hit:hover:not(:disabled) .price-tag { background: var(--gold); color: #17120a; }
+.offer-hit:disabled { opacity: 1; }
+.offer-hit .row-main { width: 100%; }
+
+.price-tag {
+  margin-left: auto;
+  flex: none;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+/*
+ * Native select popups are OS-rendered. Without an explicit option colour
+ * Windows draws them near-white on grey, which is unreadable against a dark
+ * page. color-scheme alone is not enough on every browser.
+ */
+select { color-scheme: dark; }
+select option {
+  background: #14100d;
+  color: var(--ink);
+}
+.leader-select { color: var(--ink); }
+.leader-select:hover { background: var(--surface-2); }
+
+/* No frame around the infantry breakdown either. */
+.infantry, .inf-head, .inf-breakdown { background: none; border: 0; }
+.inf-breakdown li { border-top: 1px solid var(--hair); }
