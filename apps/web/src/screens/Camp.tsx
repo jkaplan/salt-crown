@@ -1,4 +1,4 @@
-import { Fragment, type DragEvent, useState } from 'react'
+import { useState } from 'react'
 import {
   ENCOUNTERS_PER_RUN,
   OFFICER_RANKS_BY_ID,
@@ -13,6 +13,7 @@ import {
   unitType,
 } from '@salt/game'
 import type { Offer, Potential, RunState, Squad, SquadLeader, Warband } from '@salt/game'
+import type { ResolvedStats } from '@salt/sim'
 import MutationTag from '../components/MutationTag'
 import UnitName from '../components/UnitName'
 import UnitShape from '../components/UnitShape'
@@ -21,27 +22,40 @@ interface Props {
   run: RunState
   onBuy: (offerId: string) => void
   onAssign: (squadId: string, leader: SquadLeader | null) => void
-  onPlaceSquad: (squadId: string, toIndex: number) => void
+  onMoveSquad: (squadId: string, dir: -1 | 1) => void
   onMarch: () => void
 }
 
-function statLine(s: ReturnType<typeof resolveSquadStats>) {
-  const bits = [
-    `${s.hp.toFixed(0)} hp`,
-    `${s.damage.toFixed(1)} dmg`,
-    `${s.armor.toFixed(1)} arm`,
-  ]
-  if (s.range > 40) bits.push(`${s.range.toFixed(0)} range`)
-  if (s.regen > 0) bits.push('regen')
-  if (s.quills > 0) bits.push('quills')
-  if (s.frenzy > 0) bits.push('frenzy')
-  return bits.join(' · ')
-}
-
-function speedLane(moveSpeed: number): 'front' | 'middle' | 'back' {
-  if (moveSpeed <= 2.2) return 'front'
-  if (moveSpeed >= 3.2) return 'back'
-  return 'middle'
+/**
+ * Stat pills. Four numbers, always the same four, always in the same order —
+ * so they can be compared down a column instead of read as prose.
+ */
+function Stats({ s }: { s: ResolvedStats }) {
+  return (
+    <div className="stats">
+      <span title="Hit points">
+        <b>{s.hp.toFixed(0)}</b> hp
+      </span>
+      <span title="Damage per hit">
+        <b>{s.damage.toFixed(0)}</b> dmg
+      </span>
+      <span title="Flat damage reduction per hit">
+        <b>{s.armor.toFixed(0)}</b> arm
+      </span>
+      <span title={s.range > 40 ? 'Attack range' : 'Melee'}>
+        {s.range > 40 ? (
+          <>
+            <b>{s.range.toFixed(0)}</b> rng
+          </>
+        ) : (
+          'melee'
+        )}
+      </span>
+      {s.regen > 0 && <span className="trait">regen</span>}
+      {s.quills > 0 && <span className="trait">quills</span>}
+      {s.frenzy > 0 && <span className="trait">frenzy</span>}
+    </div>
+  )
 }
 
 function leaderKey(leader: SquadLeader | null): string {
@@ -54,47 +68,122 @@ function parseLeaderKey(key: string): SquadLeader | null {
   return kind === 'officer' || kind === 'potential' ? { kind, id } : null
 }
 
-function leaderNote(squad: Squad, warband: Warband): string {
-  const leader = squad.leader
-  if (!leader) return 'No leader'
-  if (leader.kind === 'officer') {
-    const officer = warband.officers.find((o) => o.id === leader.id)
-    return officer ? `Led by ${officerTitle(officer)}` : 'Led by an officer'
-  }
-  const potential = warband.potentials.find((p) => p.id === leader.id)
-  return potential ? `Auto-led by ${potential.name}` : 'Auto-led by a Potential'
-}
-
 /**
- * A Potential: individually tracked, individually killable, worth caring
- * about — and, now, able to lead a squad of its own kind. Leading leaks its
- * mutations to the whole squad at half level, so a good roll is worth more
- * than one extra body.
+ * The single place leadership is assigned. It used to be settable from both
+ * the squad and the Potential, two controls mutating one relationship from
+ * opposite ends — which is confusing and lets them disagree.
  */
-function PotentialCard({
-  potential,
+function LeaderSelect({
+  squad,
   warband,
   onAssign,
 }: {
-  potential: Potential
+  squad: Squad
   warband: Warband
   onAssign: Props['onAssign']
 }) {
-  const type = unitType(potential.typeId)
+  const isMutant = unitType(squad.typeId).lineage === 'mutant'
+  const taken = new Set(
+    warband.squads.filter((s) => s.id !== squad.id && s.leader).map((s) => leaderKey(s.leader)),
+  )
+
+  return (
+    <select
+      className="leader-select"
+      value={leaderKey(squad.leader)}
+      onChange={(e) => onAssign(squad.id, parseLeaderKey(e.target.value))}
+      aria-label="Squad leader"
+    >
+      <option value="">No leader</option>
+      {warband.officers
+        .filter((o) => !taken.has(`officer:${o.id}`))
+        .map((o) => (
+          <option key={o.id} value={`officer:${o.id}`}>
+            {officerTitle(o)}
+          </option>
+        ))}
+      {/* A mutant does not command True Kin. */}
+      {isMutant &&
+        warband.potentials
+          .filter((p) => !taken.has(`potential:${p.id}`))
+          .map((p) => (
+            <option key={p.id} value={`potential:${p.id}`}>
+              {p.name} — leaks mutations
+            </option>
+          ))}
+    </select>
+  )
+}
+
+function SquadRow({
+  squad,
+  index,
+  total,
+  warband,
+  onAssign,
+  onMoveSquad,
+}: {
+  squad: Squad
+  index: number
+  total: number
+  warband: Warband
+  onAssign: Props['onAssign']
+  onMoveSquad: Props['onMoveSquad']
+}) {
+  const officer = findOfficer(warband, squad)
+  const potential = findLeadingPotential(warband, squad)
+  const stats = resolveSquadStats(squad, officer, potential)
+
+  return (
+    <li className="row squad-row">
+      <div className="row-main">
+        <UnitShape typeId={squad.typeId} />
+        <span className="row-name">
+          <UnitName typeId={squad.typeId} />
+          <span className="mult">×{squad.count}</span>
+        </span>
+        <span className="row-pos">{index + 1}</span>
+        <span className="reorder">
+          <button
+            onClick={() => onMoveSquad(squad.id, -1)}
+            disabled={index === 0}
+            aria-label="Move forward"
+          >
+            ↑
+          </button>
+          <button
+            onClick={() => onMoveSquad(squad.id, 1)}
+            disabled={index === total - 1}
+            aria-label="Move back"
+          >
+            ↓
+          </button>
+        </span>
+      </div>
+      <Stats s={stats} />
+      <LeaderSelect squad={squad} warband={warband} onAssign={onAssign} />
+    </li>
+  )
+}
+
+function PotentialRow({ potential, warband }: { potential: Potential; warband: Warband }) {
   const stats = resolvePotentialStats(potential)
   const leading = warband.squads.find(
     (sq) => sq.leader?.kind === 'potential' && sq.leader.id === potential.id,
   )
-  // A mutant does not command True Kin.
-  const eligible = warband.squads.filter((sq) => unitType(sq.typeId).lineage === 'mutant')
 
   return (
-    <li className="potential">
-      <div className="squad-head">
-        <span className="name potential-name">{potential.name}</span>
-        <span className="count">
-          <UnitShape typeId={potential.typeId} />
-          <UnitName typeId={potential.typeId} />
+    <li className="row">
+      <div className="row-main">
+        <UnitShape typeId={potential.typeId} />
+        <span className="row-name">
+          <b className="potential-name">{potential.name}</b>
+          <span className="dim">
+            <UnitName typeId={potential.typeId} />
+          </span>
+        </span>
+        <span className="row-meta">
+          {potential.battles === 0 ? 'untested' : `${potential.battles} survived`}
         </span>
       </div>
       <div className="tags">
@@ -102,36 +191,17 @@ function PotentialCard({
           <MutationTag key={m.id} roll={m} />
         ))}
       </div>
-      <div className="statline">{statLine(stats)}</div>
-      <div className="survived">
-        {potential.battles === 0
-          ? 'Untested'
-          : `${potential.battles} battle${potential.battles === 1 ? '' : 's'} survived`}
-        <span className="dim"> · {type.lineage === 'mutant' ? 'Potential' : 'True Kin'}</span>
+      <Stats s={stats} />
+      <div className="row-note">
+        {leading
+          ? `Leading ${unitType(leading.typeId).name} ×${leading.count}`
+          : 'Not leading — assign from a squad'}
       </div>
-      {eligible.length > 0 && (
-        <select
-          value={leading ? leading.id : ''}
-          onChange={(e) =>
-            onAssign(
-              e.target.value || leading?.id || '',
-              e.target.value ? { kind: 'potential', id: potential.id } : null,
-            )
-          }
-        >
-          <option value="">— leading nobody —</option>
-          {eligible.map((sq) => (
-            <option key={sq.id} value={sq.id}>
-              {unitType(sq.typeId).name} ×{sq.count}
-            </option>
-          ))}
-        </select>
-      )}
     </li>
   )
 }
 
-function OfferCard({
+function OfferRow({
   offer,
   salvage,
   onBuy,
@@ -145,49 +215,43 @@ function OfferCard({
   if (offer.kind === 'officer') {
     const rank = OFFICER_RANKS_BY_ID.get(offer.officer.rankId)
     return (
-      <li className={`offer officer ${afford ? '' : 'poor'}`}>
-        <div className="offer-head">
-          <span className="name truekin">{officerTitle(offer.officer)}</span>
-          <span className="cost">{offer.cost}</span>
+      <li className={`row offer${afford ? '' : ' poor'}`}>
+        <div className="row-main">
+          <span className="row-name">
+            <b className="truekin">{officerTitle(offer.officer)}</b>
+            <span className="dim">{rank?.effect}</span>
+          </span>
+          <button className="buy" disabled={!afford} onClick={() => onBuy(offer.id)}>
+            {offer.cost}
+          </button>
         </div>
-        <div className="statline">{rank?.effect}</div>
-        <p className="blurb">{rank?.blurb}</p>
-        <button disabled={!afford} onClick={() => onBuy(offer.id)}>
-          Hire
-        </button>
       </li>
     )
   }
 
   const stats = resolveSquadStats(
-    { id: 'x', typeId: offer.typeId, count: offer.count, leader: null },
+    { id: 'preview', typeId: offer.typeId, count: offer.count, leader: null },
     null,
   )
 
   return (
-    <li className={`offer ${afford ? '' : 'poor'}`}>
-      <div className="offer-head">
-        <span className="name">
-            <UnitShape typeId={offer.typeId} />
-          <UnitName typeId={offer.typeId} /> ×{offer.count}
+    <li className={`row offer${afford ? '' : ' poor'}`}>
+      <div className="row-main">
+        <UnitShape typeId={offer.typeId} />
+        <span className="row-name">
+          <UnitName typeId={offer.typeId} />
+          <span className="mult">×{offer.count}</span>
         </span>
-        <span className="cost">{offer.cost}</span>
+        <button className="buy" disabled={!afford} onClick={() => onBuy(offer.id)}>
+          {offer.cost}
+        </button>
       </div>
-      <div className="statline">{statLine(stats)}</div>
-      <div className="quick-breakdown">
-        <span className="pill">SPD {stats.moveSpeed.toFixed(1)}</span>
-        <span className="pill">RNG {stats.range.toFixed(0)}</span>
-        <span className="pill">HP {stats.hp.toFixed(0)}</span>
-      </div>
-
+      <Stats s={stats} />
       {offer.potentials.length > 0 ? (
-        <div className="offer-potentials">
-          <div className="op-head">
-            {offer.potentials.length === 1 ? 'One standout' : 'Two standouts'} in the batch
-          </div>
+        <div className="standouts">
           {offer.potentials.map((p) => (
-            <div key={p.id} className="op-row">
-              <span className="potential-name">{p.name}</span>
+            <div key={p.id} className="standout">
+              <b className="potential-name">{p.name}</b>
               <span className="tags">
                 {p.mutations.map((m) => (
                   <MutationTag key={m.id} roll={m} hot />
@@ -195,265 +259,143 @@ function OfferCard({
               </span>
             </div>
           ))}
-          <div className="op-note">This batch will start with a Potential leading it.</div>
         </div>
       ) : (
-        <p className="op-none">No standouts. Bodies only. No squad leader included.</p>
+        <div className="row-note">Bodies only — no standouts.</div>
       )}
-
-      <button disabled={!afford} onClick={() => onBuy(offer.id)}>
-        Recruit
-      </button>
     </li>
   )
 }
 
-function SquadLeaderSelect({
-  squad,
-  warband,
-  onAssign,
+function Section({
+  title,
+  meta,
+  children,
 }: {
-  squad: Squad
-  warband: Warband
-  onAssign: Props['onAssign']
+  title: string
+  meta?: React.ReactNode
+  children: React.ReactNode
 }) {
-  const options: { key: string; label: string }[] = [
-    { key: '', label: '— no leader —' },
-    ...warband.officers.map((o) => ({ key: `officer:${o.id}`, label: officerTitle(o) })),
-  ]
-  if (unitType(squad.typeId).lineage === 'mutant') {
-    for (const p of warband.potentials) {
-      options.push({ key: `potential:${p.id}`, label: `${p.name} (leak mutations)` })
-    }
-  }
-
   return (
-    <select
-      value={leaderKey(squad.leader)}
-      onChange={(e) => onAssign(squad.id, parseLeaderKey(e.target.value))}
-    >
-      {options.map((o) => (
-        <option key={o.key} value={o.key}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <section className="section">
+      <h2>
+        {title}
+        {meta && <span className="section-meta">{meta}</span>}
+      </h2>
+      {children}
+    </section>
   )
 }
 
-export default function Camp({ run, onBuy, onAssign, onPlaceSquad, onMarch }: Props) {
+export default function Camp({ run, onBuy, onAssign, onMoveSquad, onMarch }: Props) {
   const { warband, encounter } = run
   const [openInfantry, setOpenInfantry] = useState(false)
-  const [dragSquadId, setDragSquadId] = useState<string | null>(null)
-  const [dropSlot, setDropSlot] = useState<number | null>(null)
   const bodies = totalBodies(warband)
   const fodder = totalFodder(warband)
-  const breakdown = fodderByType(warband)
-  const leadingSquads = warband.squads.filter((s) => s.leader)
-  const idleLeaders =
+  const idle =
     warband.officers.length +
     warband.potentials.length -
-    leadingSquads.length
-
-  const onDragStartSquad = (event: DragEvent<HTMLLIElement>, squadId: string) => {
-    setDragSquadId(squadId)
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', squadId)
-  }
-
-  const onDragOverSlot = (event: DragEvent<HTMLLIElement>, slot: number) => {
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
-    if (dropSlot !== slot) setDropSlot(slot)
-  }
-
-  const onDropSlot = (event: DragEvent<HTMLLIElement>, slot: number) => {
-    event.preventDefault()
-    const payload = event.dataTransfer.getData('text/plain')
-    if (!dragSquadId && !payload) return
-    if (!dragSquadId && payload) setDragSquadId(payload)
-    commitDrop(slot)
-  }
-
-  const commitDrop = (slot: number) => {
-    if (!dragSquadId) return
-    const from = warband.squads.findIndex((sq) => sq.id === dragSquadId)
-    if (from < 0) return
-    let to = slot
-    if (from < to) to -= 1
-    if (to !== from) onPlaceSquad(dragSquadId, to)
-    setDragSquadId(null)
-    setDropSlot(null)
-  }
+    warband.squads.filter((s) => s.leader).length
 
   return (
     <div className="camp">
-      <div className="camp-bar">
-        <div>
-          <span className="label">Encounter</span>{' '}
-          <b>
-            {run.encounterIndex + 1} / {ENCOUNTERS_PER_RUN}
-          </b>
-        </div>
-        <div>
-          <span className="label">Salvage</span> <b className="salvage">{warband.salvage}</b>
-        </div>
-        <div>
-          <span className="label">Bodies</span> <b>{bodies}</b>
-        </div>
-        <div>
-          <span className="label">Potentials</span>{' '}
-          <b className="potential-name">{warband.potentials.length}</b>
-        </div>
+      {/* Every number appears exactly once, here. */}
+      <div className="status">
+        <span>
+          <b>{run.encounterIndex + 1}</b>
+          <i>/{ENCOUNTERS_PER_RUN}</i> encounter
+        </span>
+        <span>
+          <b className="salvage">{warband.salvage}</b> salvage
+        </span>
+        <span>
+          <b>{bodies}</b> bodies
+        </span>
+        <span>
+          <b className="potential-name">{warband.potentials.length}</b> potentials
+        </span>
       </div>
 
-      <div className="camp-hero">
-        <div className="hero-card hero-primary">
-          <span className="hero-label">Ready to march</span>
-          <strong>{encounter.name}</strong>
-          <span>{encounter.flavour}</span>
+      <div className="march-card">
+        <div className="march-text">
+          <h1>{encounter.name}</h1>
+          <p>{encounter.flavour}</p>
+          <p className="march-facts">
+            <b>{encounter.bodies}</b> enemy bodies · <b className="salvage">{encounter.reward}</b>{' '}
+            salvage if you win · losing ends the run
+          </p>
         </div>
-        <div className="hero-card">
-          <span className="hero-label">Warband</span>
-          <strong>{bodies}</strong>
-          <span>{warband.squads.length} squads · {warband.potentials.length} potentials</span>
-        </div>
-        <div className="hero-card">
-          <span className="hero-label">Salvage</span>
-          <strong className="salvage">{warband.salvage}</strong>
-          <span>{encounter.reward} if you win</span>
-        </div>
-        <button className="march hero-march" onClick={onMarch} disabled={bodies === 0}>
+        <button className="march" onClick={onMarch} disabled={bodies === 0}>
           March
         </button>
       </div>
 
-      <div className="camp-cols">
-        <section className="col">
-          <h2>Squads</h2>
-          <p className="hint ordering-hint">Ordering tip: slower squads up front, faster squads in back.</p>
-          <ul className="squads squad-order-list">
-            {warband.squads.map((sq, index) => {
-              const officer = findOfficer(warband, sq)
-              const leadingPotential = findLeadingPotential(warband, sq)
-              const stats = resolveSquadStats(sq, officer, leadingPotential)
-              const lane = speedLane(stats.moveSpeed)
-
-              return (
-              <Fragment key={sq.id}>
-                <li
-                  className={dropSlot === index ? 'drop-slot active' : 'drop-slot'}
-                  onDragOver={(e) => onDragOverSlot(e, index)}
-                  onDrop={(e) => onDropSlot(e, index)}
+      <div className="camp-body">
+        <div className="camp-col">
+          <Section title="Battle line" meta="front → back">
+            <ul className="rows">
+              {warband.squads.map((sq, i) => (
+                <SquadRow
+                  key={sq.id}
+                  squad={sq}
+                  index={i}
+                  total={warband.squads.length}
+                  warband={warband}
+                  onAssign={onAssign}
+                  onMoveSquad={onMoveSquad}
                 />
-              <li
-                className={dragSquadId === sq.id ? 'squad dragging' : 'squad'}
-                draggable
-                onDragStart={(e) => onDragStartSquad(e, sq.id)}
-                onDragOver={(e) => onDragOverSlot(e, index)}
-                onDrop={(e) => onDropSlot(e, index)}
-                onDragEnd={() => {
-                  setDragSquadId(null)
-                  setDropSlot(null)
-                }}
-              >
-                <div className="squad-head">
-                  <span className="name">
-                    <UnitShape typeId={sq.typeId} />
-                    <UnitName typeId={sq.typeId} />
-                  </span>
-                  <span className="count">×{sq.count}</span>
-                </div>
-                <div className="squad-order-controls">
-                  <span className="order-label">Line {index + 1}</span>
-                  <span className="drag-hint">{lane === 'front' ? 'Frontline pace' : lane === 'back' ? 'Backline pace' : 'Midline pace'} · drag to reorder</span>
-                </div>
-                <div className="quick-breakdown">
-                  <span className="pill">SPD {stats.moveSpeed.toFixed(1)}</span>
-                  <span className="pill">RNG {stats.range.toFixed(0)}</span>
-                  <span className="pill">HP {stats.hp.toFixed(0)}</span>
-                  <span className="pill">ARM {stats.armor.toFixed(1)}</span>
-                </div>
-                <div className={`lead-chip ${sq.leader ? 'active' : 'inactive'}`}>
-                  {leaderNote(sq, warband)}
-                </div>
-                <SquadLeaderSelect squad={sq} warband={warband} onAssign={onAssign} />
-              </li>
-              </Fragment>
-              )
-            })}
-            <li
-              className={dropSlot === warband.squads.length ? 'drop-slot active' : 'drop-slot'}
-              onDragOver={(e) => onDragOverSlot(e, warband.squads.length)}
-              onDrop={(e) => onDropSlot(e, warband.squads.length)}
-            />
-            {warband.squads.length === 0 && <p className="hint">No squads.</p>}
-          </ul>
-          {idleLeaders > 0 && (
-            <p className="hint">
-              {idleLeaders} leader{idleLeaders === 1 ? '' : 's'} leading nobody. A leader with no
-              squad does nothing.
-            </p>
-          )}
+              ))}
+            </ul>
+            {warband.squads.length === 0 && <p className="empty">No squads.</p>}
+            <p className="note">Slower squads lead. Faster squads catch up from behind.</p>
+            {idle > 0 && (
+              <p className="note warn">
+                {idle} leader{idle === 1 ? '' : 's'} leading nobody.
+              </p>
+            )}
+          </Section>
 
-          <h2 className="spaced">Infantry</h2>
-          <div className="infantry" onClick={() => setOpenInfantry((v) => !v)}>
-            <div className="inf-head">
-              <span className="inf-count">{fodder}</span>
-              <span className="label">bodies, no mutations</span>
-              <span className="chev">{openInfantry ? '−' : '+'}</span>
-            </div>
+          <Section title="Potentials" meta={warband.potentials.length || undefined}>
+            <ul className="rows">
+              {warband.potentials.map((p) => (
+                <PotentialRow key={p.id} potential={p} warband={warband} />
+              ))}
+            </ul>
+            {warband.potentials.length === 0 && (
+              <p className="empty">
+                None. Mutant batches throw up one or two standouts — the rest is fodder.
+              </p>
+            )}
+          </Section>
+        </div>
+
+        <div className="camp-col">
+          <Section title="Recruit" meta={`${warband.salvage} salvage`}>
+            <ul className="rows">
+              {run.offers.map((o) => (
+                <OfferRow key={o.id} offer={o} salvage={warband.salvage} onBuy={onBuy} />
+              ))}
+            </ul>
+            {run.offers.length === 0 && <p className="empty">Nothing left on offer.</p>}
+          </Section>
+
+          <Section title="Infantry" meta={`${fodder} bodies`}>
+            <button className="disclose" onClick={() => setOpenInfantry((v) => !v)}>
+              {openInfantry ? 'Hide' : 'Show'} breakdown
+            </button>
             {openInfantry && (
-              <ul className="inf-breakdown">
-                {breakdown.map((b) => (
-                  <li key={b.typeId}>
+              <ul className="rows tight">
+                {fodderByType(warband).map((b) => (
+                  <li key={b.typeId} className="row inline">
+                    <UnitShape typeId={b.typeId} />
                     <UnitName typeId={b.typeId} />
-                    <span className="count">{b.count}</span>
+                    <span className="row-pos">{b.count}</span>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
-        </section>
-
-        <section className="col operations-col">
-          <h2>Potentials</h2>
-          <ul className="squads compact-list">
-            {warband.potentials.map((p) => (
-              <PotentialCard key={p.id} potential={p} warband={warband} onAssign={onAssign} />
-            ))}
-            {warband.potentials.length === 0 && (
-              <p className="hint">
-                None. Mutant batches throw up one or two standouts — everything else is fodder.
-              </p>
-            )}
-          </ul>
-
-          <h2 className="spaced">Recruit</h2>
-          <ul className="offers">
-            {run.offers.map((o) => (
-              <OfferCard key={o.id} offer={o} salvage={warband.salvage} onBuy={onBuy} />
-            ))}
-            {run.offers.length === 0 && <p className="hint">Nothing left on offer.</p>}
-          </ul>
-
-          <h2 className="spaced">Next</h2>
-          <div className="encounter compact-encounter">
-            <p className="blurb">{encounter.flavour}</p>
-            <dl>
-              <dt>Enemy bodies</dt>
-              <dd>{encounter.bodies}</dd>
-              <dt>Your bodies</dt>
-              <dd>{bodies}</dd>
-              <dt>Salvage if you win</dt>
-              <dd className="salvage">{encounter.reward}</dd>
-            </dl>
-            <p className="hint">
-              Battles are fought to the finish and losing ends the run. A bleeding squad hits
-              softer — mutants collapse fast, True Kin hold together.
-            </p>
-          </div>
-        </section>
+          </Section>
+        </div>
       </div>
     </div>
   )

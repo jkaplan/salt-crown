@@ -71,10 +71,23 @@ export default function StartScreen({
                   type="button"
                   className={swatch === playerColor ? 'swatch on' : 'swatch'}
                   onClick={() => onPlayerColorChange(swatch)}
-                  aria-label={`Choose ${swatch} as your color`}
-                  style={{ background: swatch }}
+                  aria-label={`Choose ${swatch} as your colour`}
+                  style={{ ['--c' as string]: swatch }}
                 />
               ))}
+              {/* Presets cover the readable range; the picker is for anything else. */}
+              <label
+                className={PLAYER_PALETTE.includes(playerColor) ? 'swatch custom' : 'swatch custom on'}
+                style={{ ['--c' as string]: playerColor }}
+                title="Custom colour"
+              >
+                <input
+                  type="color"
+                  value={playerColor}
+                  onChange={(e) => onPlayerColorChange(e.target.value)}
+                  aria-label="Custom faction colour"
+                />
+              </label>
             </div>
           </div>
 

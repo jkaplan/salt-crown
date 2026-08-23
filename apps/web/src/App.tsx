@@ -7,7 +7,7 @@ import {
   buy,
   march,
   newRun,
-  placeSquad,
+  moveSquad,
   resolveBattle,
   totalBodies,
 } from '@salt/game'
@@ -109,7 +109,7 @@ export default function App() {
           run={run}
           onBuy={(id) => setRun(buy(run, id))}
           onAssign={(sq, leader) => setRun(assignLeader(run, sq, leader))}
-          onPlaceSquad={(sq, toIndex) => setRun(placeSquad(run, sq, toIndex))}
+          onMoveSquad={(sq, dir) => setRun(moveSquad(run, sq, dir))}
           onMarch={onMarch}
         />
       )}
