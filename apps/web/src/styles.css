@@ -320,7 +320,6 @@ button.buy:hover:not(:disabled) { background: var(--gold); color: #17120a; }
 .tip-name em { color: var(--faint); font-style: normal; font-weight: 400; }
 .tip-desc { font-size: 11.5px; color: var(--dim); line-height: 1.45; }
 .tip-effect { font-size: 12px; color: #b6d17a; font-variant-numeric: tabular-nums; }
-.tip-blurb { font-size: 11px; color: var(--faint); font-style: italic; }
 .tip-scale { font-size: 10.5px; color: var(--faint); }
 
 /* --------------------------------------------------------------- battle -- */
@@ -407,11 +406,27 @@ button.buy:hover:not(:disabled) { background: var(--gold); color: #17120a; }
 .start-card h1 { font-size: 30px; letter-spacing: 0.02em; }
 .tagline, .dim-copy { color: var(--dim); font-size: 14px; margin: 0; }
 .eyebrow { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); }
-.seed-input-group, .name-edit-form, .button-group { display: flex; gap: 8px; flex-wrap: wrap; }
-.seed-input-group input, .name-input { flex: 1; min-width: 160px; }
-.randomize-btn, .back-btn { flex: none; }
-.start-btn, .confirm-btn { background: var(--a); color: #10100c; font-weight: 650; min-height: 48px; }
+
+.seed-input-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.seed-input-group input { flex: 1; min-width: 160px; }
+.randomize-btn { flex: none; }
+
+/* Stacked, not a row — this was laying the name field, effect and buttons
+   out as side-by-side columns. */
+.name-edit-form { display: flex; flex-direction: column; gap: 14px; }
+.preview { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.preview .name-input { flex: 1; min-width: 150px; width: auto; }
+.rank-label, .house-label { white-space: nowrap; }
+
+/* align-items keeps these from stretching to the container's height. */
+.button-group { display: flex; align-items: center; gap: 8px; }
+.button-group button { flex: 1; min-height: 44px; }
+.back-btn { flex: 0 0 auto !important; }
+
+.start-btn, .confirm-btn { background: var(--a); color: #10100c; font-weight: 650; min-height: 44px; }
 .start-btn:hover:not(:disabled), .confirm-btn:hover:not(:disabled) { filter: brightness(1.12); background: var(--a); }
+/* Breathing room between the colour swatches and the commit button. */
+.start-btn { margin-top: 10px; }
 
 .color-palette { display: flex; flex-wrap: wrap; gap: 8px; }
 .swatch {
@@ -423,6 +438,17 @@ button.buy:hover:not(:disabled) { background: var(--gold); color: #17120a; }
 .swatch.on { outline-color: var(--ink); background: var(--c); }
 .palette-block { display: flex; flex-direction: column; gap: 8px; }
 
+.commander-select {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 32px 16px 48px;
+  overflow-y: auto;
+}
+.commander-select .leader-card { width: min(520px, 100%); gap: 12px; }
+.commander-select h2 { font-size: 22px; }
+
 .leader-options { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
 .leader-option, .leader-card {
   background: var(--surface); border-radius: var(--radius); padding: 14px;
@@ -432,7 +458,6 @@ button.buy:hover:not(:disabled) { background: var(--gold); color: #17120a; }
 .leader-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .rank-label, .house-label { font-size: 12px; color: var(--dim); }
 .leader-effect, .preview-effect { font-size: 13px; color: var(--a); }
-.rank-blurb, .preview-blurb { font-size: 12px; color: var(--faint); font-style: italic; }
 .leader-line { font-size: 13px; color: var(--dim); }
 
 /* ----------------------------------------------------- parameters panel -- */

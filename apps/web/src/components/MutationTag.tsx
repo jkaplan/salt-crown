@@ -18,7 +18,6 @@ export default function MutationTag({ roll, hot }: { roll: MutationRoll; hot?: b
           {def.name} <em>level {roll.level}</em>
         </span>
         <span className="tip-effect">{def.describe(roll.level)}</span>
-        <span className="tip-blurb">{def.blurb}</span>
         <span className="tip-scale">Scales 1–6. Higher rolls are rarer and cost more.</span>
       </span>
     </span>

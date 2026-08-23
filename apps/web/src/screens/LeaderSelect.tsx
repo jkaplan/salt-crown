@@ -34,7 +34,7 @@ export default function LeaderSelect({
   if (selectedOfficer) {
     const rank = OFFICER_RANKS_BY_ID.get(selectedOfficer.rankId)
     return (
-      <div className="leader-select">
+      <div className="commander-select">
         <div className="leader-card">
           <h2>Name Your Commander</h2>
           <p className="tagline">Choose the name they will be known by.</p>
@@ -54,7 +54,6 @@ export default function LeaderSelect({
             </div>
 
             <p className="preview-effect">{rank?.effect}</p>
-            <p className="preview-blurb">"{rank?.blurb}"</p>
 
             <div className="button-group">
               <button className="back-btn" onClick={() => setSelectedOfficer(null)}>
@@ -71,7 +70,7 @@ export default function LeaderSelect({
   }
 
   return (
-    <div className="leader-select">
+    <div className="commander-select">
       <div className="leader-card">
         <h2>Choose Your Commander</h2>
         <p className="tagline">A House heir leads your forces into battle.</p>
@@ -84,7 +83,6 @@ export default function LeaderSelect({
                 <button className="leader-option" onClick={() => handleSelectOfficer(officer)}>
                   <div className="leader-head">
                     <span className="title">{officerTitle(officer)}</span>
-                    <span className="rank-blurb">{rank?.blurb}</span>
                   </div>
                   <div className="leader-effect">{rank?.effect}</div>
                 </button>
