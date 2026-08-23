@@ -5,9 +5,11 @@ import type { Officer } from '@salt/game'
 
 export default function LeaderSelect({
   seed,
+  onBack,
   onSelect,
 }: {
   seed: string
+  onBack: () => void
   onSelect: (officer: Officer) => void
 }) {
   const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null)
@@ -36,7 +38,7 @@ export default function LeaderSelect({
     return (
       <div className="commander-select">
         <div className="leader-card">
-          <h2>Name Your Commander</h2>
+          <h2>Name your commander</h2>
           <p className="tagline">Choose the name they will be known by.</p>
 
           <div className="name-edit-form">
@@ -90,6 +92,10 @@ export default function LeaderSelect({
             )
           })}
         </ul>
+
+        <button className="back-btn" onClick={onBack}>
+          Back
+        </button>
       </div>
     </div>
   )

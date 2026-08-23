@@ -450,11 +450,16 @@ button.buy:hover:not(:disabled) { background: var(--gold); color: #17120a; }
 .commander-select h2 { font-size: 22px; }
 
 .leader-options { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
-.leader-option, .leader-card {
+
+/* Only the pickable options are surfaces. The card wrapping them is not — it
+   was a frame around the whole screen for no reason. */
+.leader-card { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.leader-option {
   background: var(--surface); border-radius: var(--radius); padding: 14px;
   display: flex; flex-direction: column; gap: 6px; text-align: left; width: 100%;
 }
-.leader-option.on, .leader-card.on { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--a); }
+.leader-option:hover { background: var(--surface-2); }
+.leader-option.on { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--a); }
 .leader-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .rank-label, .house-label { font-size: 12px; color: var(--dim); }
 .leader-effect, .preview-effect { font-size: 13px; color: var(--a); }
@@ -553,3 +558,37 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
   padding: 0;
   cursor: pointer;
 }
+
+/* ---------------------------------------------------------------- setup -- */
+
+/* Seed and colour only. No nav, no docked panel — there is no warband to
+   inspect until a commander has been chosen. */
+.app.setup { justify-content: center; }
+.app.setup .start-screen,
+.app.setup .commander-select {
+  align-items: center;
+  padding: 24px 16px 40px;
+}
+.start-card h1 { font-size: 34px; letter-spacing: 0.01em; }
+.start-card form { display: flex; flex-direction: column; gap: 20px; }
+.start-card label { display: flex; flex-direction: column; gap: 7px; }
+.start-card .label,
+.palette-block .label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.start-card code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--dim);
+}
+.commander-select .back-btn {
+  align-self: flex-start;
+  margin-top: 6px;
+  background: transparent;
+  color: var(--dim);
+  padding-left: 0;
+}
+.commander-select .back-btn:hover { background: transparent; color: var(--ink); }
