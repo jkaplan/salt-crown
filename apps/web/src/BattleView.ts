@@ -50,6 +50,20 @@ const TINT_STEPS = 48
 /** Attack flash: how long the strike reads for, and its colour resolution. */
 const FLASH_TICKS = 5
 const FLASH_STEPS = 12
+/**
+ * A leader's own body renders at this multiple of a normal one — see
+ * docs/V0-DESIGN.md §5c. Every Potential is its own group regardless of
+ * whether it's currently leading (so none of them can hide inside a squad
+ * and become unkillable), so this is what made a dozen-plus of them read as
+ * one indistinct texture: an identical faint ring on an identically-sized
+ * body, repeated. Scaling the body itself is what a same-sized ring behind
+ * it never could.
+ */
+const LEADER_SCALE = 1.55
+/** Gold, not team-accent — the ring used to blend into the body's own health
+ * tint. Matches UX.md §5's "capacity, things you covet" use of gold; a
+ * leader is exactly that. */
+const LEADER_GOLD = 0xffd77a
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
@@ -265,6 +279,8 @@ export class BattleView {
   /** Per-team layers so each glow filter is applied once, not per sprite. */
   private playerLayer = new Container()
   private enemyLayer = new Container()
+  /** Halo rings render here, behind both team layers so bodies sit in front of their own halo. */
+  private haloLayer = new Container()
   private texture: Texture | null = null
   private bodyTextures: Texture[] = []
   private playerColor = 0x7fc7bb
@@ -277,6 +293,8 @@ export class BattleView {
   /** Per-unit caches, filled once per battle so draw() touches no objects. */
   private invMaxHp: Float32Array = new Float32Array(0)
   private unitIsPlayer: Uint8Array = new Uint8Array(0)
+  /** LEADER_SCALE for a named individual's own body, 1 for everyone else. */
+  private leaderScale: Float32Array = new Float32Array(0)
   private playerTints: number[] = []
   private enemyTints: number[] = []
   /** Strike flash, indexed by intensity. */
@@ -383,6 +401,9 @@ export class BattleView {
     // One filter per layer. This is the whole reason the layers exist.
     this.playerLayer.filters = [this.playerGlow]
     this.enemyLayer.filters = [this.enemyGlow]
+    // Added first, so it sits behind both team layers — a halo BEHIND a
+    // body, not a disc floating in front of one.
+    this.world.addChild(this.haloLayer)
     this.world.addChild(this.enemyLayer)
     this.world.addChild(this.playerLayer)
     this.applyTheme()
@@ -434,6 +455,7 @@ export class BattleView {
 
     this.playerLayer.removeChildren()
     this.enemyLayer.removeChildren()
+    this.haloLayer.removeChildren()
     for (const s of this.sprites) s.destroy()
     for (const b of this.banners) {
       b.ring.destroy()
@@ -446,6 +468,7 @@ export class BattleView {
     this.displayHealth = new Float32Array(b.count)
     this.invMaxHp = new Float32Array(b.count)
     this.unitIsPlayer = new Uint8Array(b.count)
+    this.leaderScale = new Float32Array(b.count).fill(1)
     for (let i = 0; i < b.count; i++) {
       const group = config.groups[b.group[i]]
       const variant = i % BODY_VARIANTS
@@ -460,6 +483,16 @@ export class BattleView {
       this.displayHealth[i] = 1
       this.invMaxHp[i] = 1 / Math.max(1, group.stats.hp)
       this.unitIsPlayer[i] = group.team === TEAM_A ? 1 : 0
+      if (group.named) {
+        this.leaderScale[i] = LEADER_SCALE
+        // A per-sprite filter costs a render-target switch, which is why
+        // team glow is applied once to a whole layer instead — but a leader
+        // is one body among a few dozen at most, not one among hundreds, so
+        // the cost that mattered at layer scale doesn't apply here.
+        sprite.filters = [
+          new GlowFilter({ color: LEADER_GOLD, distance: 8, outerStrength: 1.6, innerStrength: 0.1, quality: 0.4 }),
+        ]
+      }
       this.sprites.push(sprite)
       // Sorted into a per-team layer so the glow can be applied ONCE to the
       // layer instead of once per sprite. A filter on an individual sprite
@@ -468,17 +501,25 @@ export class BattleView {
       ;(group.team === TEAM_A ? this.playerLayer : this.enemyLayer).addChild(sprite)
     }
 
-    // Banners last, so they draw over the bodies.
+    // Banners last, built after bodies but parented into haloLayer so they
+    // still draw BEHIND every body (see the layer order in boot()).
     const tex = this.texture
     config.groups.forEach((group, gi) => {
       if (!group.leaderLabel) return
 
+      // Gold and opaque, not team-accent at 0.28 — team-accent already IS
+      // the body's own tint, so the old ring blended into the crowd instead
+      // of marking one member of it. Sized to clear LEADER_SCALE's ~1.55x
+      // body at full health with room to read as a halo, not an overlap.
       const ring = new Sprite(tex)
       ring.anchor.set(0.5)
-      ring.width = 46
-      ring.height = 46
-      ring.alpha = 0.28
-      ring.tint = this.teamAccentColor(group.team)
+      ring.width = 70
+      ring.height = 70
+      ring.alpha = 0.9
+      ring.tint = LEADER_GOLD
+      ring.filters = [
+        new GlowFilter({ color: LEADER_GOLD, distance: 10, outerStrength: 1.2, innerStrength: 0, quality: 0.4 }),
+      ]
 
       const label = new Text({
         text: group.leaderLabel,
@@ -486,13 +527,13 @@ export class BattleView {
           fontFamily: 'ui-sans-serif, system-ui, sans-serif',
           fontSize: 15,
           fontWeight: '600',
-          fill: this.teamAccentColor(group.team),
+          fill: LEADER_GOLD,
           stroke: { color: 0x0a0807, width: 4 },
         },
       })
       label.anchor.set(0.5, 1)
 
-      this.world.addChild(ring)
+      this.haloLayer.addChild(ring)
       this.world.addChild(label)
       this.banners.push({ groupIndex: gi, ring, label })
     })
@@ -575,6 +616,7 @@ export class BattleView {
     // maths repeated for every body on every frame.
     const invMaxHp = this.invMaxHp
     const isPlayer = this.unitIsPlayer
+    const leaderScale = this.leaderScale
     const playerTints = this.playerTints
     const enemyTints = this.enemyTints
     const playerFlash = this.playerFlash
@@ -612,14 +654,15 @@ export class BattleView {
        * A brightness spike plus a symmetric scale pulse says "this one just
        * struck" without translating anything.
        */
+      const lead = leaderScale[i]
       const since = tick - lastAttack[i]
       if (since >= 0 && since < FLASH_TICKS) {
         const f = 1 - since / FLASH_TICKS
         const fs = (f * f * FLASH_STEPS) | 0
         sprite.tint = isPlayer[i] === 1 ? playerFlash[fs] : enemyFlash[fs]
-        sprite.scale.set(0.03 + curve * 1.2 + f * f * 0.09)
+        sprite.scale.set((0.03 + curve * 1.2 + f * f * 0.09) * lead)
       } else {
-        sprite.scale.set(0.03 + curve * 1.2)
+        sprite.scale.set((0.03 + curve * 1.2) * lead)
       }
 
       sprite.x = px[i] + (x[i] - px[i]) * alpha

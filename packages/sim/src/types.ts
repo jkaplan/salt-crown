@@ -59,8 +59,50 @@ export interface SimGroup {
    * fast, True Kin hold, Machines never notice. See docs/V0-DESIGN.md §7.
    */
   discipline: number
-  /** Officer title, if this squad is led. Rendered as a banner in battle. */
+  /** Title of this group's leader, if any — an Officer's or a Potential's own name. Rendered as a banner in battle. */
   leaderLabel?: string | null
+  /**
+   * True for a group that IS one named individual — a Potential fighting as
+   * its own body, per docs/V0-DESIGN.md §4 (every Potential gets its own
+   * group, leading or not, so none of them can hide inside a squad and
+   * become unkillable). Always paired with count === 1. Drives which groups
+   * emit BattleEvents: fodder and Officer-led squads have no individual
+   * identity to report on, so only named groups generate Hit/Died events.
+   */
+  named?: boolean
+}
+
+/**
+ * Below this effectiveness a squad is COLLAPSING per docs/V0-DESIGN.md §7 —
+ * fewer bodies and weaker blows at once. Shared by the sim's Collapsed event
+ * and the report table's `.collapsing` row marker so the two never drift
+ * apart.
+ */
+export const COLLAPSE_THRESHOLD = 0.6
+
+export const enum BattleEventType {
+  /** A named individual took damage. */
+  Hit = 0,
+  /** A named individual died. */
+  Died = 1,
+  /** A group's effectiveness crossed below COLLAPSE_THRESHOLD. */
+  Collapsed = 2,
+}
+
+/**
+ * One notable thing that happened, for a battle log and a leader HUD to
+ * share — see docs/V0-DESIGN.md §5c. Deliberately NOT a record of everything:
+ * only named individuals and squad-level collapses are worth surfacing, or
+ * the feed drowns in the same noise the per-row stat strip did.
+ */
+export interface BattleEvent {
+  tick: number
+  type: BattleEventType
+  team: typeof TEAM_A | typeof TEAM_B
+  groupIndex: number
+  label: string
+  /** Hit: damage dealt. Collapsed: effectiveness at the crossing. Died: unused (0). */
+  value: number
 }
 
 export interface BattleConfig {

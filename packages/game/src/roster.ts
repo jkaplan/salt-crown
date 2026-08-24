@@ -238,6 +238,7 @@ export function toSimGroups(
       // A Potential is one body; morale scaling on a group of one is noise.
       discipline: 1,
       leaderLabel: p.name,
+      named: true,
     })
     sources.push({ kind: 'potential', id: p.id })
   }

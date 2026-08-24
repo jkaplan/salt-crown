@@ -225,6 +225,178 @@ prospects; the mining register is already established, and the word means both
 the condescension too — calling a person a prospect treats them as a site to
 be worked.
 
+## 5c. Battle and camp legibility — four gaps, three now decided
+
+*Four things flagged in the same session: leaders are hard to track during a
+battle, both as a HUD and on the canvas itself; squads of the same type don't
+combine when you buy more; there's no battle log. Options were laid out below
+before building anything; the squad list, the canvas marker, and the event
+instrumentation are now decided and built. The HUD and the log's own UI are
+the open remainder — see the status line closing each subsection.*
+
+**Stale doc flag first:** §5's per-tick resolution above still says a squad
+"rolls to rout — flees the field." That hasn't been true since morale became
+a damage multiplier (§7; `packages/sim/src/battle.ts` and `types.ts` both say
+so explicitly now, and `grep` for rout/flee/withdraw in the sim turns up only
+comments explaining that it's gone). §5 needs a pass to match §7, independent
+of everything below — flagging it here so it isn't lost, not fixing it now.
+
+### 1 & 2. Seeing who's important, on the HUD and on the canvas
+
+Both reports trace to the same root cause, so they're one problem with two
+surfaces.
+
+**What exists today:** `toSimGroups` (`packages/game/src/roster.ts`) gives
+*every* Potential its own one-body sim group, leading or not — "every
+Potential fights as its own body, including one that is leading," so none of
+them can hide behind a squad and become unkillable. `BattleView.ts` draws a
+banner (a 46px ring at 28% opacity, tinted to the team's accent colour, plus
+a name label) over any group carrying a `leaderLabel`. Since every Potential
+carries one, **every Potential in the warband gets an identical banner** —
+not just the ones currently leading a squad. §5b already noted runs drift to
+a dozen-plus Potentials; a dozen identical faint rings in the same hue read as
+a texture, not as individuals. That's the literal mechanism behind "I can't
+tell who is important other than the name" — the marker exists, it just
+doesn't scale past a handful of instances.
+
+Officers are the other half: they have no body in the sim (a pure stat
+modifier per §4), so an Officer's banner rides on the first living body of
+the fodder squad it leads — a stand-in position, not a real "this one is the
+officer" marker. That's a deliberate consequence of Officers being abstract,
+not a bug, but it means the two leader kinds already read differently up
+close and any fix should keep that distinction rather than paper over it.
+
+The only current interface for tracking any of this mid-battle is the
+`Details` panel (`ParametersPanel.tsx`) — a full diagnostic dump of every
+squad, Officer, and Potential, gated behind the same toggle as tick count and
+ms/tick. It's the right home for diagnostics and the wrong one for "is my
+Firstborn still alive," which is a glance question, not a drill-down one.
+
+**Decided — canvas marker: scale the body, add a tighter gold halo, glow
+both.** ✅ Built (`apps/web/src/BattleView.ts`). A leader's own body now
+renders at `LEADER_SCALE` (1.55×) via a per-unit multiplier folded into the
+existing health-driven scale formula, plus an individual `GlowFilter` per
+leader sprite — affordable because leaders are a few dozen sprites at most,
+not the few hundred that made a layer-wide glow cost ~12fps. The ring itself
+moved from team-accent at 0.28 alpha (which blended into the body's own team
+tint) to solid gold at 0.9 alpha, resized to clear the now-bigger body as a
+halo, and reparented into a new `haloLayer` added to the scene *before* both
+team layers so it renders **behind** bodies instead of on top of them — it
+used to be drawn last specifically to sit over everyone, which worked when it
+was a flat disc but would have swallowed a scaled-up body if left in front.
+Verified in a live browser session (headless Chrome over CDP, since neither
+`chromium-cli` nor Playwright was available in this environment): a leading
+Potential visibly pops out of a packed formation now, clearly bigger with a
+gold halo, where before every Potential's marker looked identical regardless
+of count.
+
+**Known follow-up, not fixed:** with two leaders adjacent, their name labels
+overlap into illegible text (confirmed in the same screenshot pass — "Warden
+Umber of Vexhall" and "Bell" collided into unreadable overlap). This is
+pre-existing label-anchor logic this pass didn't touch — it reads worse now
+only because the markers themselves are more prominent, not because the
+labels changed. Needs its own pass: likely stacking colliding labels
+vertically, or truncating to initials when crowded.
+
+**Decided — HUD: a small always-on strip on the Battle screen.** ⬜ Not built.
+Reads from the same throttled `ViewStats` snapshot `ParametersPanel` already
+uses (`liveStats.combatants`), filtered to named leaders and restyled for a
+glance instead of a dump — portraits or initials, HP, alive/dead. This does
+not put battle state in React any more than the existing debug panel already
+does; it's the same bridge, read differently. Lives on the Battle screen
+itself, not behind `Details`. Deferred behind the wound ladder and persistent
+rival leaders (§10) per the priority call made when these options were
+decided — revisit once that foundation exists, since the HUD may want to
+surface wound state once there is any.
+
+### 3. Buying more of a squad you already have
+
+**What exists today:** `buy()` (`packages/game/src/run.ts`) always pushes a
+*new* squad, even when a squad of the same `typeId` is already in the battle
+line. This means two batches of the same unit type can carry **independently
+assigned leaders** and independent battle-line positions — a real capability,
+not an oversight, since `assignLeader` operates per squad id and nothing
+stops two Chaff squads from having two different Officers.
+
+Auto-merging on every buy would quietly remove that capability the first time
+it happened to matter, which is worse than the current clutter. Options,
+roughly in order of how much they touch the invariant above:
+
+- **Do nothing structural — fix the list instead.** Sort or visually group
+  squads of the same type adjacent to each other in the battle line. Answers
+  "there needs to be some way to organize squads" without touching the sim
+  or the leader-per-squad capability at all. Cheapest, safest, and doesn't
+  foreclose anything.
+- **Conditional auto-merge.** Merge a new batch into an existing squad of the
+  same type only when that squad is *unled* and the new batch carries no
+  standout Potential to lead — i.e. only when merging can't destroy a
+  leadership assignment. Reduces clutter for the common case (buying plain
+  fodder) without the surprising-silent-behavior-change risk.
+- **Explicit merge action.** A button on a squad row — "Combine with other
+  Chaff" — so consolidation is the player's decision, not an automatic one.
+  Most player agency, most new UI.
+
+**Decided: the list fix, nothing structural.** ✅ Built (`buy()` in
+`packages/game/src/run.ts`). A newly bought squad now lands directly after
+the last existing squad of the same type instead of always at the tail —
+repeat buys cluster in the battle line without touching squad identity,
+counts, or the independent-leader capability at all. Conditional auto-merge
+stays the candidate follow-up if clutter still bothers after this.
+
+### 4. A battle log
+
+**What existed before this session:** nothing. No event structure existed
+anywhere in `packages/sim` — the sim resolved state, `BattleView` read it back
+out via per-tick arrays for rendering. A log needed new instrumentation, not a
+new view on existing data.
+
+**Decided: build the shared instrumentation now, log UI later.** ✅ The sim
+side is built (`packages/sim/src/battle.ts`, `types.ts`) — the UI is not.
+`Battle` now carries a preallocated, fixed-capacity (512) ring buffer of
+`BattleEvent`s: a named individual (a Potential fighting as its own body, per
+§4's note above — never a fodder squad, which has no individual identity to
+report on) taking a hit or dying, or any group's effectiveness first crossing
+`COLLAPSE_THRESHOLD` (0.6 — the same constant `Report.tsx`'s `.collapsing` row
+now imports, so the sim event and the report table can never drift apart).
+Kept a pure side-channel: `newEventsSince(lastCount)` is the only read path,
+called by the renderer at its own throttled rate rather than the tick loop,
+so it allocates outside `step()` only — the "no allocation in the tick loop"
+rule is about the loop itself, not about reading the result back out. Covered
+by five new tests (`packages/sim/test/determinism.test.ts`, "Battle events"):
+fodder alone never emits Hit/Died, a losing fodder squad still emits
+Collapsed, Collapsed fires exactly once per group rather than once per tick
+below threshold, a named individual's Hit/Died events carry its real label,
+and `newEventsSince` is cumulative with no gaps or repeats when polled every
+tick. All 62 tests pass, including the golden-seed determinism suite — the
+event buffer doesn't perturb outcomes.
+
+**This overlaps items 1&2's HUD directly**, but not identically: the HUD
+wants continuously-updated *state* (current HP, alive/dead), which the
+existing throttled `ViewStats` snapshot already provides — the event buffer
+instead wants to feed a *history* (what happened, in order), which is what a
+scrolling log needs. Both are worth building on the same instrumentation, but
+they're complementary reads, not the same one. The log's own UI — where it
+renders, how far back it scrolls — is deferred alongside the HUD, behind the
+wound ladder and persistent rival leaders per the priority call below.
+
+### Priority call
+
+Playtesting feedback the same night this section was written: the economy has
+no pressure once a few battles pass (nothing stops buying every recruit — true
+today, since Water and its upkeep are M3 and unbuilt), and the run doesn't
+yet feel like it has consequence. Both trace to the same place: the wound
+ladder and permadeath are M2 and unbuilt, and the persistent-rival-leaders
+direction below is explicitly blocked on the wound ladder existing first.
+**Decided:** wound ladder + persistent rival leaders come next, ahead of
+finishing the HUD/log UI above and ahead of Water. The event buffer built in
+item 4 is a direct dependency — a rival leader's history is exactly the kind
+of thing it exists to record.
+
+Also decided: gear stays Officers-only (bionics, M3, unbuilt) for now.
+Potentials do not get a second itemization layer alongside mutations —
+mutations already are their build, and mutations/bionics exclusivity per
+lineage is a load-bearing invariant (CLAUDE.md), not a gap to fill.
+
 ## 6b. Numbers vs composition — a settled decision
 
 **Combat follows Lanchester's square law, and that is deliberate. Do not try to flatten it.**

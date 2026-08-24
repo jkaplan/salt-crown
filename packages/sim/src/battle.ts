@@ -1,7 +1,10 @@
 import { Rng } from './rng.js'
 import { SpatialGrid } from './spatial.js'
-import { MELEE_RANGE, TEAM_A, TEAM_B, WORLD_H, WORLD_W } from './types.js'
-import type { BattleConfig, GroupResult, SimGroup, Winner } from './types.js'
+import { BattleEventType, COLLAPSE_THRESHOLD, MELEE_RANGE, TEAM_A, TEAM_B, WORLD_H, WORLD_W } from './types.js'
+import type { BattleConfig, BattleEvent, GroupResult, SimGroup, Winner } from './types.js'
+
+/** Ring buffer capacity. Past this, the oldest notable event is overwritten. */
+const EVENT_CAPACITY = 512
 
 const CELL_SIZE = 48
 const DEFAULT_MAX_TICKS = 20 * 180
@@ -122,6 +125,19 @@ export class Battle {
   private readonly rng: Rng
   private readonly grid: SpatialGrid
 
+  /**
+   * Notable events (named individuals hit or killed, a squad crossing the
+   * collapse threshold) for a battle log and a leader HUD to share — see
+   * docs/V0-DESIGN.md §5c. Fixed-capacity ring buffer, preallocated here and
+   * never reallocated — the tick loop only overwrites existing slots.
+   */
+  private readonly events: BattleEvent[]
+  private eventCursor = 0
+  /** Total events ever emitted, including ones the ring has since overwritten. */
+  eventCount = 0
+  /** Edge-trigger for Collapsed: only fires the tick a group first drops below threshold. */
+  private readonly collapsedFlag: Uint8Array
+
   constructor(config: BattleConfig) {
     this.groups = config.groups
     this.maxTicks = config.maxTicks ?? DEFAULT_MAX_TICKS
@@ -158,6 +174,12 @@ export class Battle {
     this.groupFirstUnit = new Int32Array(gn)
     this.groupDamageDealt = new Float32Array(gn)
     this.groupDamageTaken = new Float32Array(gn)
+    this.collapsedFlag = new Uint8Array(gn)
+
+    this.events = new Array<BattleEvent>(EVENT_CAPACITY)
+    for (let e = 0; e < EVENT_CAPACITY; e++) {
+      this.events[e] = { tick: 0, type: BattleEventType.Hit, team: TEAM_A, groupIndex: 0, label: '', value: 0 }
+    }
 
     this.grid = new SpatialGrid(this.worldW, this.worldH, CELL_SIZE, total)
 
@@ -356,6 +378,8 @@ export class Battle {
     // Phase 2 — resolution. Overkill is possible and symmetric.
     for (let i = 0; i < count; i++) {
       if (alive[i] === 0 || damage[i] === 0) continue
+      const gi = group[i]
+      if (groups[gi].named) this.pushEvent(BattleEventType.Hit, this.team[i], gi, damage[i])
       hp[i] -= damage[i]
       if (hp[i] <= 0) this.kill(i)
     }
@@ -385,15 +409,64 @@ export class Battle {
       const strength = this.groupAlive[g] / start
       const d = this.groups[g].discipline
       this.groupEff[g] = d + (1 - d) * strength
+
+      // Collapsed fires once on the tick a group first drops below
+      // threshold, not on every tick it stays there.
+      if (this.groupEff[g] < COLLAPSE_THRESHOLD) {
+        if (this.collapsedFlag[g] === 0) {
+          this.collapsedFlag[g] = 1
+          this.pushEvent(BattleEventType.Collapsed, this.groups[g].team, g, this.groupEff[g])
+        }
+      } else {
+        this.collapsedFlag[g] = 0
+      }
     }
   }
 
   private kill(t: number): void {
+    const gi = this.group[t]
+    if (this.groups[gi].named) {
+      this.pushEvent(BattleEventType.Died, this.team[t], gi, 0)
+    }
     this.alive[t] = 0
     this.hp[t] = 0
-    this.groupAlive[this.group[t]]--
+    this.groupAlive[gi]--
     if (this.team[t] === TEAM_A) this.aliveA--
     else this.aliveB--
+  }
+
+  /** Overwrites the next ring slot in place — no allocation once the ring exists. */
+  private pushEvent(type: BattleEventType, team: number, groupIndex: number, value: number): void {
+    const e = this.events[this.eventCursor]
+    e.tick = this.tick
+    e.type = type
+    e.team = team === TEAM_A ? TEAM_A : TEAM_B
+    e.groupIndex = groupIndex
+    e.label = this.groups[groupIndex].label
+    e.value = value
+    this.eventCursor = (this.eventCursor + 1) % EVENT_CAPACITY
+    this.eventCount++
+  }
+
+  /**
+   * Events emitted since `lastCount` (a caller's previous `eventCount`),
+   * oldest first, as fresh copies — safe to hold onto after this call, unlike
+   * a reference into the ring buffer itself. Called by the renderer at its
+   * own throttled rate, not from the tick loop, so the allocation here is
+   * fine: the "no allocation in the tick loop" rule (CLAUDE.md) is about
+   * step(), not about reading the result back out.
+   */
+  newEventsSince(lastCount: number): BattleEvent[] {
+    const missed = this.eventCount - lastCount
+    if (missed <= 0) return []
+    const n = Math.min(missed, EVENT_CAPACITY)
+    const out: BattleEvent[] = []
+    for (let k = n - 1; k >= 0; k--) {
+      const idx = (this.eventCursor - 1 - k + EVENT_CAPACITY * 2) % EVENT_CAPACITY
+      const e = this.events[idx]
+      out.push({ tick: e.tick, type: e.type, team: e.team, groupIndex: e.groupIndex, label: e.label, value: e.value })
+    }
+    return out
   }
 
   /**

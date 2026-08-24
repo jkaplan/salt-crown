@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Battle, Rng, TEAM_A, TEAM_B, hashSeed } from '@salt/sim'
+import { Battle, BattleEventType, Rng, TEAM_A, TEAM_B, hashSeed } from '@salt/sim'
 import {
   makeGroup,
   resolvePotentialStats,
@@ -158,6 +158,71 @@ describe('Morale as effectiveness', () => {
     for (const r of battle.results()) {
       expect(r.dead + r.survived).toBe(r.started)
     }
+  })
+})
+
+describe('Battle events', () => {
+  // docs/V0-DESIGN.md §5c: notable events for a battle log and a leader HUD
+  // to share. Deliberately narrow — only named individuals and squad-level
+  // collapses, not a record of every hit.
+
+  it('emits no Hit or Died events for ordinary fodder', () => {
+    const battle = build(9, 30, 60)
+    battle.run()
+    const events = battle.newEventsSince(0)
+    expect(events.some((e) => e.type === BattleEventType.Hit)).toBe(false)
+    expect(events.some((e) => e.type === BattleEventType.Died)).toBe(false)
+  })
+
+  it('still emits Collapsed for a losing fodder squad with no named individual', () => {
+    const battle = build(9, 30, 60)
+    battle.run()
+    const collapsed = battle.newEventsSince(0).filter((e) => e.type === BattleEventType.Collapsed)
+    expect(collapsed.length).toBeGreaterThan(0)
+    expect(collapsed.every((e) => e.team === TEAM_A)).toBe(true)
+  })
+
+  it('fires Collapsed exactly once per group, on the tick it first crosses the threshold', () => {
+    const battle = build(9, 30, 60)
+    battle.run()
+    const collapsed = battle.newEventsSince(0).filter((e) => e.type === BattleEventType.Collapsed)
+    const byGroup = new Map<number, number>()
+    for (const e of collapsed) byGroup.set(e.groupIndex, (byGroup.get(e.groupIndex) ?? 0) + 1)
+    for (const count of byGroup.values()) expect(count).toBe(1)
+  })
+
+  it('emits Hit and Died for a named individual, matching its group label', () => {
+    const lone = { ...makeGroup(TEAM_A, 0, 1), label: 'Tallow', named: true }
+    const battle = new Battle({ seed: 7, groups: [lone, makeGroup(TEAM_B, 0, 20)] })
+    battle.run()
+
+    const events = battle.newEventsSince(0)
+    const hits = events.filter((e) => e.type === BattleEventType.Hit)
+    const died = events.filter((e) => e.type === BattleEventType.Died)
+
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits.every((e) => e.groupIndex === 0 && e.label === 'Tallow' && e.value > 0)).toBe(true)
+    // A lone body against 20 does not survive.
+    expect(died.length).toBe(1)
+    expect(died[0].groupIndex).toBe(0)
+    expect(died[0].label).toBe('Tallow')
+  })
+
+  it('newEventsSince is cumulative and returns nothing already-read twice', () => {
+    const lone = { ...makeGroup(TEAM_A, 0, 1), label: 'Chalk', named: true }
+    const battle = new Battle({ seed: 7, groups: [lone, makeGroup(TEAM_B, 0, 20)] })
+
+    let seen = 0
+    const all: ReturnType<Battle['newEventsSince']> = []
+    while (!battle.finished) {
+      battle.step()
+      const fresh = battle.newEventsSince(seen)
+      all.push(...fresh)
+      seen = battle.eventCount
+    }
+
+    expect(all.length).toBe(battle.eventCount)
+    expect(battle.newEventsSince(seen).length).toBe(0)
   })
 })
 

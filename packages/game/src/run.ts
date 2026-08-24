@@ -181,12 +181,22 @@ export function buy(state: RunState, offerId: string): RunState {
 
   if (offer.kind === 'squad') {
     const leader = offer.potentials[0]
-    warband.squads.push({
+    const newSquad = {
       id: offer.id,
       typeId: offer.typeId,
       count: offer.count,
-      leader: leader ? { kind: 'potential', id: leader.id } : null,
-    })
+      leader: leader ? { kind: 'potential' as const, id: leader.id } : null,
+    }
+    // Land next to the last squad of the same type instead of always at the
+    // tail, so repeat buys cluster in the battle line instead of scattering.
+    // Squads stay separate — two batches of the same type can still carry
+    // different leaders — this only changes where a fresh one lands.
+    let lastOfType = -1
+    for (let i = 0; i < warband.squads.length; i++) {
+      if (warband.squads[i].typeId === offer.typeId) lastOfType = i
+    }
+    if (lastOfType === -1) warband.squads.push(newSquad)
+    else warband.squads.splice(lastOfType + 1, 0, newSquad)
     warband.potentials.push(...offer.potentials)
   } else {
     warband.officers.push(offer.officer)

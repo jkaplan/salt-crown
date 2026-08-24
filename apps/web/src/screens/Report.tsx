@@ -1,5 +1,5 @@
 import type { BattleReport } from '@salt/game'
-import { TICKS_PER_SECOND } from '@salt/sim'
+import { COLLAPSE_THRESHOLD, TICKS_PER_SECOND } from '@salt/sim'
 
 interface Props {
   report: BattleReport
@@ -133,12 +133,12 @@ export default function Report({ report, onContinue, isLast }: Props) {
             {report.squads.map((s) => {
               const eff = Math.round(s.endEffectiveness * 100)
               return (
-                <tr key={s.label} className={eff < 60 ? 'collapsing' : ''}>
+                <tr key={s.label} className={eff < COLLAPSE_THRESHOLD * 100 ? 'collapsing' : ''}>
                   <td>{s.label}</td>
                   <td>{s.started}</td>
                   <td className="dead">{s.dead}</td>
                   <td>{s.survived}</td>
-                  <td className={eff < 60 ? 'dead' : ''}>{eff}%</td>
+                  <td className={eff < COLLAPSE_THRESHOLD * 100 ? 'dead' : ''}>{eff}%</td>
                 </tr>
               )
             })}

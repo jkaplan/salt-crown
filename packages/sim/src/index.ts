@@ -9,6 +9,8 @@ export {
   TEAM_A,
   TEAM_B,
   MELEE_RANGE,
+  COLLAPSE_THRESHOLD,
+  BattleEventType,
 } from './types.js'
 export type {
   UnitType,
@@ -17,4 +19,5 @@ export type {
   BattleConfig,
   GroupResult,
   Winner,
+  BattleEvent,
 } from './types.js'
