@@ -23,6 +23,54 @@ export interface Potential {
   battles: number
   /** How many growth mutations have already been claimed. */
   growth: number
+  /**
+   * Capacity — how many mutations this body can ever carry.
+   *
+   * This is the whole worth of a mutant. Two bodies with identical stats today
+   * are worth completely different amounts if one can hold six mutations and
+   * the other is already finished at one.
+   *
+   * It also explains what a Potential *is*: not "one in a dozen is special" as
+   * a spawn rule, but "almost every mutant has capacity 0". A Potential is
+   * simply a mutant whose capacity is above zero. The ratio is a consequence,
+   * not a rule.
+   */
+  capacity: number
+}
+
+/**
+ * Capacity distribution. Most who show anything at all show very little; the
+ * ceiling is genuinely rare, which is what makes finding one matter.
+ *
+ * Only capacity >= FIRSTBORN_AT_MUTATIONS can ever become a Firstborn, so the
+ * top two rows are the entire Firstborn pipeline — about 2% of Potentials,
+ * which is a fraction of a fraction of all mutants.
+ */
+const CAPACITY_TABLE: ReadonlyArray<{ upTo: number; capacity: number }> = [
+  { upTo: 0.45, capacity: 1 },
+  { upTo: 0.73, capacity: 2 },
+  { upTo: 0.87, capacity: 3 },
+  { upTo: 0.94, capacity: 4 },
+  { upTo: 0.98, capacity: 5 },
+  { upTo: 0.995, capacity: 6 },
+  { upTo: 1.0, capacity: 7 },
+]
+
+export function rollCapacity(rng: Rng): number {
+  const r = rng.float()
+  for (const row of CAPACITY_TABLE) {
+    if (r < row.upTo) return row.capacity
+  }
+  return 1
+}
+
+/** How a capacity reads to someone appraising the body. */
+export function capacityGrade(capacity: number): string {
+  if (capacity <= 1) return 'finished'
+  if (capacity === 2) return 'shallow'
+  if (capacity <= 4) return 'deep'
+  if (capacity === 5) return 'rich'
+  return 'unheard of'
 }
 
 /** Battles a Potential must survive to earn each new mutation. */
@@ -47,12 +95,26 @@ export function earnedGrowth(p: Potential): number {
   return Math.floor(p.battles / BATTLES_PER_MUTATION)
 }
 
+/** Growth stops at the body's own ceiling, not a universal one. */
 export function isReadyToMutate(p: Potential): boolean {
-  return earnedGrowth(p) > p.growth && p.mutations.length < FIRSTBORN_AT_MUTATIONS
+  return earnedGrowth(p) > p.growth && p.mutations.length < p.capacity
 }
 
+export function isMaxed(p: Potential): boolean {
+  return p.mutations.length >= p.capacity
+}
+
+/**
+ * Only a body with the capacity to hold FIRSTBORN_AT_MUTATIONS can ever get
+ * there, so most Potentials plateau and stay useful rather than becoming
+ * legends. That scarcity is the point.
+ */
 export function isFirstborn(p: Potential): boolean {
   return p.mutations.length >= FIRSTBORN_AT_MUTATIONS
+}
+
+export function canBecomeFirstborn(p: Potential): boolean {
+  return p.capacity >= FIRSTBORN_AT_MUTATIONS
 }
 
 /**
@@ -73,8 +135,16 @@ export const POTENTIAL_HP_MULT = 2.2
 /** Salvage premium per mutation level. A good roll is worth paying for. */
 export const POTENTIAL_COST_PER_LEVEL = 9
 
+/**
+ * Salvage premium per point of unused capacity. Room to grow is the thing
+ * actually being bought — a finished body is just an expensive fighter.
+ */
+export const POTENTIAL_COST_PER_CAPACITY = 16
+
 export function rollPotential(rng: Rng, typeId: number, encounterIndex: number): Potential {
-  const howMany = rng.float() < 0.28 ? 2 : 1
+  const capacity = rollCapacity(rng)
+  // A body already at its ceiling arrives finished — which is most of them.
+  const howMany = Math.min(capacity, rng.float() < 0.28 ? 2 : 1)
   const maxLevel = Math.min(6, 2 + Math.floor(encounterIndex / 1.6))
 
   const mutations: MutationRoll[] = []
@@ -91,12 +161,15 @@ export function rollPotential(rng: Rng, typeId: number, encounterIndex: number):
     mutations,
     battles: 0,
     growth: 0,
+    capacity,
   }
 }
 
 export function potentialCost(p: Potential, baseCost: number): number {
   let total = baseCost
   for (const m of p.mutations) total += m.level * POTENTIAL_COST_PER_LEVEL
+  // Room to grow is priced separately from what it can already do.
+  total += Math.max(0, p.capacity - p.mutations.length) * POTENTIAL_COST_PER_CAPACITY
   return Math.round(total)
 }
 

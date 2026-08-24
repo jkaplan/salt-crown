@@ -828,3 +828,28 @@ select option {
   .growth-choices { flex-direction: row; }
   .growth-choice { flex: 1; }
 }
+
+/* --------------------------------------------------------- capacity ----- */
+
+/* The stat that decides what a mutant is worth — filled and empty slots, so
+   "four spare" reads instantly rather than needing arithmetic. */
+.capacity { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; flex: none; cursor: help; }
+.capacity .slot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: #2f2820;
+  transform: rotate(45deg);
+}
+.capacity .slot.on { background: var(--gold); }
+.capacity-word {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.capacity.maxed .capacity-word { color: #6b6055; }
+.capacity.legend .slot { background: #3a2f16; }
+.capacity.legend .slot.on { background: #ffd77a; }
+.capacity.legend .capacity-word { color: #ffd77a; }
+.standout .capacity { margin-left: 0; }

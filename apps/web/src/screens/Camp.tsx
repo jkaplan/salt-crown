@@ -2,6 +2,9 @@ import { useRef, useState } from 'react'
 import {
   ENCOUNTERS_PER_RUN,
   FIRSTBORN_AT_MUTATIONS,
+  canBecomeFirstborn,
+  capacityGrade,
+  isMaxed,
   MUTATIONS_BY_ID,
   OFFICER_RANKS_BY_ID,
   findLeadingPotential,
@@ -212,6 +215,36 @@ function SquadRow({
   )
 }
 
+/**
+ * Capacity, shown as filled and empty slots.
+ *
+ * This is the stat that decides what a mutant is worth. Two bodies with the
+ * same mutations today are worth completely different amounts if one has four
+ * empty slots and the other is finished — so it gets a shape you can read at
+ * a glance rather than a number in a list.
+ */
+function Capacity({ potential }: { potential: Potential }) {
+  const filled = potential.mutations.length
+  const maxed = isMaxed(potential)
+  const legend = canBecomeFirstborn(potential)
+
+  return (
+    <span
+      className={`capacity${maxed ? ' maxed' : ''}${legend ? ' legend' : ''}`}
+      title={`Capacity ${potential.capacity} — ${capacityGrade(potential.capacity)}. ${
+        maxed
+          ? 'This body can hold no more.'
+          : `${potential.capacity - filled} more mutation(s) possible.`
+      }${legend ? ' Deep enough to become a Firstborn.' : ''}`}
+    >
+      {Array.from({ length: potential.capacity }, (_, i) => (
+        <i key={i} className={i < filled ? 'slot on' : 'slot'} />
+      ))}
+      <span className="capacity-word">{maxed ? 'finished' : capacityGrade(potential.capacity)}</span>
+    </span>
+  )
+}
+
 function PotentialRow({ potential, warband }: { potential: Potential; warband: Warband }) {
   const stats = resolvePotentialStats(potential)
   const leading = warband.squads.find(
@@ -228,9 +261,7 @@ function PotentialRow({ potential, warband }: { potential: Potential; warband: W
             <UnitName typeId={potential.typeId} />
           </span>
         </span>
-        <span className="row-meta">
-          {potential.battles === 0 ? 'untested' : `${potential.battles} survived`}
-        </span>
+        <Capacity potential={potential} />
       </div>
       <div className="tags">
         {potential.mutations.map((m) => (
@@ -275,7 +306,7 @@ function GrowthCard({
           </span>
         </span>
         <span className="row-meta">
-          mutation {next} of {FIRSTBORN_AT_MUTATIONS}
+          mutation {next} of {potential.capacity}
         </span>
       </div>
       <div className="growth-choices">
@@ -352,6 +383,7 @@ function OfferRow({
             {offer.potentials.map((p) => (
               <span key={p.id} className="standout">
                 <b className="potential-name">{p.name}</b>
+                <Capacity potential={p} />
                 <span className="dim">
                   {p.mutations.map((m) => `${m.id} ${m.level}`).join(', ')}
                 </span>

@@ -12,6 +12,11 @@ import {
   FIRSTBORN_AT_MUTATIONS,
   chooseMutation,
   isReadyToMutate,
+  isMaxed,
+  canBecomeFirstborn,
+  rollCapacity,
+  rollPotential,
+  potentialCost,
   rollGrowthChoices,
   rollOfficer,
   squadLabel,
@@ -265,11 +270,12 @@ describe('battle setup', () => {
 })
 
 describe('mutation growth', () => {
-  const survive = (run: RunState, battles: number): RunState => ({
+  /** Age the Potentials, and give them room to grow into. */
+  const survive = (run: RunState, battles: number, capacity = 6): RunState => ({
     ...run,
     warband: {
       ...run.warband,
-      potentials: run.warband.potentials.map((p) => ({ ...p, battles })),
+      potentials: run.warband.potentials.map((p) => ({ ...p, battles, capacity })),
     },
   })
 
@@ -339,5 +345,62 @@ describe('mutation growth', () => {
       })),
     }
     expect(isReadyToMutate(p)).toBe(false)
+  })
+})
+
+describe('capacity', () => {
+  it('never starts a Potential with more mutations than it can hold', () => {
+    const rng = new Rng(hashSeed('cap'))
+    for (let i = 0; i < 300; i++) {
+      const p = rollPotential(rng, 0, i % 8)
+      expect(p.mutations.length).toBeLessThanOrEqual(p.capacity)
+      expect(p.capacity).toBeGreaterThan(0)
+    }
+  })
+
+  it('produces a distribution where deep capacity is genuinely rare', () => {
+    // The whole point is that most Potentials plateau early and a Firstborn
+    // candidate is a find. If this flattens out, mutants stop having value.
+    const rng = new Rng(hashSeed('dist'))
+    const counts = new Map<number, number>()
+    const n = 4000
+    for (let i = 0; i < n; i++) {
+      const c = rollCapacity(rng)
+      counts.set(c, (counts.get(c) ?? 0) + 1)
+    }
+    const shallow = (counts.get(1) ?? 0) + (counts.get(2) ?? 0)
+    const firstbornCapable = [...counts.entries()]
+      .filter(([c]) => c >= FIRSTBORN_AT_MUTATIONS)
+      .reduce((s, [, v]) => s + v, 0)
+
+    expect(shallow / n).toBeGreaterThan(0.6)
+    expect(firstbornCapable / n).toBeLessThan(0.06)
+    expect(firstbornCapable).toBeGreaterThan(0)
+  })
+
+  it('stops growth at the body’s own ceiling, not a universal one', () => {
+    const base = start().warband.potentials[0]
+    const shallow = { ...base, capacity: 2, battles: 99, growth: 0, mutations: [
+      { id: 'horns', level: 3 },
+      { id: 'carapace', level: 3 },
+    ] }
+    const deep = { ...shallow, capacity: 6 }
+
+    expect(isReadyToMutate(shallow)).toBe(false)
+    expect(isMaxed(shallow)).toBe(true)
+    expect(isReadyToMutate(deep)).toBe(true)
+  })
+
+  it('prices unused capacity — room to grow is what is being bought', () => {
+    const base = start().warband.potentials[0]
+    const one = { ...base, capacity: 1, mutations: [{ id: 'horns', level: 3 }] }
+    const six = { ...one, capacity: 6 }
+    expect(potentialCost(six, 10)).toBeGreaterThan(potentialCost(one, 10))
+  })
+
+  it('only lets deep bodies reach Firstborn', () => {
+    const base = start().warband.potentials[0]
+    expect(canBecomeFirstborn({ ...base, capacity: FIRSTBORN_AT_MUTATIONS })).toBe(true)
+    expect(canBecomeFirstborn({ ...base, capacity: FIRSTBORN_AT_MUTATIONS - 1 })).toBe(false)
   })
 })

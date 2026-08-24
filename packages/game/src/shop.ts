@@ -1,7 +1,7 @@
 import { Rng } from '@salt/sim'
 import { OFFICER_RANKS_BY_ID, rollOfficer } from './officers.js'
 import type { Officer } from './officers.js'
-import { POTENTIAL_COST_PER_LEVEL, rollPotential } from './potentials.js'
+import { potentialCost, rollPotential } from './potentials.js'
 import type { Potential } from './potentials.js'
 import { MUTANT_TYPES, TRUEKIN_TYPES } from './units.js'
 import { squadCost } from './roster.js'
@@ -55,10 +55,8 @@ function rollSquadOffer(rng: Rng, encounterIndex: number): SquadOffer {
   }
 
   let cost = squadCost(type.id, count)
-  for (const p of potentials) {
-    cost += type.cost
-    for (const m of p.mutations) cost += m.level * POTENTIAL_COST_PER_LEVEL
-  }
+  // A standout is priced on what it can become, not just what it is.
+  for (const p of potentials) cost += potentialCost(p, type.cost)
 
   return {
     kind: 'squad',
