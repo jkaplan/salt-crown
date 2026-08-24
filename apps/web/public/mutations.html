@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Salt Crown — Mutation Ledger</title>
+    <style>
+      :root {
+        --bg: #0f1213;
+        --bg-2: #171d1d;
+        --panel: rgba(23, 29, 29, 0.92);
+        --panel-strong: rgba(17, 20, 20, 0.98);
+        --ink: #edf2ef;
+        --muted: #a4b4ae;
+        --line: rgba(154, 170, 166, 0.25);
+        --glow: rgba(113, 181, 146, 0.32);
+        --accent: #7fc7bb;
+        --accent-2: #d7b66e;
+        --danger: #c86b62;
+        --shadow: rgba(0, 0, 0, 0.34);
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at top, rgba(127, 199, 187, 0.16), transparent 28%),
+          linear-gradient(180deg, var(--bg) 0%, #0b0d0d 100%);
+        color: var(--ink);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      body {
+        padding: 32px 20px 56px;
+      }
+
+      .page {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 16px;
+        padding-bottom: 12px;
+        margin-bottom: 24px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        color: var(--accent);
+        font-size: 0.72rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2.2rem, 4vw, 3.2rem);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .subhead {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.5;
+        max-width: 42rem;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+
+      .search,
+      .filter {
+        background: rgba(19, 24, 24, 0.92);
+        color: var(--ink);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 11px 14px;
+        font-size: 0.96rem;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+      }
+
+      .search {
+        flex: 1 1 320px;
+        min-width: 220px;
+      }
+
+      .filter {
+        min-width: 180px;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+
+      .stat {
+        background: linear-gradient(180deg, rgba(26, 32, 32, 0.96), rgba(19, 23, 23, 0.96));
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 10px 20px var(--shadow);
+      }
+
+      .stat .label {
+        color: var(--muted);
+        font-size: 0.7rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .stat .value {
+        margin-top: 8px;
+        font-size: clamp(1.35rem, 2vw, 2.1rem);
+        font-weight: 700;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        position: relative;
+        background: linear-gradient(180deg, rgba(23, 29, 29, 0.94), rgba(15, 18, 18, 0.96));
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: 0 12px 18px var(--shadow);
+        transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+        overflow: hidden;
+      }
+
+      .card::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, var(--accent), transparent);
+        opacity: 0.8;
+      }
+
+      .card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(127, 199, 187, 0.6);
+        box-shadow: 0 18px 26px var(--shadow);
+      }
+
+      .topline {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .name {
+        font-size: 1.2rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .tag-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 5px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(127, 199, 187, 0.38);
+        background: rgba(127, 199, 187, 0.08);
+        color: var(--accent);
+        font-size: 0.68rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .blurb {
+        margin: 0 0 12px;
+        color: var(--muted);
+        font-style: italic;
+      }
+
+      .meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        color: var(--muted);
+        font-size: 0.74rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent-2);
+        box-shadow: 0 0 0 4px rgba(215, 182, 110, 0.16);
+      }
+
+      .effect {
+        margin: 0;
+        line-height: 1.6;
+        min-height: 72px;
+      }
+
+      .id {
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-top: 12px;
+      }
+
+      .empty {
+        display: none;
+        padding: 22px 16px;
+        border: 1px dashed var(--line);
+        border-radius: 12px;
+        text-align: center;
+        color: var(--muted);
+      }
+
+      .empty.visible {
+        display: block;
+      }
+
+      @media (max-width: 680px) {
+        .header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .stats {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="header">
+        <div>
+          <p class="eyebrow">Mutant physiology</p>
+          <h1>Mutation Ledger</h1>
+        </div>
+        <p class="subhead">
+          A current roster of the mutation effects available in Salt Crown V0, as implemented in the simulation and recruitment data.
+        </p>
+      </header>
+
+      <div class="toolbar">
+        <input id="search" class="search" type="text" placeholder="Search mutation name, effect, or keyword…" />
+        <select id="filter" class="filter" aria-label="Filter mutations by category">
+          <option value="all">All mutations</option>
+          <option value="offense">Offense</option>
+          <option value="defense">Defense</option>
+          <option value="mobility">Mobility</option>
+          <option value="utility">Utility</option>
+        </select>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="label">Total</div>
+          <div id="totalCount" class="value">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Offense</div>
+          <div id="offenseCount" class="value">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Defense</div>
+          <div id="defenseCount" class="value">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Mobility / Utility</div>
+          <div id="supportCount" class="value">0</div>
+        </div>
+      </div>
+
+      <div id="mutationGrid" class="grid"></div>
+      <div id="emptyState" class="empty">No mutations match the active search or filter.</div>
+    </div>
+
+    <script>
+      const mutations = [
+        {
+          id: 'horns',
+          name: 'Horns',
+          blurb: 'Bone, forward.',
+          category: 'offense',
+          tags: ['Damage', 'Frontline'],
+          effect: 'Adds flat damage to melee attacks as the mutation grows.'
+        },
+        {
+          id: 'carapace',
+          name: 'Carapace',
+          blurb: 'A shell, of sorts.',
+          category: 'defense',
+          tags: ['Armor', 'Durability'],
+          effect: 'Grants armor for better survivability in extended combat.'
+        },
+        {
+          id: 'bulging-sacs',
+          name: 'Bulging Sacs',
+          blurb: 'More of it to kill.',
+          category: 'defense',
+          tags: ['HP', 'Tank'],
+          effect: 'Increases maximum health, making the unit harder to kill.'
+        },
+        {
+          id: 'adrenal-glands',
+          name: 'Adrenal Glands',
+          blurb: 'Always at a run.',
+          category: 'mobility',
+          tags: ['Move', 'Speed'],
+          effect: 'Boosts movement speed, improving responsiveness and pursuit.'
+        },
+        {
+          id: 'twitch-reflex',
+          name: 'Twitch Reflex',
+          blurb: 'Flinches before the blow lands.',
+          category: 'defense',
+          tags: ['Evasion', 'Dodge'],
+          effect: 'Raises evade chance, helping the unit slip out of incoming hits.'
+        },
+        {
+          id: 'keen-sense',
+          name: 'Keen Sense',
+          blurb: 'Smells where you will be.',
+          category: 'offense',
+          tags: ['Accuracy', 'Precision'],
+          effect: 'Improves hit chance so the unit lands more of its attacks.'
+        },
+        {
+          id: 'serrated-claws',
+          name: 'Serrated Claws',
+          blurb: 'Enthusiasm over precision.',
+          category: 'offense',
+          tags: ['Burst', 'Melee'],
+          effect: 'Adds heavy melee damage while reducing accuracy, rewarding aggression.'
+        },
+        {
+          id: 'flaming-ray',
+          name: 'Flaming Ray',
+          blurb: 'It opens its mouth and the air lights up.',
+          category: 'offense',
+          tags: ['Ranged', 'Fire'],
+          effect: 'Extends attack range and transforms the unit into a ranged threat.'
+        },
+        {
+          id: 'dense-bone',
+          name: 'Dense Bone',
+          blurb: 'Heavy, and slow with it.',
+          category: 'defense',
+          tags: ['Armor', 'Slow'],
+          effect: 'Adds armor at the cost of reduced movement speed, favoring sturdiness.'
+        },
+        {
+          id: 'regeneration',
+          name: 'Regeneration',
+          blurb: 'Knits itself back together, slowly.',
+          category: 'utility',
+          tags: ['Heal', 'Recovery'],
+          effect: 'Restores health over time, increasing survivability in prolonged fights.'
+        },
+        {
+          id: 'quills',
+          name: 'Quills',
+          blurb: 'Punching it is its own punishment.',
+          category: 'defense',
+          tags: ['Reflect', 'Counter'],
+          effect: 'Reflects a portion of melee damage back to attackers.'
+        },
+        {
+          id: 'frenzy',
+          name: 'Frenzy',
+          blurb: 'Fights hardest on the way out.',
+          category: 'utility',
+          tags: ['Attack Speed', 'Pressure'],
+          effect: 'Increases attack speed as health drops, pushing the unit to surge in desperation.'
+        }
+      ]
+
+      const grid = document.getElementById('mutationGrid')
+      const searchInput = document.getElementById('search')
+      const filterSelect = document.getElementById('filter')
+      const emptyState = document.getElementById('emptyState')
+
+      function formatCategory(key) {
+        return key.charAt(0).toUpperCase() + key.slice(1)
+      }
+
+      function renderMutations() {
+        const query = searchInput.value.trim().toLowerCase()
+        const filter = filterSelect.value
+
+        const visible = mutations.filter((mutation) => {
+          const matchesFilter = filter === 'all' || mutation.category === filter
+          const haystack = `${mutation.name} ${mutation.blurb} ${mutation.effect} ${mutation.tags.join(' ')}`.toLowerCase()
+          const matchesSearch = haystack.includes(query)
+          return matchesFilter && matchesSearch
+        })
+
+        grid.innerHTML = visible.map((mutation) => `
+          <article class="card">
+            <div class="topline">
+              <div class="name">${mutation.name}</div>
+              <span class="tag-pill">${formatCategory(mutation.category)}</span>
+            </div>
+
+            <p class="blurb">${mutation.blurb}</p>
+
+            <div class="meta">
+              <span class="dot"></span>
+              <span>${mutation.tags.join(' · ')}</span>
+            </div>
+
+            <p class="effect">${mutation.effect}</p>
+            <div class="id">ID: ${mutation.id}</div>
+          </article>
+        `).join('')
+
+        emptyState.classList.toggle('visible', visible.length === 0)
+      }
+
+      function updateCounts() {
+        document.getElementById('totalCount').textContent = String(mutations.length)
+        document.getElementById('offenseCount').textContent = String(mutations.filter((m) => m.category === 'offense').length)
+        document.getElementById('defenseCount').textContent = String(mutations.filter((m) => m.category === 'defense').length)
+        document.getElementById('supportCount').textContent = String(mutations.filter((m) => m.category === 'mobility' || m.category === 'utility').length)
+      }
+
+      searchInput.addEventListener('input', renderMutations)
+      filterSelect.addEventListener('change', renderMutations)
+
+      updateCounts()
+      renderMutations()
+    </script>
+  </body>
+</html>

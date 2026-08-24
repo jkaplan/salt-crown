@@ -86,6 +86,304 @@ button:hover:not(:disabled) { background: #2a2119; }
 button:disabled { opacity: 0.4; cursor: default; }
 button.on { background: var(--a); color: #10100c; }
 
+.mutation-ledger {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--s3) var(--s3) calc(var(--s4) + var(--s3));
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.mutation-ledger__header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+  align-items: flex-end;
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--hair);
+}
+
+.mutation-ledger__eyebrow {
+  margin: 0 0 var(--s1);
+  font-size: var(--t-label);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--a);
+}
+
+.mutation-ledger__header h2 {
+  font-size: clamp(1.7rem, 3vw, 2.5rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mutation-ledger__copy {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--dim);
+}
+
+.mutation-ledger__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.mutation-ledger__toolbar input {
+  max-width: 420px;
+}
+
+.mutation-ledger__body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 300px;
+  gap: var(--s3);
+  align-items: start;
+}
+
+.mutation-ledger__sidebar,
+.mutation-detail {
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: var(--s3);
+}
+
+.mutation-ledger__panel-header,
+.mutation-detail__label {
+  font-size: var(--t-label);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.mutation-ledger__tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin-top: var(--s3);
+}
+
+.mutation-ledger__tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  min-height: 36px;
+  background: var(--surface-2);
+  color: var(--dim);
+  border: 1px solid var(--hair);
+  text-align: left;
+}
+
+.mutation-ledger__tabs button em {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 var(--s1);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  color: var(--ink);
+  font-size: var(--t-meta);
+  font-style: normal;
+}
+
+.mutation-ledger__tabs button.on {
+  background: var(--a);
+  color: #10100c;
+  border-color: transparent;
+}
+
+.mutation-ledger__tabs button.on em {
+  background: rgba(16, 16, 12, 0.15);
+  color: inherit;
+}
+
+.mutation-ledger__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.mutation-ledger__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: var(--s2);
+}
+
+.mutation-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: var(--s3);
+}
+
+.mutation-stat strong {
+  font-size: clamp(1.4rem, 2vw, 2rem);
+}
+
+.mutation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--s3);
+}
+
+.mutation-card {
+  position: relative;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: var(--s3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  text-align: left;
+  color: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+  cursor: pointer;
+}
+
+.mutation-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--a), transparent 70%);
+}
+
+.mutation-card:hover {
+  border-color: rgba(127, 199, 187, 0.5);
+}
+
+.mutation-card--selected {
+  border-color: var(--a);
+  box-shadow: inset 0 0 0 1px rgba(127, 199, 187, 0.45), 0 0 0 1px rgba(127, 199, 187, 0.15);
+}
+
+.mutation-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s2);
+  align-items: flex-start;
+}
+
+.mutation-card__eyebrow {
+  font-size: var(--t-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.mutation-card h3 {
+  font-size: 1.15rem;
+  margin-top: var(--s1);
+}
+
+.mutation-card__tag,
+.mutation-detail__tag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--s1) var(--s2);
+  border-radius: 999px;
+  background: rgba(127, 199, 187, 0.1);
+  color: var(--a);
+  border: 1px solid rgba(127, 199, 187, 0.3);
+  font-size: var(--t-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mutation-card__blurb,
+.mutation-detail__blurb {
+  margin: 0;
+  color: var(--dim);
+  font-style: italic;
+}
+
+.mutation-card__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--faint);
+  font-size: var(--t-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+.mutation-card__effect {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.mutation-card__effect--secondary {
+  color: var(--dim);
+}
+
+.mutation-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.mutation-detail__header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.mutation-detail h3 {
+  font-size: 1.6rem;
+}
+
+.mutation-detail__stat-block {
+  display: grid;
+  gap: var(--s2);
+  background: var(--surface-2);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: var(--s3);
+}
+
+.mutation-detail__stat-block strong {
+  display: block;
+  margin-top: var(--s1);
+  line-height: 1.5;
+}
+
+.mutation-detail__rule {
+  border-top: 1px solid var(--hair);
+  padding-top: var(--s3);
+}
+
+.mutation-detail__rule p {
+  margin: var(--s2) 0 0;
+  color: var(--dim);
+}
+
+.mutation-empty {
+  border: 1px dashed var(--hair);
+  border-radius: var(--radius);
+  padding: var(--s3);
+  color: var(--dim);
+}
+
 /*
  * THREE BUTTON LEVELS — docs/UX.md §1. There is no fourth.
  *
@@ -441,7 +739,76 @@ button.buy:hover:not(:disabled) { background: var(--gold); color: #17120a; }
 .battle-momentum-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); }
 .battle-momentum-center { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--hair); }
 
-.battle-hud { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; gap: var(--s3); pointer-events: none; }
+.battle-hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s2);
+  pointer-events: none;
+}
+
+/*
+ * Roster HUD: named individuals only (How Many Dudes-style corner tracker),
+ * top-left under the power bar. Stable order — see BattleScreen's comment —
+ * so a row's position never jumps as its HP changes, only fades when dead.
+ */
+.battle-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 200px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius);
+  padding: var(--s2);
+}
+.battle-roster li {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--a);
+}
+.battle-roster li.b { color: var(--enemy); }
+.battle-roster li[data-dead] { opacity: 0.4; }
+.roster-name {
+  font-size: var(--t-label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 96px;
+}
+.roster-hp-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.roster-hp-fill { display: block; height: 100%; background: currentColor; transition: width 200ms ease-out; }
+
+/* Battle log: recent named-fighter/squad events, newest first, bottom-left. */
+.battle-log {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  pointer-events: none;
+}
+.battle-log li {
+  font-size: var(--t-label);
+  color: var(--dim);
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius);
+  padding: 2px var(--s2);
+}
+.battle-log li.a { border-left: 2px solid var(--a); }
+.battle-log li.b { border-left: 2px solid var(--enemy); }
 .player-side, .enemy-side { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
 .enemy-side { align-items: flex-end; }
 .health-bar { display: flex; flex-direction: column; gap: 2px; font-size: var(--t-label); }

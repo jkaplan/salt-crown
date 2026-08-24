@@ -104,6 +104,13 @@ export const MUTATIONS: readonly Mutation[] = [
     describe: (l) => `reflects ${(l * 6).toFixed(0)}% of melee damage`,
   },
   {
+    id: 'razor-tail',
+    name: 'Razor Tail',
+    blurb: 'The last thing to touch it is usually the tail.',
+    apply: (s, l) => { s.quills += l * 0.05; s.evade += l * 0.012 },
+    describe: (l) => `reflects ${(l * 5).toFixed(0)}% of melee damage, +${(l * 1.2).toFixed(1)}% evade`,
+  },
+  {
     id: 'frenzy',
     name: 'Frenzy',
     blurb: 'Fights hardest on the way out.',

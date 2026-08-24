@@ -1,6 +1,6 @@
 import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js'
-import { Battle, MS_PER_TICK, TEAM_A, TEAM_B, WORLD_H, WORLD_W } from '@salt/sim'
-import type { BattleConfig, GroupResult, Winner } from '@salt/sim'
+import { Battle, MELEE_RANGE, MS_PER_TICK, TEAM_A, TEAM_B, WORLD_H, WORLD_W } from '@salt/sim'
+import type { BattleConfig, BattleEvent, GroupResult, Winner } from '@salt/sim'
 import { makeGroup } from '@salt/game'
 import { GlowFilter } from 'pixi-filters'
 
@@ -14,6 +14,8 @@ export interface ViewStats {
   finished: boolean
   winner: Winner
   combatants: CombatantSnapshot[]
+  /** Notable events since the last emit, oldest first — see BattleEvent. */
+  events: BattleEvent[]
 }
 
 export interface CombatantSnapshot {
@@ -34,6 +36,8 @@ export interface CombatantSnapshot {
   accuracy: number
   evade: number
   attackInterval: number
+  /** True for a group that IS one named individual — see SimGroup.named. */
+  named: boolean
 }
 
 export interface ProbeRow {
@@ -281,11 +285,20 @@ export class BattleView {
   private enemyLayer = new Container()
   /** Halo rings render here, behind both team layers so bodies sit in front of their own halo. */
   private haloLayer = new Container()
+  /**
+   * One shared Graphics for every ranged attack's streak, cleared and
+   * redrawn each frame — a line per active streak, not a sprite per streak.
+   * Ranged hits are bounded by attackInterval, so this stays cheap even with
+   * a lot of ranged units firing at once; a Sprite-per-streak would mean
+   * creating and destroying pool objects every few ticks for no real gain.
+   */
+  private streaks = new Graphics()
   private texture: Texture | null = null
   private bodyTextures: Texture[] = []
   private playerColor = 0x7fc7bb
   private playerGlow: GlowFilter | null = null
   private enemyGlow: GlowFilter | null = null
+  private streakGlow: GlowFilter | null = null
   private sprites: Sprite[] = []
   private banners: Banner[] = []
   private battle: Battle | null = null
@@ -303,6 +316,8 @@ export class BattleView {
   private acc = 0
   private simMsAvg = 0
   private lastEmit = 0
+  /** Read cursor into the sim's event ring buffer — see Battle.newEventsSince. */
+  private lastEventCount = 0
 
   speed = 1
   paused = false
@@ -401,11 +416,27 @@ export class BattleView {
     // One filter per layer. This is the whole reason the layers exist.
     this.playerLayer.filters = [this.playerGlow]
     this.enemyLayer.filters = [this.enemyGlow]
+    // A ray, not a thread — the brief that landed this was "like Light
+    // Manipulation in Caves of Qud." One filter on the shared streaks
+    // Graphics itself, created once here and never touched again — same
+    // safe, proven pattern as playerGlow/enemyGlow above, not the per-leader
+    // GlowFilter that had to be cut tonight for crashing on teardown.
+    this.streakGlow = new GlowFilter({
+      color: 0xffffff,
+      distance: 6,
+      outerStrength: 1.4,
+      innerStrength: 0.3,
+      quality: 0.4,
+    })
+    this.streaks.filters = [this.streakGlow]
     // Added first, so it sits behind both team layers — a halo BEHIND a
     // body, not a disc floating in front of one.
     this.world.addChild(this.haloLayer)
     this.world.addChild(this.enemyLayer)
     this.world.addChild(this.playerLayer)
+    // On top of every body — a streak needs to read clearly over the crowd,
+    // not get lost under it the way the old flat halo ring used to.
+    this.world.addChild(this.streaks)
     this.applyTheme()
 
     const g = new Graphics().circle(0, 0, 16).fill(0xffffff)
@@ -436,9 +467,22 @@ export class BattleView {
     this.bodyTextures = []
     this.playerGlow?.destroy()
     this.enemyGlow?.destroy()
+    this.streakGlow?.destroy()
     this.playerGlow = null
     this.enemyGlow = null
-    this.app.destroy(true, { children: true, texture: true })
+    this.streakGlow = null
+    // NOT `app.destroy(true, ...)`. That `true` is the renderer-destroy
+    // option, and passing it literally `true` (rather than an options object)
+    // makes Pixi call GlobalResourceRegistry.release() — which clears
+    // TexturePool, a module-level singleton shared by the whole page, not
+    // scoped to this Application. TexturePool.clear() empties its bucket
+    // storage but leaves its uid->key lookup table pointing at buckets that
+    // no longer exist, so the next Text.destroy() *anywhere on the page* —
+    // including an ordinary next battle's banner label — throws
+    // "Cannot read properties of undefined (reading 'push')" out of
+    // TexturePoolClass.returnTexture. { removeView: true } gets the same
+    // canvas cleanup without setting releaseGlobalResources.
+    this.app.destroy({ removeView: true }, { children: true, texture: true })
     this.app = null
     this.battle = null
     this.displayHealth = new Float32Array(0)
@@ -451,21 +495,14 @@ export class BattleView {
     this.battle = new Battle(config)
     this.acc = 0
     this.simMsAvg = 0
+    this.lastEventCount = 0
     this.reported = false
 
     this.playerLayer.removeChildren()
     this.enemyLayer.removeChildren()
     this.haloLayer.removeChildren()
-    // A sprite does not own its filters — destroying the sprite alone left a
-    // GlowFilter's internal render texture referenced by a shader that no
-    // longer existed, which crashed the SECOND battle in a run (the first
-    // battle's leader filters were never freed before the next start()).
-    for (const s of this.sprites) {
-      for (const f of s.filters ?? []) (f as { destroy?: () => void }).destroy?.()
-      s.destroy()
-    }
+    for (const s of this.sprites) s.destroy()
     for (const b of this.banners) {
-      for (const f of b.ring.filters ?? []) (f as { destroy?: () => void }).destroy?.()
       b.ring.destroy()
       b.label.destroy()
     }
@@ -493,13 +530,6 @@ export class BattleView {
       this.unitIsPlayer[i] = group.team === TEAM_A ? 1 : 0
       if (group.named) {
         this.leaderScale[i] = LEADER_SCALE
-        // A per-sprite filter costs a render-target switch, which is why
-        // team glow is applied once to a whole layer instead — but a leader
-        // is one body among a few dozen at most, not one among hundreds, so
-        // the cost that mattered at layer scale doesn't apply here.
-        sprite.filters = [
-          new GlowFilter({ color: LEADER_GOLD, distance: 8, outerStrength: 1.6, innerStrength: 0.1, quality: 0.4 }),
-        ]
       }
       this.sprites.push(sprite)
       // Sorted into a per-team layer so the glow can be applied ONCE to the
@@ -525,9 +555,6 @@ export class BattleView {
       ring.height = 70
       ring.alpha = 0.9
       ring.tint = LEADER_GOLD
-      ring.filters = [
-        new GlowFilter({ color: LEADER_GOLD, distance: 10, outerStrength: 1.2, innerStrength: 0, quality: 0.4 }),
-      ]
 
       const label = new Text({
         text: group.leaderLabel,
@@ -631,7 +658,12 @@ export class BattleView {
     const enemyFlash = this.enemyFlash
     const hp = b.hp
     const lastAttack = b.lastAttackTick
+    const lastTarget = b.lastAttackTarget
     const tick = b.tick
+    const groupOf = b.group
+    const groups = b.groups
+
+    this.streaks.clear()
 
     for (let i = 0; i < b.count; i++) {
       const sprite = sprites[i]
@@ -664,8 +696,9 @@ export class BattleView {
        */
       const lead = leaderScale[i]
       const since = tick - lastAttack[i]
+      let f = 0
       if (since >= 0 && since < FLASH_TICKS) {
-        const f = 1 - since / FLASH_TICKS
+        f = 1 - since / FLASH_TICKS
         const fs = (f * f * FLASH_STEPS) | 0
         sprite.tint = isPlayer[i] === 1 ? playerFlash[fs] : enemyFlash[fs]
         sprite.scale.set((0.03 + curve * 1.2 + f * f * 0.09) * lead)
@@ -675,6 +708,23 @@ export class BattleView {
 
       sprite.x = px[i] + (x[i] - px[i]) * alpha
       sprite.y = py[i] + (y[i] - py[i]) * alpha
+
+      /*
+       * A ranged shot's streak. Melee is adjacent already — there's no gap
+       * for a line to cross — but a ranged hit was landing with nothing
+       * visibly travelling the distance at all, which read as no attack
+       * happening. Fades on the same clock as the flash above (f), and only
+       * draws while the target is still around to draw a line to.
+       */
+      const t = lastTarget[i]
+      if (f > 0 && t >= 0 && groups[groupOf[i]].stats.range > MELEE_RANGE) {
+        const tx = px[t] + (x[t] - px[t]) * alpha
+        const ty = py[t] + (y[t] - py[t]) * alpha
+        this.streaks
+          .moveTo(sprite.x, sprite.y)
+          .lineTo(tx, ty)
+          .stroke({ width: 3, color: groups[groupOf[i]].color, alpha: f })
+      }
     }
 
     // Standards follow the first living member, so they pass down the line
@@ -740,8 +790,11 @@ export class BattleView {
         accuracy: group.stats.accuracy,
         evade: group.stats.evade,
         attackInterval: group.stats.attackInterval,
+        named: group.named ?? false,
       }
     })
+    const events = b.newEventsSince(this.lastEventCount)
+    this.lastEventCount = b.eventCount
     this.onStats({
       tick: b.tick,
       aliveA: b.aliveA,
@@ -752,6 +805,7 @@ export class BattleView {
       finished: b.finished,
       winner: b.winner,
       combatants,
+      events,
     })
   }
 

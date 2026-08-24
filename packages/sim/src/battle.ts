@@ -119,6 +119,13 @@ export class Battle {
    * whole line vibrated. The bump is a visual, so it belongs in the view.
    */
   readonly lastAttackTick: Int32Array
+  /**
+   * Who unit i last landed a blow on. Render-only, same reasoning as
+   * lastAttackTick above — this is what lets a ranged attack draw a streak to
+   * the body it actually hit, rather than to `target[i]`, which keeps moving
+   * and isn't guaranteed to still be the one it just struck by render time.
+   */
+  readonly lastAttackTarget: Int32Array
   /** Damage accumulated this tick, applied in phase 2. */
   private readonly damage: Float32Array
 
@@ -165,6 +172,7 @@ export class Battle {
     this.sepX = new Float32Array(total)
     this.sepY = new Float32Array(total)
     this.lastAttackTick = new Int32Array(total).fill(-999)
+    this.lastAttackTarget = new Int32Array(total).fill(-1)
     this.damage = new Float32Array(total)
 
     const gn = config.groups.length
@@ -363,6 +371,7 @@ export class Battle {
           damage[t] += dealt
 
           this.lastAttackTick[i] = this.tick
+          this.lastAttackTarget[i] = t
 
           this.groupDamageDealt[gi] += dealt
           this.groupDamageTaken[group[t]] += dealt

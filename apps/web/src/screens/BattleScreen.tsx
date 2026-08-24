@@ -1,9 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
-import { TEAM_A, type BattleConfig, type GroupResult, type Winner } from '@salt/sim'
+import { BattleEventType, TEAM_A, type BattleConfig, type BattleEvent, type GroupResult, type Winner } from '@salt/sim'
 import { BattleView } from '../BattleView'
 import type { ViewStats } from '../BattleView'
 
 const SPEEDS = [1, 2, 4, 8]
+/** Recent notable events kept on screen; older ones just scroll off. */
+const LOG_CAPACITY = 8
+/** Named fighters shown in the roster HUD, per docs/V0-DESIGN.md §5c. */
+const ROSTER_CAPACITY = 8
+
+function formatEvent(e: BattleEvent): string {
+  switch (e.type) {
+    case BattleEventType.Hit:
+      return `${e.label} is struck for ${Math.round(e.value)}`
+    case BattleEventType.Died:
+      return `${e.label} has fallen`
+    case BattleEventType.Collapsed:
+      return `${e.label} is collapsing`
+    default:
+      return e.label
+  }
+}
 
 interface Props {
   config: BattleConfig
@@ -27,6 +44,7 @@ export default function BattleScreen({ config, title, playerColor = '#7fc7bb', o
   const [speed, setSpeed] = useState(1)
   const [paused, setPaused] = useState(true)
   const [finished, setFinished] = useState(false)
+  const [log, setLog] = useState<BattleEvent[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -35,6 +53,7 @@ export default function BattleScreen({ config, title, playerColor = '#7fc7bb', o
     if (!host) return
 
     view.setPlayerColor(playerColor)
+    setLog([])
 
     void view.init(host).then(() => {
       if (cancelled) {
@@ -42,7 +61,14 @@ export default function BattleScreen({ config, title, playerColor = '#7fc7bb', o
         return
       }
       viewRef.current = view
-      view.onStats = setStats
+      view.onStats = (s) => {
+        setStats(s)
+        if (s && s.events.length > 0) {
+          // Events arrive oldest-first within a batch; reverse so the whole
+          // log stays newest-first once prepended.
+          setLog((prev) => [...s.events].reverse().concat(prev).slice(0, LOG_CAPACITY))
+        }
+      }
       view.onFinished = (results, winner, ticks) => {
         setFinished(true)
         doneRef.current(results, winner, ticks)
@@ -123,6 +149,9 @@ export default function BattleScreen({ config, title, playerColor = '#7fc7bb', o
     : 0
   const totalPower = playerPower + enemyPower
   const momentum = totalPower > 0 ? playerPower / totalPower : 0.5
+  // Stable array order (each named individual is its own group all battle),
+  // so this doesn't reshuffle as HP changes — just caps how many show.
+  const namedFighters = stats ? stats.combatants.filter((c) => c.named).slice(0, ROSTER_CAPACITY) : []
   const enemyColor = '#d98552'
   const winning = momentum >= 0.5
   const sideColor = winning ? playerColor : enemyColor
@@ -159,7 +188,35 @@ export default function BattleScreen({ config, title, playerColor = '#7fc7bb', o
                 <div className="battle-momentum-center" />
               </div>
             </div>
+            {namedFighters.length > 0 && (
+              <ul className="battle-roster">
+                {namedFighters.map((c) => (
+                  <li
+                    key={c.groupIndex}
+                    className={c.team === TEAM_A ? 'a' : 'b'}
+                    data-dead={c.alive === 0 || undefined}
+                  >
+                    <span className="roster-name">{c.leaderLabel ?? c.label}</span>
+                    <span className="roster-hp-track">
+                      <span
+                        className="roster-hp-fill"
+                        style={{ width: `${(Math.max(0, c.currentHp) / Math.max(1, c.maxHp)) * 100}%` }}
+                      />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+        )}
+        {log.length > 0 && (
+          <ul className="battle-log">
+            {log.map((e, i) => (
+              <li key={`${e.tick}-${i}`} className={e.team === TEAM_A ? 'a' : 'b'}>
+                {formatEvent(e)}
+              </li>
+            ))}
+          </ul>
         )}
       </div>
       <div className="battle-bar">

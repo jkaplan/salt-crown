@@ -23,10 +23,11 @@ import Report from './screens/Report'
 import Skirmish from './screens/Skirmish'
 import StartScreen from './screens/StartScreen'
 import LeaderSelect from './screens/LeaderSelect'
+import MutationLedger from './screens/MutationLedger'
 import ParametersPanel from './components/ParametersPanel'
 import type { ViewStats } from './BattleView'
 
-type Mode = 'campaign' | 'skirmish'
+type Mode = 'campaign' | 'skirmish' | 'mutations'
 type Setup = 'start' | 'leader'
 
 export default function App() {
@@ -111,6 +112,9 @@ export default function App() {
           <button className={mode === 'skirmish' ? 'on' : ''} onClick={() => setMode('skirmish')}>
             Skirmish
           </button>
+          <button className={mode === 'mutations' ? 'on' : ''} onClick={() => setMode('mutations')}>
+            Mutation Ledger
+          </button>
           {mode === 'campaign' && run && (
             <button className={panelOpen ? 'on' : ''} onClick={() => setPanelOpen(!panelOpen)}>
               Details
@@ -122,6 +126,8 @@ export default function App() {
       <div className={showPanel ? 'shell shell-docked' : 'shell'}>
         <div className="shell-main">
           {mode === 'skirmish' && <Skirmish />}
+
+          {mode === 'mutations' && <MutationLedger />}
 
           {mode === 'campaign' && run && (
             <>

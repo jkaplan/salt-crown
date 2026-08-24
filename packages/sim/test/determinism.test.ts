@@ -104,7 +104,9 @@ describe('Battle resolution', () => {
     // early. Bounds are ~2 sigma at n=400; tight enough to catch that again.
     expect(aWins / runs).toBeGreaterThan(0.43)
     expect(aWins / runs).toBeLessThan(0.57)
-  })
+  }, 20_000) // 400 full battles is real work — vitest's 5s default is a machine-load
+  // gamble, not a correctness bound. The assertion above is what actually guards
+  // fairness; this just gives it room to finish on a busy machine.
 
   it('rewards numbers superlinearly (Lanchester)', () => {
     let bigWins = 0
