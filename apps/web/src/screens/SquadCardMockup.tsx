@@ -1,4 +1,3 @@
-import { UNIT_TYPES } from '@salt/game'
 import '../styles/squadCards.css'
 
 /**
@@ -123,12 +122,6 @@ function lineageIcon(lineage: string): string {
   }
 }
 
-function hexToRgb(color: number): string {
-  const r = (color >> 16) & 0xff
-  const g = (color >> 8) & 0xff
-  const b = color & 0xff
-  return `rgb(${r}, ${g}, ${b})`
-}
 
 function SquadCard({ squad }: { squad: SquadCardData }) {
   const healthPercent = (squad.hp / squad.maxHp) * 100

@@ -54,10 +54,14 @@ export default function MutationLedger() {
 
   const counts = useMemo(
     () => ({
+      // One bucket per filter, or the tab counts disagree with the tabs.
+      // These were folded into a single `support` bucket, which made Mobility
+      // show the combined total and Utility show nothing at all.
       total: MUTATIONS.length,
       offense: MUTATIONS.filter((m) => categoryMap[m.id] === 'offense').length,
       defense: MUTATIONS.filter((m) => categoryMap[m.id] === 'defense').length,
-      support: MUTATIONS.filter((m) => categoryMap[m.id] === 'mobility' || categoryMap[m.id] === 'utility').length,
+      mobility: MUTATIONS.filter((m) => categoryMap[m.id] === 'mobility').length,
+      utility: MUTATIONS.filter((m) => (categoryMap[m.id] ?? 'utility') === 'utility').length,
     }),
     [],
   )
@@ -95,7 +99,7 @@ export default function MutationLedger() {
           <nav className="mutation-ledger__tabs" aria-label="Mutation categories">
             {categoryOrder.map((key) => {
               const label = key === 'all' ? 'All mutations' : categoryNames[key]
-              const count = key === 'all' ? counts.total : key === 'mobility' ? counts.support : counts[key]
+              const count = counts[key === 'all' ? 'total' : key]
               return (
                 <button
                   key={key}
@@ -127,7 +131,7 @@ export default function MutationLedger() {
             </div>
             <div className="mutation-stat">
               <span className="summary-label">Mobility / Utility</span>
-              <strong>{counts.support}</strong>
+              <strong>{counts.mobility + counts.utility}</strong>
             </div>
           </section>
 

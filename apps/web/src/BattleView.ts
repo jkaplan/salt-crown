@@ -1,6 +1,6 @@
 import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js'
 import { Battle, MELEE_RANGE, MS_PER_TICK, TEAM_A, TEAM_B, WORLD_H, WORLD_W } from '@salt/sim'
-import type { BattleConfig, BattleEvent, GroupResult, Winner } from '@salt/sim'
+import type { BattleConfig, BattleEvent, GroupResult, ResolvedStats, Winner } from '@salt/sim'
 import { makeGroup } from '@salt/game'
 import { GlowFilter } from 'pixi-filters'
 
