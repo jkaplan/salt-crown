@@ -9,6 +9,7 @@ import {
   fieldedCount,
   sellValue,
   MAX_FIELDED_PROSPECTS,
+  moraleWord,
   MUTATIONS_BY_ID,
   OFFICER_RANKS_BY_ID,
   findLeadingProspect,
@@ -61,6 +62,7 @@ interface Props {
   onBuy: (offerId: string) => void
   onAssign: (squadId: string, leader: SquadLeader | null) => void
   onChooseMutation: (prospectId: string, choiceIndex: number) => void
+  onResolveEvent: (choiceIndex: number) => void
   onAppraise: (prospectId: string) => void
   onTreatWound: (prospectId: string) => void
   onSetFielded: (prospectId: string, fielded: boolean) => void
@@ -68,6 +70,13 @@ interface Props {
   onMoveSquad: (squadId: string, dir: -1 | 1) => void
   onPlaceSquad: (squadId: string, toIndex: number) => void
   onMarch: () => void
+}
+
+/** Morale reads as a word, never a decimal — 0.04 means nothing to anyone. */
+function moraleTone(m: number): string {
+  if (m <= -0.03) return 'dead'
+  if (m >= 0.03) return 'held'
+  return ''
 }
 
 /**
@@ -513,6 +522,7 @@ export default function Camp({
   onBuy,
   onAssign,
   onChooseMutation,
+  onResolveEvent,
   onAppraise,
   onTreatWound,
   onSetFielded,
@@ -588,7 +598,11 @@ export default function Camp({
           <b className={bodiesFlash.trim()}>{bodies}</b> bodies
         </span>
         <span>
-          <b className="prospect-name">{warband.prospects.length}</b> prospects
+          <b className="prospect-name">{fieldedCount(warband.prospects)}</b>
+          <i>/{MAX_FIELDED_PROSPECTS}</i> fielded
+        </span>
+        <span title="Shifted by what you decide between battles. Every squad fights a little better or worse for it.">
+          <b className={moraleTone(warband.morale)}>{moraleWord(warband.morale)}</b> column
         </span>
       </div>
 
@@ -601,10 +615,56 @@ export default function Camp({
             salvage if you win · losing ends the run
           </p>
         </div>
-        <button className="btn-primary march" onClick={onMarch} disabled={bodies === 0}>
+        <button
+          className="btn-primary march"
+          onClick={onMarch}
+          disabled={bodies === 0 || run.event !== null}
+          title={run.event ? 'Answer the column first.' : undefined}
+        >
           March
         </button>
       </div>
+
+      {/*
+        The event blocks the march. A choice you can walk past is not a choice,
+        and morale only means something if the thing that moves it has weight.
+      */}
+      {run.event && (
+        <div className="event">
+          <h2 className="event-title">{run.event.title}</h2>
+          <p className="event-body">{run.event.body}</p>
+          <div className="event-choices">
+            {run.event.choices.map((choice, i) => {
+              const blocked = choice.requires !== undefined && warband.salvage < choice.requires
+              return (
+                <button
+                  key={choice.label}
+                  className="event-choice"
+                  disabled={blocked}
+                  onClick={() => onResolveEvent(i)}
+                >
+                  <span className="ec-label">{choice.label}</span>
+                  <span className="ec-detail">{choice.detail}</span>
+                  <span className="ec-cost">
+                    {choice.salvage ? (
+                      <span className={choice.salvage > 0 ? 'salvage' : 'dead'}>
+                        {choice.salvage > 0 ? '+' : ''}
+                        {choice.salvage} salvage
+                      </span>
+                    ) : null}
+                    {choice.morale ? (
+                      <span className={choice.morale > 0 ? 'held' : 'dead'}>
+                        {choice.morale > 0 ? 'steadies' : 'shakes'} the column
+                      </span>
+                    ) : null}
+                    {blocked && <span className="dim">cannot afford</span>}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/*
         The rarest thing in a run. About 2% of Prospects have the capacity to

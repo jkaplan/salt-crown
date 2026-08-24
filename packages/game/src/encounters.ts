@@ -100,7 +100,7 @@ export function generateEncounter(rng: Rng, index: number): Encounter {
     squads[0].leader = { kind: 'officer', id: officer.id }
   }
 
-  const enemy: Warband = { squads, prospects, officers, salvage: 0 }
+  const enemy: Warband = { squads, prospects, officers, salvage: 0, morale: 0 }
   const bodies = squads.reduce((n, s) => n + s.count, 0) + prospects.length
 
   return {

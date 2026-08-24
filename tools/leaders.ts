@@ -48,7 +48,7 @@ function prospect(typeId: number, mutationId: string, level: number): Prospect {
 }
 
 function warband(squads: Squad[], officers: Officer[], prospects: Prospect[]): Warband {
-  return { squads, officers, prospects, salvage: 0 }
+  return { squads, officers, prospects, salvage: 0, morale: 0 }
 }
 
 /** Win rate of `player` against `foe` over `seeds` deterministic battles. */

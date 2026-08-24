@@ -1299,3 +1299,46 @@ button.treat .price { color: var(--gold); margin-left: var(--s1); font-variant-n
   text-transform: uppercase;
   color: var(--faint);
 }
+
+/* ------------------------------------------------------------- events --- */
+
+/* Blocks the march, so it gets the weight of a decision rather than a notice. */
+.event {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s3);
+  border-left: 3px solid var(--a);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03), transparent 70%);
+}
+.event-title { font-size: var(--t-title); }
+.event-body { margin: 0; color: var(--dim); max-width: 62ch; }
+
+.event-choices { display: flex; flex-direction: column; gap: var(--s2); }
+.event-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s1);
+  text-align: left;
+  background: var(--surface);
+  padding: var(--s2) var(--s3);
+  min-height: 0;
+}
+.event-choice:hover:not(:disabled) { background: var(--surface-2); box-shadow: inset 2px 0 0 var(--a); }
+.ec-label { font-size: var(--t-body); font-weight: var(--w-bold); }
+.ec-detail { font-size: var(--t-meta); color: var(--dim); }
+.ec-cost {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  font-size: var(--t-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 760px) {
+  .event-choices { flex-direction: row; }
+  .event-choice { flex: 1; }
+}

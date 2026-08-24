@@ -19,6 +19,8 @@ import {
   sellValue,
 } from './prospects.js'
 import type { MutationRoll } from './mutations.js'
+import { clampMorale, rollEvent } from './events.js'
+import type { GameEvent } from './events.js'
 import { MUTANT_TYPES } from './units.js'
 import { rollOfficer } from './officers.js'
 import type { Officer } from './officers.js'
@@ -82,6 +84,10 @@ export interface RunState {
   growth: GrowthOffer[]
   /** Prospects promoted to Firstborn since the last camp. Announced, then cleared. */
   promoted: string[]
+  /** The camp's pending event. Blocks the march — a skippable choice is not one. */
+  event: GameEvent | null
+  /** Events already fired, so a run never repeats one. */
+  seenEvents: string[]
   outcome: 'won' | 'lost' | null
 }
 
@@ -98,6 +104,7 @@ function startingWarband(rng: Rng, selectedOfficer?: Officer): Warband {
     prospects: [prospect],
     officers: [officer],
     salvage: 120,
+    morale: 0,
   }
 }
 
@@ -115,6 +122,8 @@ export function newRun(seedText: string, selectedOfficer?: Officer): RunState {
     report: null,
     growth: [],
     promoted: [],
+    event: null,
+    seenEvents: [],
     outcome: null,
   }
 }
@@ -270,6 +279,30 @@ export function sellProspect(state: RunState, prospectId: string): RunState {
           ? { ...sq, leader: null }
           : sq,
       ),
+    },
+  }
+}
+
+/**
+ * Answer the camp's pending event.
+ *
+ * The resolver is the only thing that knows how to apply an effect, so
+ * widening the vocabulary means changing one function rather than every
+ * event. Adding an *event* stays a data change — see events.ts.
+ */
+export function resolveEvent(state: RunState, choiceIndex: number): RunState {
+  const choice = state.event?.choices[choiceIndex]
+  if (!state.event || !choice) return state
+  if (choice.requires !== undefined && state.warband.salvage < choice.requires) return state
+
+  return {
+    ...state,
+    event: null,
+    seenEvents: [...state.seenEvents, state.event.id],
+    warband: {
+      ...state.warband,
+      salvage: state.warband.salvage + (choice.salvage ?? 0),
+      morale: clampMorale(state.warband.morale + (choice.morale ?? 0)),
     },
   }
 }
@@ -552,6 +585,7 @@ export function advance(state: RunState): RunState {
     report: null,
     growth: rollGrowth(state.rng, state.warband, next),
     promoted: [],
+    event: rollEvent(state.rng, state.seenEvents),
   }
 }
 

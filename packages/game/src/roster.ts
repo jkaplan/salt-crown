@@ -45,6 +45,11 @@ export interface Squad {
 }
 
 export interface Warband {
+  /**
+   * Run-level morale, shifted by events between battles and folded into every
+   * squad's discipline. A thumb on the scale, not a second health bar.
+   */
+  morale: number
   squads: Squad[]
   prospects: Prospect[]
   officers: Officer[]
@@ -147,9 +152,10 @@ export function resolveDiscipline(
   typeId: number,
   officer: Officer | null,
   leader: Prospect | null = null,
+  morale = 0,
 ): number {
   const base = DISCIPLINE[unitType(typeId).lineage]
-  let bonus = officer ? (OFFICER_RANKS_BY_ID.get(officer.rankId)?.moraleBonus ?? 0) : 0
+  let bonus = (officer ? (OFFICER_RANKS_BY_ID.get(officer.rankId)?.moraleBonus ?? 0) : 0) + morale
   // Mutants fold at 0.35. One of their own who came back ten times is a
   // reason to keep standing.
   if (!officer && leader && isFirstborn(leader)) bonus += FIRSTBORN_DISCIPLINE_BONUS
@@ -234,7 +240,7 @@ export function toSimGroups(
       shape: squadShape(sq.typeId),
       // The leader's mutations leak into the squad's stats...
       stats: resolveSquadStats(sq, officer, leader),
-      discipline: resolveDiscipline(sq.typeId, officer, leader),
+      discipline: resolveDiscipline(sq.typeId, officer, leader, w.morale),
       // ...but a Prospect leader carries its own banner on its own group
       // below, so only an officer labels the squad itself.
       leaderLabel: officer ? officerTitle(officer) : null,

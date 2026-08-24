@@ -52,7 +52,8 @@ apps/web       Vite + React + Pixi. Imports sim. Sim NEVER imports this.
 - **Armor is flat reduction**, not percentage.
 - **Battles are fought to the finish and losing ends the run.** Nobody flees. There is **no routing, withdrawal threshold, posture, or pre-battle order** — every one of those cuts the mass-battle climax short, and composition is the only pre-battle decision.
 - **Morale is a damage multiplier, not an exit.** `effectiveness = discipline + (1 - discipline) × (alive / started)`. Mutants 0.35 (fold fast), True Kin 0.78 (hold), Machines 1.0 (never degrade). Fewer bodies *and* weaker blows makes collapse superlinear. Machines never degrading is the balance for them being much stronger — don't undo it.
-- **Morale should become a run-level resource** shifted by between-battle events. Not built yet; hook point is a modifier on `Warband` folded into `resolveDiscipline()`.
+- **Morale is a run-level resource.** `Warband.morale` is shifted by between-battle events and folded into every squad's `resolveDiscipline()`. Clamped to ±0.12 — a thumb on the scale, never a second health bar.
+- **Events are data, not code.** A choice declares what it does (`salvage`, `morale`, `requires`); `resolveEvent()` is the only thing that knows how to apply it. Adding an event is a row in `events.ts`. Every event needs at least two branches that differ — a one-option choice is a notification.
 - **Never scale encounter difficulty to warband strength.** Rubber-banding kills the break-run pillar.
 - **Two origins:** Scion of a House (True Kin start) and the Freed Firstborn (mutant start, True Kin recruit at a steep premium). Asymmetry is data — starting roster and price modifiers — not new systems.
 - **V0 scope:** 15 unit types (5/lineage), 2 resources (Salvage, Water), 2 expedition verbs (Scavenge, Delve), 15 encounters, 2 origins. Espers, Coolant, Survey, and per-House sub-origins are V0.1.

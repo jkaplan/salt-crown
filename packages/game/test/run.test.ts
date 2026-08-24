@@ -21,6 +21,12 @@ import {
   rollProspect,
   prospectCost,
   appraise,
+  resolveEvent,
+  rollEvent,
+  EVENTS,
+  MORALE_MIN,
+  MORALE_MAX,
+  DISCIPLINE,
   setFielded,
   sellProspect,
   sellValue,
@@ -781,5 +787,82 @@ describe('reserve and market', () => {
     const run = start()
     expect(sellProspect(run, 'nope')).toBe(run)
     expect(setFielded(run, 'nope', false)).toBe(run)
+  })
+})
+
+describe('events and morale', () => {
+  const withEvent = (event: import('@salt/game').GameEvent): RunState => {
+    const base = start()
+    return { ...base, event, seenEvents: [] }
+  }
+
+  it('applies both salvage and morale from the chosen branch', () => {
+    const run = withEvent({
+      id: 'test',
+      title: 't',
+      body: 'b',
+      choices: [{ label: 'a', detail: 'd', salvage: 50, morale: -0.05 }],
+    })
+    const after = resolveEvent(run, 0)
+    expect(after.warband.salvage).toBe(run.warband.salvage + 50)
+    expect(after.warband.morale).toBeCloseTo(-0.05, 5)
+    expect(after.event).toBeNull()
+    expect(after.seenEvents).toEqual(['test'])
+  })
+
+  it('refuses a branch the player cannot afford', () => {
+    const run = {
+      ...withEvent({
+        id: 'test',
+        title: 't',
+        body: 'b',
+        choices: [{ label: 'a', detail: 'd', requires: 999, salvage: -999 }],
+      }),
+    }
+    expect(resolveEvent(run, 0)).toBe(run)
+  })
+
+  it('clamps morale so it can never become a second health bar', () => {
+    let run = withEvent({
+      id: 'a',
+      title: 't',
+      body: 'b',
+      choices: [{ label: 'a', detail: 'd', morale: 1 }],
+    })
+    run = resolveEvent(run, 0)
+    expect(run.warband.morale).toBe(MORALE_MAX)
+
+    run = { ...run, event: { id: 'b', title: 't', body: 'b', choices: [{ label: 'a', detail: 'd', morale: -5 }] } }
+    expect(resolveEvent(run, 0).warband.morale).toBe(MORALE_MIN)
+  })
+
+  it('never repeats an event within a run', () => {
+    const rng = new Rng(hashSeed('events'))
+    const seen: string[] = []
+    for (let i = 0; i < EVENTS.length; i++) {
+      const e = rollEvent(rng, seen)
+      expect(e).not.toBeNull()
+      expect(seen).not.toContain(e!.id)
+      seen.push(e!.id)
+    }
+    // Table exhausted — a run simply stops having events rather than looping.
+    expect(rollEvent(rng, seen)).toBeNull()
+  })
+
+  it('feeds morale into every squad’s discipline', () => {
+    const base = DISCIPLINE.mutant
+    expect(resolveDiscipline(0, null, null, 0)).toBeCloseTo(base, 5)
+    expect(resolveDiscipline(0, null, null, MORALE_MAX)).toBeGreaterThan(base)
+    expect(resolveDiscipline(0, null, null, MORALE_MIN)).toBeLessThan(base)
+  })
+
+  it('gives every event at least two real branches', () => {
+    // A choice with one option is a notification. A choice where every branch
+    // does the same thing is worse — it looks like a decision and is not.
+    for (const e of EVENTS) {
+      expect(e.choices.length).toBeGreaterThan(1)
+      const shapes = e.choices.map((c) => `${c.salvage ?? 0}:${c.morale ?? 0}`)
+      expect(new Set(shapes).size).toBe(shapes.length)
+    }
   })
 })

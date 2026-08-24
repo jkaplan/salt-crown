@@ -71,6 +71,15 @@ export {
   makeGroup,
 } from './roster.js'
 export type { Squad, SquadLeader, Warband, GroupSource } from './roster.js'
+export {
+  EVENTS,
+  MORALE_MIN,
+  MORALE_MAX,
+  clampMorale,
+  moraleWord,
+  rollEvent,
+} from './events.js'
+export type { GameEvent, EventChoice } from './events.js'
 export { rollOffers } from './shop.js'
 export type { Offer, SquadOffer, OfficerOffer } from './shop.js'
 export { ENCOUNTERS_PER_RUN, generateEncounter } from './encounters.js'
@@ -82,6 +91,7 @@ export {
   chooseMutation,
   appraise,
   setFielded,
+  resolveEvent,
   sellProspect,
   treatWound,
   moveSquad,

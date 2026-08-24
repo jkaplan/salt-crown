@@ -1,0 +1,231 @@
+import { Rng } from '@salt/sim'
+
+/**
+ * Events, as data.
+ *
+ * The point of a template system is that adding an event is adding a row to a
+ * table, not writing code. So a choice declares *what it does* rather than
+ * *how* — the resolver in run.ts is the only thing that knows how to apply an
+ * effect, and it is the only thing that has to change when the vocabulary
+ * grows.
+ *
+ * Events are where morale becomes a run-level resource rather than something
+ * derived purely from lineage. See docs/V0-DESIGN.md §7: "morale should become
+ * a run-level resource shifted by between-battle events."
+ */
+export interface EventChoice {
+  label: string
+  /** What it costs and what it buys, shown before committing. */
+  detail: string
+  /** Shift to warband morale. Positive steadies, negative shakes. */
+  morale?: number
+  /** Salvage gained. Negative spends. */
+  salvage?: number
+  /** Minimum salvage required to pick this at all. */
+  requires?: number
+}
+
+export interface GameEvent {
+  id: string
+  title: string
+  body: string
+  choices: EventChoice[]
+}
+
+/**
+ * Morale is clamped hard.
+ *
+ * It is a thumb on the scale, not a second health bar — at the extremes it
+ * moves discipline by 0.12, which is meaningful against a mutant floor of
+ * 0.35 without ever deciding a battle on its own.
+ */
+export const MORALE_MIN = -0.12
+export const MORALE_MAX = 0.12
+
+export function clampMorale(v: number): number {
+  return Math.max(MORALE_MIN, Math.min(MORALE_MAX, v))
+}
+
+/** How the current morale reads to the player. */
+export function moraleWord(morale: number): string {
+  if (morale <= -0.08) return 'mutinous'
+  if (morale <= -0.03) return 'sullen'
+  if (morale < 0.03) return 'steady'
+  if (morale < 0.08) return 'willing'
+  return 'devoted'
+}
+
+/**
+ * The V0 table.
+ *
+ * Every one is a real trade — salvage against morale, or a short-term gain
+ * against the warband's opinion of you. None of them are "you found 40
+ * salvage, click OK", because a choice with one option is a notification.
+ */
+export const EVENTS: readonly GameEvent[] = [
+  {
+    id: 'house-buyer',
+    title: 'A House factor makes an offer',
+    body:
+      'He has a ledger, a clean coat, and a standing order for graded stock. He does not ask which of them you have been feeding.',
+    choices: [
+      {
+        label: 'Sell him the pick of the pens',
+        detail: 'A good price. The others watch it happen.',
+        salvage: 120,
+        morale: -0.05,
+      },
+      {
+        label: 'Tell him to walk',
+        detail: 'Nothing gained. They notice that too.',
+        morale: 0.04,
+      },
+    ],
+  },
+  {
+    id: 'water-short',
+    title: 'The cistern is lower than it should be',
+    body:
+      'Either somebody has been drinking their fill or the seals have gone. Both answers cost you.',
+    choices: [
+      {
+        label: 'Ration it',
+        detail: 'Everyone gets less. Everyone knows why.',
+        morale: -0.05,
+      },
+      {
+        label: 'Buy water from the next holdfast',
+        detail: 'Expensive, and they will remember you paid.',
+        salvage: -70,
+        morale: 0.03,
+        requires: 70,
+      },
+    ],
+  },
+  {
+    id: 'the-hanging',
+    title: 'One of them killed another over food',
+    body: 'Nobody disputes what happened. They are waiting to see what you do about it.',
+    choices: [
+      {
+        label: 'Hang him in front of the column',
+        detail: 'Order, bought with fear.',
+        morale: -0.03,
+      },
+      {
+        label: 'Put him back in the line',
+        detail: 'Mercy, or weakness. They have not decided which.',
+        morale: 0.02,
+      },
+      {
+        label: 'Let them settle it themselves',
+        detail: 'You do not watch. It is over by morning.',
+        morale: -0.01,
+        salvage: 25,
+      },
+    ],
+  },
+  {
+    id: 'assayer-favour',
+    title: 'An Assayer wants passage',
+    body:
+      'She has a case of callipers and no escort, and the next stretch is not walkable alone. She can pay in the only currency she has.',
+    choices: [
+      {
+        label: 'Take her along for a grading',
+        detail: 'Free work, one body. She travels behind the line.',
+        salvage: 45,
+      },
+      {
+        label: 'Take her along for nothing',
+        detail: 'The column likes that more than she does.',
+        morale: 0.05,
+      },
+      {
+        label: 'Leave her',
+        detail: 'The road is not your responsibility.',
+        morale: -0.03,
+      },
+    ],
+  },
+  {
+    id: 'deserters',
+    title: 'Three of them are gone by morning',
+    body: 'They took water and left the pens open behind them. Their tracks go south, away from the fighting.',
+    choices: [
+      {
+        label: 'Hunt them down',
+        detail: 'You get the water back. Nobody sleeps well after.',
+        salvage: 30,
+        morale: -0.06,
+      },
+      {
+        label: 'Let them go',
+        detail: 'Say nothing. Some of them were thinking about it too.',
+        morale: 0.01,
+      },
+    ],
+  },
+  {
+    id: 'salt-cache',
+    title: 'A cache under a fallen span',
+    body:
+      'Sealed, dry, and forgotten. Getting into it means putting bodies under something that has already come down once.',
+    choices: [
+      {
+        label: 'Send them in',
+        detail: 'Good salvage. They understand exactly what they were sent under.',
+        salvage: 95,
+        morale: -0.04,
+      },
+      {
+        label: 'Leave it',
+        detail: 'Walk past. They see you walk past.',
+        morale: 0.02,
+      },
+    ],
+  },
+  {
+    id: 'the-noise',
+    title: 'Something moved under the flats last night',
+    body:
+      'Not an animal. The sound came up through the salt for most of an hour and then stopped. Two of them will not go back to sleep.',
+    choices: [
+      {
+        label: 'March before dawn',
+        detail: 'Put distance between the column and whatever that was.',
+        morale: -0.02,
+      },
+      {
+        label: 'Hold and watch',
+        detail: 'Nothing comes. Standing your ground counts for something.',
+        morale: 0.04,
+      },
+    ],
+  },
+  {
+    id: 'firstborn-question',
+    title: 'They want to know what happens to the ones who last',
+    body:
+      'It is not really a question about policy. Somebody in the pens has started counting their own battles.',
+    choices: [
+      {
+        label: 'Tell them the truth',
+        detail: 'Some of them will live long enough to matter. Most will not.',
+        morale: 0.05,
+      },
+      {
+        label: 'Tell them nothing',
+        detail: 'They are stock. Stock does not need answers.',
+        morale: -0.04,
+      },
+    ],
+  },
+]
+
+/** One event, never the same one twice in a run. */
+export function rollEvent(rng: Rng, seen: string[]): GameEvent | null {
+  const pool = EVENTS.filter((e) => !seen.includes(e.id))
+  if (pool.length === 0) return null
+  return pool[rng.int(pool.length)]
+}
