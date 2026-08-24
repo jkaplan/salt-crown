@@ -162,9 +162,14 @@ interface Stats {
 1. Acquire target (nearest valid in range, via uniform-grid buckets)
 2. Move if out of range
 3. Attack if cooldown elapsed: `hit = accuracy vs evade`, `dmg = max(1, damage - armor)`
-4. On death: remove; if Named, roll a wound zone and advance the wound ladder; check squad morale
+4. On death: remove; if Named, roll a wound zone and advance the wound ladder
+5. Recompute each group's effectiveness from its remaining strength — the damage multiplier every attack above is scaled by
 
-A squad losing >50% of its count or its leader rolls to **rout** — flees the field, survivors live.
+Nobody routs. A squad that has lost half its bodies is still on the field and
+still swinging; it just swings softer, because effectiveness folds losses back
+into damage (§7). Fewer bodies *and* weaker blows is what makes a collapse
+superlinear, and it is what routing used to do less interestingly by simply
+removing the squad from the fight.
 
 ### Player controls
 Speed only: 1× / 2× / 4×. Nothing else during battle.
@@ -234,12 +239,12 @@ before building anything; the squad list, the canvas marker, and the event
 instrumentation are now decided and built. The HUD and the log's own UI are
 the open remainder — see the status line closing each subsection.*
 
-**Stale doc flag first:** §5's per-tick resolution above still says a squad
-"rolls to rout — flees the field." That hasn't been true since morale became
-a damage multiplier (§7; `packages/sim/src/battle.ts` and `types.ts` both say
-so explicitly now, and `grep` for rout/flee/withdraw in the sim turns up only
-comments explaining that it's gone). §5 needs a pass to match §7, independent
-of everything below — flagging it here so it isn't lost, not fixing it now.
+**Stale doc flag — resolved.** §5's per-tick resolution used to say a squad
+"rolls to rout — flees the field," which stopped being true when morale became
+a damage multiplier (§7). It now describes effectiveness instead. Left as a
+note because the contradiction survived several sessions of building against
+this doc: the sim was right and the spec was wrong, and nobody reading §5 in
+isolation could have known that.
 
 ### 1 & 2. Seeing who's important, on the HUD and on the canvas
 

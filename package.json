@@ -18,7 +18,8 @@
     "sim:campaign": "tsx tools/campaign.ts",
     "sim:matchup": "tsx tools/matchup.ts",
     "sim:leaders": "tsx tools/leaders.ts",
-    "sim:golden": "tsx tools/golden.ts"
+    "sim:golden": "tsx tools/golden.ts",
+    "build": "npm run build --workspace apps/web"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
