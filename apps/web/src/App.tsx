@@ -5,6 +5,7 @@ import {
   assignLeader,
   buildBattle,
   buy,
+  chooseMutation,
   march,
   moveSquad,
   placeSquad,
@@ -127,6 +128,7 @@ export default function App() {
                   run={run}
                   onBuy={(id) => setRun(buy(run, id))}
                   onAssign={(sq, leader) => setRun(assignLeader(run, sq, leader))}
+                  onChooseMutation={(pid, i) => setRun(chooseMutation(run, pid, i))}
                   onMoveSquad={(sq, dir) => setRun(moveSquad(run, sq, dir))}
                   onPlaceSquad={(sq, to) => setRun(placeSquad(run, sq, to))}
                   onMarch={onMarch}

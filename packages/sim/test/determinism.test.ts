@@ -163,7 +163,7 @@ describe('Morale as effectiveness', () => {
 
 describe('Stat resolution', () => {
   const potential = (mutations: { id: string; level: number }[]) => ({
-    id: 'x', typeId: 0, name: 'Test', mutations, battles: 0,
+    id: 'x', typeId: 0, name: 'Test', mutations, battles: 0, growth: 0,
   })
 
   it('leaves fodder unmutated', () => {

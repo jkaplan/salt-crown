@@ -8,6 +8,11 @@ import {
   moveSquad,
   newRun,
   placeSquad,
+  BATTLES_PER_MUTATION,
+  FIRSTBORN_AT_MUTATIONS,
+  chooseMutation,
+  isReadyToMutate,
+  rollGrowthChoices,
   rollOfficer,
   squadLabel,
   toSimGroups,
@@ -256,5 +261,83 @@ describe('battle setup', () => {
   it('runs for the advertised number of encounters', () => {
     expect(ENCOUNTERS_PER_RUN).toBeGreaterThan(0)
     expect(start().encounter.index).toBe(0)
+  })
+})
+
+describe('mutation growth', () => {
+  const survive = (run: RunState, battles: number): RunState => ({
+    ...run,
+    warband: {
+      ...run.warband,
+      potentials: run.warband.potentials.map((p) => ({ ...p, battles })),
+    },
+  })
+
+  it('offers nothing until a Potential has survived enough', () => {
+    const run = start()
+    expect(run.growth).toEqual([])
+    expect(run.warband.potentials.every((p) => !isReadyToMutate(p))).toBe(true)
+  })
+
+  it('marks a Potential ready once it has earned a mutation', () => {
+    const run = survive(start(), BATTLES_PER_MUTATION)
+    expect(run.warband.potentials.some(isReadyToMutate)).toBe(true)
+  })
+
+  it('adds the chosen mutation and consumes the offer', () => {
+    const base = survive(start(), BATTLES_PER_MUTATION)
+    const p = base.warband.potentials[0]
+    const run: RunState = {
+      ...base,
+      growth: [
+        { potentialId: p.id, choices: [{ id: 'horns', level: 4 }, { id: 'carapace', level: 2 }] },
+      ],
+    }
+
+    const after = chooseMutation(run, p.id, 0)
+    const grown = after.warband.potentials.find((x) => x.id === p.id)!
+
+    expect(grown.mutations).toContainEqual({ id: 'horns', level: 4 })
+    expect(grown.mutations.length).toBe(p.mutations.length + 1)
+    expect(grown.growth).toBe(p.growth + 1)
+    // One pick per offer — taking it removes the whole offer, not one option.
+    expect(after.growth).toHaveLength(0)
+  })
+
+  it('ignores an unknown potential or an out-of-range choice', () => {
+    const base = survive(start(), BATTLES_PER_MUTATION)
+    const p = base.warband.potentials[0]
+    const run: RunState = {
+      ...base,
+      growth: [{ potentialId: p.id, choices: [{ id: 'horns', level: 4 }] }],
+    }
+    expect(chooseMutation(run, 'nope', 0)).toBe(run)
+    expect(chooseMutation(run, p.id, 9)).toBe(run)
+  })
+
+  it('never offers a mutation the Potential already has', () => {
+    const rng = new Rng(hashSeed('growth'))
+    const run = start()
+    const p = run.warband.potentials[0]
+    for (let i = 0; i < 40; i++) {
+      const choices = rollGrowthChoices(rng, p, i)
+      const held = new Set(p.mutations.map((m) => m.id))
+      for (const c of choices) expect(held.has(c.id)).toBe(false)
+      // And never duplicates within a single offer.
+      expect(new Set(choices.map((c) => c.id)).size).toBe(choices.length)
+    }
+  })
+
+  it('stops offering growth once a Potential is a Firstborn', () => {
+    const p = {
+      ...start().warband.potentials[0],
+      battles: 99,
+      growth: 0,
+      mutations: Array.from({ length: FIRSTBORN_AT_MUTATIONS }, (_, i) => ({
+        id: `m${i}`,
+        level: 1,
+      })),
+    }
+    expect(isReadyToMutate(p)).toBe(false)
   })
 })

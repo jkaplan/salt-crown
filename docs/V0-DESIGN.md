@@ -181,6 +181,31 @@ Everything interesting happens between battles. Five levers:
 
 There is deliberately **no pre-battle order, posture, or withdrawal setting.** Composition is the pre-battle decision. Anything else is a slider players set once and ignore.
 
+## 6b. Numbers vs composition — a settled decision
+
+**Combat follows Lanchester's square law, and that is deliberate. Do not try to flatten it.**
+
+Measured with `npm run sim:leaders`: in a mirror match, a **+5% body count wins ~95% of the time**. With 201 vs 211, the stronger side finishes with `√(211² − 201²) ≈ 64` survivors — the outcome is arithmetically determined, not a coin flip. This is inherent to any model where every unit contributes damage simultaneously.
+
+Three fixes were tried and measured, all rejected:
+
+| Attempt | Outcome |
+|---|---|
+| Widen the battle front (10 → 22 → unlimited rows) | No meaningful change; +5% still ~95% |
+| Cap attackers per target at 3 | +20% edge went 100% → 95%. Marginal. |
+| Cap at 2 | Battles stopped resolving at all |
+| Cap at 3, verified | **1 in 60 battles stalemates.** Reverted. |
+
+The only real fix is fixed engagement slots — a fixed number fighting per side regardless of army size, with the rest as replacements. That is a true linear law and a combat-model rewrite.
+
+**We are keeping the square law**, because:
+
+1. It *is* the "absurdly overpowered run" pillar. Being 20% stronger should trivialise a fight; if it didn't, breaking the game wouldn't be a reward.
+2. Snowballing is the natural shape of an attrition game.
+3. **The intended counterweight is multiplier depth, not curve flattening.** As mutations, bionics and gear stack, quality multipliers grow large enough that raw body count stops being the dominant term. A squad at 2.5× effectiveness beats one 30% larger.
+
+The consequence to accept: outcomes are largely decided before you march, and **balance tuning is knife-edge** — small changes to the enemy budget swing bot completion wildly (observed: 3% → 82% → 21% across single-constant changes). Always retune against `npm run sim:campaign` after touching combat, and never trust a single run.
+
 ## 7. Defeat and morale
 
 **Battles are fought to the finish. Nobody flees. Losing a battle ends the run.**

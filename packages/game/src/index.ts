@@ -15,6 +15,12 @@ export {
   rollPotential,
   potentialCost,
   potentialTitle,
+  isReadyToMutate,
+  isFirstborn,
+  earnedGrowth,
+  rollGrowthChoices,
+  BATTLES_PER_MUTATION,
+  FIRSTBORN_AT_MUTATIONS,
 } from './potentials.js'
 export type { Potential } from './potentials.js'
 export {
@@ -46,6 +52,7 @@ export {
   newRun,
   buy,
   assignLeader,
+  chooseMutation,
   moveSquad,
   placeSquad,
   buildBattle,
@@ -60,4 +67,5 @@ export type {
   SquadLoss,
   PotentialLoss,
   BattleSetup,
+  GrowthOffer,
 } from './run.js'

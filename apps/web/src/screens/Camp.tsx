@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import {
   ENCOUNTERS_PER_RUN,
+  FIRSTBORN_AT_MUTATIONS,
+  MUTATIONS_BY_ID,
   OFFICER_RANKS_BY_ID,
   findLeadingPotential,
   findOfficer,
@@ -12,7 +14,15 @@ import {
   totalFodder,
   unitType,
 } from '@salt/game'
-import type { Offer, Potential, RunState, Squad, SquadLeader, Warband } from '@salt/game'
+import type {
+  GrowthOffer,
+  Offer,
+  Potential,
+  RunState,
+  Squad,
+  SquadLeader,
+  Warband,
+} from '@salt/game'
 import type { ResolvedStats } from '@salt/sim'
 import MutationTag from '../components/MutationTag'
 import UnitName from '../components/UnitName'
@@ -22,6 +32,7 @@ interface Props {
   run: RunState
   onBuy: (offerId: string) => void
   onAssign: (squadId: string, leader: SquadLeader | null) => void
+  onChooseMutation: (potentialId: string, choiceIndex: number) => void
   onMoveSquad: (squadId: string, dir: -1 | 1) => void
   onPlaceSquad: (squadId: string, toIndex: number) => void
   onMarch: () => void
@@ -236,6 +247,59 @@ function PotentialRow({ potential, warband }: { potential: Potential; warband: W
   )
 }
 
+/**
+ * Growth picks. The only place the player *directs* what the warband becomes,
+ * rather than choosing among whatever the shop happened to roll — so it gets
+ * its own prominent block rather than being buried in the roster.
+ */
+function GrowthCard({
+  offer,
+  potential,
+  onChoose,
+}: {
+  offer: GrowthOffer
+  potential: Potential
+  onChoose: Props['onChooseMutation']
+}) {
+  const type = unitType(potential.typeId)
+  const next = potential.mutations.length + 1
+
+  return (
+    <li className="row growth">
+      <div className="row-main">
+        <UnitShape typeId={potential.typeId} />
+        <span className="row-name">
+          <b className="potential-name">{potential.name}</b>
+          <span className="dim">
+            {type.name} · {potential.battles} battle{potential.battles === 1 ? '' : 's'} survived
+          </span>
+        </span>
+        <span className="row-meta">
+          mutation {next} of {FIRSTBORN_AT_MUTATIONS}
+        </span>
+      </div>
+      <div className="growth-choices">
+        {offer.choices.map((choice, i) => {
+          const def = MUTATIONS_BY_ID.get(choice.id)
+          return (
+            <button
+              key={choice.id}
+              className="growth-choice"
+              onClick={() => onChoose(potential.id, i)}
+            >
+              <span className="gc-name">
+                {def?.name} <b>{choice.level}</b>
+              </span>
+              <span className="gc-effect">{def?.describe(choice.level)}</span>
+            </button>
+          )
+        })}
+      </div>
+      <div className="row-note">Permanent. Choose once.</div>
+    </li>
+  )
+}
+
 function OfferRow({
   offer,
   salvage,
@@ -322,7 +386,15 @@ function Section({
   )
 }
 
-export default function Camp({ run, onBuy, onAssign, onMoveSquad, onPlaceSquad, onMarch }: Props) {
+export default function Camp({
+  run,
+  onBuy,
+  onAssign,
+  onChooseMutation,
+  onMoveSquad,
+  onPlaceSquad,
+  onMarch,
+}: Props) {
   const { warband, encounter } = run
   const [tab, setTab] = useState<'warband' | 'recruit'>('warband')
   const [openInfantry, setOpenInfantry] = useState(false)
@@ -405,6 +477,28 @@ export default function Camp({ run, onBuy, onAssign, onMoveSquad, onPlaceSquad, 
           March
         </button>
       </div>
+
+      {run.growth.length > 0 && (
+        <Section
+          title="They have survived"
+          meta={`${run.growth.length} ready to mutate`}
+        >
+          <ul className="rows">
+            {run.growth.map((offer) => {
+              const p = warband.potentials.find((x) => x.id === offer.potentialId)
+              if (!p) return null
+              return (
+                <GrowthCard
+                  key={offer.potentialId}
+                  offer={offer}
+                  potential={p}
+                  onChoose={onChooseMutation}
+                />
+              )
+            })}
+          </ul>
+        </Section>
+      )}
 
       <nav className="tabs" role="tablist">
         {(['warband', 'recruit'] as const).map((t) => (

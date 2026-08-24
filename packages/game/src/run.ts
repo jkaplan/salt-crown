@@ -6,7 +6,8 @@ import { rollOffers } from './shop.js'
 import type { Offer } from './shop.js'
 import { toSimGroups, totalBodies, unitType } from './roster.js'
 import type { GroupSource, Squad, SquadLeader, Warband } from './roster.js'
-import { potentialTitle, rollPotential } from './potentials.js'
+import { isReadyToMutate, potentialTitle, rollGrowthChoices, rollPotential } from './potentials.js'
+import type { MutationRoll } from './mutations.js'
 import { MUTANT_TYPES } from './units.js'
 import { rollOfficer } from './officers.js'
 import type { Officer } from './officers.js'
@@ -43,6 +44,12 @@ export interface BattleReport {
   ticks: number
 }
 
+/** A Potential that has survived enough to earn a mutation, and its options. */
+export interface GrowthOffer {
+  potentialId: string
+  choices: MutationRoll[]
+}
+
 export interface RunState {
   seedText: string
   rng: Rng
@@ -52,6 +59,8 @@ export interface RunState {
   offers: Offer[]
   encounter: Encounter
   report: BattleReport | null
+  /** Growth picks waiting at this camp. Rolled once so they cannot be rerolled. */
+  growth: GrowthOffer[]
   outcome: 'won' | 'lost' | null
 }
 
@@ -83,7 +92,45 @@ export function newRun(seedText: string, selectedOfficer?: Officer): RunState {
     offers: rollOffers(rng, 0),
     encounter: generateEncounter(rng, 0),
     report: null,
+    growth: [],
     outcome: null,
+  }
+}
+
+/**
+ * Rolls the growth options for every Potential that has earned one.
+ *
+ * Done once when a camp opens and stored on the run, so the choices cannot be
+ * rerolled by navigating away and back — the pick is meant to be a
+ * commitment, and a rerollable commitment is not one.
+ */
+function rollGrowth(rng: Rng, warband: Warband, encounterIndex: number): GrowthOffer[] {
+  return warband.potentials
+    .filter(isReadyToMutate)
+    .map((p) => ({ potentialId: p.id, choices: rollGrowthChoices(rng, p, encounterIndex) }))
+    .filter((offer) => offer.choices.length > 0)
+}
+
+/** Take one of the offered mutations. Permanent — there is no undo. */
+export function chooseMutation(
+  state: RunState,
+  potentialId: string,
+  choiceIndex: number,
+): RunState {
+  const offer = state.growth.find((g) => g.potentialId === potentialId)
+  const choice = offer?.choices[choiceIndex]
+  if (!offer || !choice) return state
+
+  const potentials = state.warband.potentials.map((p) =>
+    p.id === potentialId
+      ? { ...p, mutations: [...p.mutations, choice], growth: p.growth + 1 }
+      : p,
+  )
+
+  return {
+    ...state,
+    warband: { ...state.warband, potentials },
+    growth: state.growth.filter((g) => g.potentialId !== potentialId),
   }
 }
 
@@ -321,6 +368,7 @@ export function advance(state: RunState): RunState {
     offers: rollOffers(state.rng, next),
     encounter: generateEncounter(state.rng, next),
     report: null,
+    growth: rollGrowth(state.rng, state.warband, next),
   }
 }
 
