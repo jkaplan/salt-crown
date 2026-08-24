@@ -44,7 +44,7 @@ First point at which "is this fun?" can be asked.
 
 **Result:** 21/21 tests green, lint and typecheck clean. All content is PLACEHOLDER, pending real judgement once played.
 
-Potentials were made leaders. A leading Potential leaks its mutations to the whole squad at half level (min 1) — a Horns 5 standout gives twenty fighters Horns 3 — so a good roll is worth more than one extra body, and mutations start acting at army scale instead of on a single fighter. One leader slot per squad, either an Officer (flat bonus) or a leading Potential (the leak); a Potential can only lead its own lineage. This unified `officerId` into a single `leader` field across the codebase.
+Prospects were made leaders. A leading Prospect leaks its mutations to the whole squad at half level (min 1) — a Horns 5 standout gives twenty fighters Horns 3 — so a good roll is worth more than one extra body, and mutations start acting at army scale instead of on a single fighter. One leader slot per squad, either an Officer (flat bonus) or a leading Prospect (the leak); a Prospect can only lead its own lineage. This unified `officerId` into a single `leader` field across the codebase.
 
 Routing was built, played, and cut. It ended mass battles anticlimactically — squads walked off before the clash resolved, which is the opposite of what the spectacle is for. Replaced with **morale as a damage multiplier**: battles run to annihilation, and a bleeding squad hits softer, so a losing side collapses on the field. Losing a battle now ends the run.
 
@@ -58,7 +58,7 @@ Campaign harness (`npm run sim:campaign`) plays full runs with a greedy bot. Thr
 | `112 + 75i + 3.8i²` | `105 + 80i` | 25% | Good, until the unit rebalance below changed every cost |
 | **`80 + 62i + 8.5i²`** | **`105 + 80i`** | **21%** | Current. Flatter early, steeper late — deaths spread evenly |
 
-Winning warband p50 62 bodies, max 152 — break potential is reachable.
+Winning warband p50 62 bodies, max 152 — break prospect is reachable.
 
 The mutants were then rebuilt to differ by *kind* rather than degree (three kinds of durability against flat armour), verified with a new equal-salvage matchup matrix. That immediately caught Stiltwalker winning ~everything at 30% evade and Marksman at literally 0% against the whole roster. Nine of ten units now show a 100% spread. Sludge-Waller stays flat at 40% and should — the screen test proves the point: Spitter alone vs Chaff is 0%, Spitter behind a Sludge-Waller screen is 100%. Enemy curve retuned to `80 + 62i + 8.5i²` after the cost changes, landing at 21% bot completion with deaths spread across every encounter.
 

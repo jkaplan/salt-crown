@@ -132,10 +132,10 @@ export function describeRoll(roll: MutationRoll): string {
 }
 
 /**
- * The level a Potential's mutation reaches the squad it leads at — half,
+ * The level a Prospect's mutation reaches the squad it leads at — half,
  * rounded up, minimum 1.
  *
- * This is what makes a Potential worth more than one extra body: a Horns 5
+ * This is what makes a Prospect worth more than one extra body: a Horns 5
  * standout gives twenty fighters Horns 3. Mutations stop being one fighter's
  * stat line and start being an army-wide multiplier, which is the whole
  * argument for mutations carrying the game's depth.

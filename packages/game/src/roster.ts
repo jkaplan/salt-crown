@@ -7,11 +7,11 @@ import type { Officer } from './officers.js'
 import {
   FIRSTBORN_DISCIPLINE_BONUS,
   FIRSTBORN_HP_MULT,
-  POTENTIAL_HP_MULT,
+  PROSPECT_HP_MULT,
   isFirstborn,
-  potentialTitle,
-} from './potentials.js'
-import type { Potential } from './potentials.js'
+  prospectTitle,
+} from './prospects.js'
+import type { Prospect } from './prospects.js'
 import { DISCIPLINE, UNIT_TYPES } from './units.js'
 import { applyWoundPenalty, officerBonusMultiplier } from './wounds.js'
 
@@ -20,7 +20,7 @@ import { applyWoundPenalty, officerBonusMultiplier } from './wounds.js'
  *
  *   Officers    True Kin, named, recruited. Lead a squad and grant it a flat
  *               bonus plus discipline.
- *   Potentials  Mutants that came out of the vats with something useful.
+ *   Prospects  Mutants that came out of the vats with something useful.
  *               Individually tracked, individually simulated, permanently
  *               dead when killed. Lead a squad by leaking their mutations to
  *               it at half level — so a Horns 5 standout gives its whole
@@ -29,13 +29,13 @@ import { applyWoundPenalty, officerBonusMultiplier } from './wounds.js'
  *   Squads      Anonymous fodder, by unit type. A number, not a list of people.
  *
  * Fodder itself carries no mutations. Mutation is individual and rare, which
- * is what makes a Potential worth noticing — twenty identically-mutated
+ * is what makes a Prospect worth noticing — twenty identically-mutated
  * fighters is not how a random process works. See docs/V0-DESIGN.md §4.
  *
- * A Potential can only lead its own kind — a mutant does not command True
+ * A Prospect can only lead its own kind — a mutant does not command True
  * Kin. One leader per squad, of either kind, so the choice is real.
  */
-export type SquadLeader = { kind: 'officer'; id: string } | { kind: 'potential'; id: string }
+export type SquadLeader = { kind: 'officer'; id: string } | { kind: 'prospect'; id: string }
 
 export interface Squad {
   id: string
@@ -46,7 +46,7 @@ export interface Squad {
 
 export interface Warband {
   squads: Squad[]
-  potentials: Potential[]
+  prospects: Prospect[]
   officers: Officer[]
   salvage: number
 }
@@ -92,27 +92,27 @@ export function findOfficer(w: Warband, squad: Squad): Officer | null {
   return w.officers.find((o) => o.id === squad.leader!.id) ?? null
 }
 
-export function findLeadingPotential(w: Warband, squad: Squad): Potential | null {
-  if (squad.leader?.kind !== 'potential') return null
-  return w.potentials.find((p) => p.id === squad.leader!.id) ?? null
+export function findLeadingProspect(w: Warband, squad: Squad): Prospect | null {
+  if (squad.leader?.kind !== 'prospect') return null
+  return w.prospects.find((p) => p.id === squad.leader!.id) ?? null
 }
 
 /**
- * A squad led by a Potential inherits that Potential's mutations at half
+ * A squad led by a Prospect inherits that Prospect's mutations at half
  * level (min 1) — the leak. A squad led by an Officer gets the officer's flat
  * bonus instead. Only one can apply.
  */
 export function resolveSquadStats(
   squad: Squad,
   officer: Officer | null,
-  leader: Potential | null = null,
+  leader: Prospect | null = null,
 ): ResolvedStats {
   const s = baseStats(squad.typeId)
   if (officer) {
     OFFICER_RANKS_BY_ID.get(officer.rankId)?.apply(s, officerBonusMultiplier(officer.wound))
   } else if (leader) {
     /*
-     * A Potential leaks at half level. A FIRSTBORN leaks at full.
+     * A Prospect leaks at half level. A FIRSTBORN leaks at full.
      *
      * That is the whole payoff for ten battles survived, and it is deliberately
      * large: five mutations at full strength across twenty bodies is the kind
@@ -129,13 +129,13 @@ export function resolveSquadStats(
 }
 
 /**
- * Potentials are individuals, so their own mutations apply at full level.
+ * Prospects are individuals, so their own mutations apply at full level.
  * They are also sturdier than the fodder they came from — being noticed at
  * all means having survived something.
  */
-export function resolvePotentialStats(p: Potential): ResolvedStats {
+export function resolveProspectStats(p: Prospect): ResolvedStats {
   const s = baseStats(p.typeId)
-  s.hp *= isFirstborn(p) ? FIRSTBORN_HP_MULT : POTENTIAL_HP_MULT
+  s.hp *= isFirstborn(p) ? FIRSTBORN_HP_MULT : PROSPECT_HP_MULT
   for (const roll of p.mutations) {
     MUTATIONS_BY_ID.get(roll.id)?.apply(s, roll.level)
   }
@@ -146,7 +146,7 @@ export function resolvePotentialStats(p: Potential): ResolvedStats {
 export function resolveDiscipline(
   typeId: number,
   officer: Officer | null,
-  leader: Potential | null = null,
+  leader: Prospect | null = null,
 ): number {
   const base = DISCIPLINE[unitType(typeId).lineage]
   let bonus = officer ? (OFFICER_RANKS_BY_ID.get(officer.rankId)?.moraleBonus ?? 0) : 0
@@ -166,30 +166,30 @@ export function statPower(s: ResolvedStats, count: number): number {
 export function squadPower(
   squad: Squad,
   officer: Officer | null = null,
-  leader: Potential | null = null,
+  leader: Prospect | null = null,
 ): number {
   return statPower(resolveSquadStats(squad, officer, leader), squad.count)
 }
 
-export function potentialPower(p: Potential): number {
-  return statPower(resolvePotentialStats(p), 1)
+export function prospectPower(p: Prospect): number {
+  return statPower(resolveProspectStats(p), 1)
 }
 
-/** Fodder only. Potentials are counted separately because they're people. */
+/** Fodder only. Prospects are counted separately because they're people. */
 export function totalFodder(w: Warband): number {
   return w.squads.reduce((n, s) => n + s.count, 0)
 }
 
 export function totalBodies(w: Warband): number {
-  return totalFodder(w) + w.potentials.length
+  return totalFodder(w) + w.prospects.length
 }
 
 export function warbandPower(w: Warband): number {
   return (
     w.squads.reduce(
-      (sum, sq) => sum + squadPower(sq, findOfficer(w, sq), findLeadingPotential(w, sq)),
+      (sum, sq) => sum + squadPower(sq, findOfficer(w, sq), findLeadingProspect(w, sq)),
       0,
-    ) + w.potentials.reduce((sum, p) => sum + potentialPower(p), 0)
+    ) + w.prospects.reduce((sum, p) => sum + prospectPower(p), 0)
   )
 }
 
@@ -203,7 +203,7 @@ export function fodderByType(w: Warband): { typeId: number; count: number }[] {
 }
 
 export interface GroupSource {
-  kind: 'squad' | 'potential'
+  kind: 'squad' | 'prospect'
   id: string
 }
 
@@ -212,7 +212,7 @@ export interface GroupSource {
  * parallel list saying where each group came from, so losses can be applied
  * back afterwards.
  *
- * Every Potential gets its own group, leading or not, so that all of them can
+ * Every Prospect gets its own group, leading or not, so that all of them can
  * fight and all of them can die.
  */
 export function toSimGroups(
@@ -225,7 +225,7 @@ export function toSimGroups(
   for (const sq of w.squads) {
     if (sq.count <= 0) continue
     const officer = findOfficer(w, sq)
-    const leader = findLeadingPotential(w, sq)
+    const leader = findLeadingProspect(w, sq)
     groups.push({
       team,
       count: sq.count,
@@ -235,7 +235,7 @@ export function toSimGroups(
       // The leader's mutations leak into the squad's stats...
       stats: resolveSquadStats(sq, officer, leader),
       discipline: resolveDiscipline(sq.typeId, officer, leader),
-      // ...but a Potential leader carries its own banner on its own group
+      // ...but a Prospect leader carries its own banner on its own group
       // below, so only an officer labels the squad itself.
       leaderLabel: officer ? officerTitle(officer) : null,
     })
@@ -243,29 +243,29 @@ export function toSimGroups(
   }
 
   /*
-   * EVERY Potential fights as its own body, including one that is leading.
+   * EVERY Prospect fights as its own body, including one that is leading.
    *
-   * Leading Potentials used to be skipped here. That dropped a body from the
+   * Leading Prospects used to be skipped here. That dropped a body from the
    * field, and — because resolveBattle maps outcomes back through these
-   * groups — meant a leading Potential could never be recorded as dead. The
+   * groups — meant a leading Prospect could never be recorded as dead. The
    * best standout in the warband became immortal the moment you promoted it,
    * which destroys the permadeath the tier exists for.
    */
-  for (const p of w.potentials) {
+  for (const p of w.prospects) {
     const type = unitType(p.typeId)
     groups.push({
       team,
       count: 1,
-      label: potentialTitle(p, type.name),
+      label: prospectTitle(p, type.name),
       color: type.color,
       shape: squadShape(p.typeId),
-      stats: resolvePotentialStats(p),
-      // A Potential is one body; morale scaling on a group of one is noise.
+      stats: resolveProspectStats(p),
+      // A Prospect is one body; morale scaling on a group of one is noise.
       discipline: 1,
       leaderLabel: p.name,
       named: true,
     })
-    sources.push({ kind: 'potential', id: p.id })
+    sources.push({ kind: 'prospect', id: p.id })
   }
 
   return { groups, sources }

@@ -13,13 +13,13 @@ import {
   chooseMutation,
   isFirstborn,
   isReadyToMutate,
-  potentialTitle,
+  prospectTitle,
   resolveDiscipline,
   isMaxed,
   canBecomeFirstborn,
   rollCapacity,
-  rollPotential,
-  potentialCost,
+  rollProspect,
+  prospectCost,
   appraise,
   revealIfMaxed,
   APPRAISAL_COST,
@@ -32,7 +32,7 @@ import {
   totalFodder,
   unitType,
   resolveBattle,
-  resolvePotentialStats,
+  resolveProspectStats,
   resolveSquadStats,
   treatWound,
   escalateWound,
@@ -94,12 +94,12 @@ describe('recruiting', () => {
     for (let i = 0; i < 40; i++) {
       const run = start(`standout-${i}`)
       const offer = run.offers.find(
-        (o) => o.kind === 'squad' && o.potentials.length > 0 && o.cost <= run.warband.salvage,
+        (o) => o.kind === 'squad' && o.prospects.length > 0 && o.cost <= run.warband.salvage,
       )
       if (!offer || offer.kind !== 'squad') continue
       const after = buy(run, offer.id)
-      expect(after.warband.potentials.length).toBe(
-        run.warband.potentials.length + offer.potentials.length,
+      expect(after.warband.prospects.length).toBe(
+        run.warband.prospects.length + offer.prospects.length,
       )
       return
     }
@@ -148,16 +148,16 @@ describe('leadership', () => {
     expect(leading[0].id).toBe(b.id)
   })
 
-  it('refuses to put a Potential in charge of True Kin', () => {
+  it('refuses to put a Prospect in charge of True Kin', () => {
     // A mutant does not command True Kin. Design invariant, not a UI nicety.
     const run = start()
-    const potential = run.warband.potentials[0]
-    expect(potential).toBeDefined()
+    const prospect = run.warband.prospects[0]
+    expect(prospect).toBeDefined()
 
     const trueKin = run.warband.squads.find((s) => unitType(s.typeId).lineage === 'truekin')
     if (!trueKin) return // starting warband is all mutant; covered by the shop path
 
-    const after = assignLeader(run, trueKin.id, { kind: 'potential', id: potential.id })
+    const after = assignLeader(run, trueKin.id, { kind: 'prospect', id: prospect.id })
     expect(after).toBe(run)
   })
 
@@ -242,35 +242,35 @@ describe('battle setup', () => {
     const fielded = setup.config.groups
       .filter((g) => g.team === TEAM_A)
       .reduce((n, g) => n + g.count, 0)
-    expect(fielded).toBe(totalFodder(run.warband) + run.warband.potentials.length)
+    expect(fielded).toBe(totalFodder(run.warband) + run.warband.prospects.length)
   })
 
-  it('fields a leading Potential as its own killable body', () => {
-    // Regression. Leading Potentials were skipped when building groups, so
+  it('fields a leading Prospect as its own killable body', () => {
+    // Regression. Leading Prospects were skipped when building groups, so
     // their body never reached the field AND resolveBattle — which maps
     // outcomes back through these groups — could never record them as dead.
     // Promoting your best standout to leader made it immortal.
     const run = start()
-    const potential = run.warband.potentials[0]
+    const prospect = run.warband.prospects[0]
     const squad = run.warband.squads.find((s) => unitType(s.typeId).lineage === 'mutant')
-    expect(potential && squad).toBeTruthy()
+    expect(prospect && squad).toBeTruthy()
 
-    const led = assignLeader(run, squad!.id, { kind: 'potential', id: potential.id })
+    const led = assignLeader(run, squad!.id, { kind: 'prospect', id: prospect.id })
     const { groups, sources } = toSimGroups(led.warband, TEAM_A)
 
-    expect(sources).toContainEqual({ kind: 'potential', id: potential.id })
+    expect(sources).toContainEqual({ kind: 'prospect', id: prospect.id })
     const fielded = groups.reduce((n, g) => n + g.count, 0)
-    expect(fielded).toBe(totalFodder(led.warband) + led.warband.potentials.length)
+    expect(fielded).toBe(totalFodder(led.warband) + led.warband.prospects.length)
   })
 
   it('leaks a leader’s mutations into the squad it leads', () => {
     const run = start()
-    const potential = run.warband.potentials[0]
+    const prospect = run.warband.prospects[0]
     const squad = run.warband.squads.find((s) => unitType(s.typeId).lineage === 'mutant')!
-    if (potential.mutations.length === 0) return
+    if (prospect.mutations.length === 0) return
 
     const before = toSimGroups(run.warband, TEAM_A).groups.find((g) => g.label === squadLabel(squad))
-    const led = assignLeader(run, squad.id, { kind: 'potential', id: potential.id })
+    const led = assignLeader(run, squad.id, { kind: 'prospect', id: prospect.id })
     const after = toSimGroups(led.warband, TEAM_A).groups.find((g) => g.label === squadLabel(squad))
 
     expect(before).toBeDefined()
@@ -286,38 +286,38 @@ describe('battle setup', () => {
 })
 
 describe('mutation growth', () => {
-  /** Age the Potentials, and give them room to grow into. */
+  /** Age the Prospects, and give them room to grow into. */
   const survive = (run: RunState, battles: number, capacity = 6): RunState => ({
     ...run,
     warband: {
       ...run.warband,
-      potentials: run.warband.potentials.map((p) => ({ ...p, battles, capacity })),
+      prospects: run.warband.prospects.map((p) => ({ ...p, battles, capacity })),
     },
   })
 
-  it('offers nothing until a Potential has survived enough', () => {
+  it('offers nothing until a Prospect has survived enough', () => {
     const run = start()
     expect(run.growth).toEqual([])
-    expect(run.warband.potentials.every((p) => !isReadyToMutate(p))).toBe(true)
+    expect(run.warband.prospects.every((p) => !isReadyToMutate(p))).toBe(true)
   })
 
-  it('marks a Potential ready once it has earned a mutation', () => {
+  it('marks a Prospect ready once it has earned a mutation', () => {
     const run = survive(start(), BATTLES_PER_MUTATION)
-    expect(run.warband.potentials.some(isReadyToMutate)).toBe(true)
+    expect(run.warband.prospects.some(isReadyToMutate)).toBe(true)
   })
 
   it('adds the chosen mutation and consumes the offer', () => {
     const base = survive(start(), BATTLES_PER_MUTATION)
-    const p = base.warband.potentials[0]
+    const p = base.warband.prospects[0]
     const run: RunState = {
       ...base,
       growth: [
-        { potentialId: p.id, choices: [{ id: 'horns', level: 4 }, { id: 'carapace', level: 2 }] },
+        { prospectId: p.id, choices: [{ id: 'horns', level: 4 }, { id: 'carapace', level: 2 }] },
       ],
     }
 
     const after = chooseMutation(run, p.id, 0)
-    const grown = after.warband.potentials.find((x) => x.id === p.id)!
+    const grown = after.warband.prospects.find((x) => x.id === p.id)!
 
     expect(grown.mutations).toContainEqual({ id: 'horns', level: 4 })
     expect(grown.mutations.length).toBe(p.mutations.length + 1)
@@ -326,21 +326,21 @@ describe('mutation growth', () => {
     expect(after.growth).toHaveLength(0)
   })
 
-  it('ignores an unknown potential or an out-of-range choice', () => {
+  it('ignores an unknown prospect or an out-of-range choice', () => {
     const base = survive(start(), BATTLES_PER_MUTATION)
-    const p = base.warband.potentials[0]
+    const p = base.warband.prospects[0]
     const run: RunState = {
       ...base,
-      growth: [{ potentialId: p.id, choices: [{ id: 'horns', level: 4 }] }],
+      growth: [{ prospectId: p.id, choices: [{ id: 'horns', level: 4 }] }],
     }
     expect(chooseMutation(run, 'nope', 0)).toBe(run)
     expect(chooseMutation(run, p.id, 9)).toBe(run)
   })
 
-  it('never offers a mutation the Potential already has', () => {
+  it('never offers a mutation the Prospect already has', () => {
     const rng = new Rng(hashSeed('growth'))
     const run = start()
-    const p = run.warband.potentials[0]
+    const p = run.warband.prospects[0]
     for (let i = 0; i < 40; i++) {
       const choices = rollGrowthChoices(rng, p, i)
       const held = new Set(p.mutations.map((m) => m.id))
@@ -350,9 +350,9 @@ describe('mutation growth', () => {
     }
   })
 
-  it('stops offering growth once a Potential is a Firstborn', () => {
+  it('stops offering growth once a Prospect is a Firstborn', () => {
     const p = {
-      ...start().warband.potentials[0],
+      ...start().warband.prospects[0],
       battles: 99,
       growth: 0,
       mutations: Array.from({ length: FIRSTBORN_AT_MUTATIONS }, (_, i) => ({
@@ -365,17 +365,17 @@ describe('mutation growth', () => {
 })
 
 describe('capacity', () => {
-  it('never starts a Potential with more mutations than it can hold', () => {
+  it('never starts a Prospect with more mutations than it can hold', () => {
     const rng = new Rng(hashSeed('cap'))
     for (let i = 0; i < 300; i++) {
-      const p = rollPotential(rng, 0, i % 8)
+      const p = rollProspect(rng, 0, i % 8)
       expect(p.mutations.length).toBeLessThanOrEqual(p.capacity)
       expect(p.capacity).toBeGreaterThan(0)
     }
   })
 
   it('produces a distribution where deep capacity is genuinely rare', () => {
-    // The whole point is that most Potentials plateau early and a Firstborn
+    // The whole point is that most Prospects plateau early and a Firstborn
     // candidate is a find. If this flattens out, mutants stop having value.
     const rng = new Rng(hashSeed('dist'))
     const counts = new Map<number, number>()
@@ -395,7 +395,7 @@ describe('capacity', () => {
   })
 
   it('stops growth at the body’s own ceiling, not a universal one', () => {
-    const base = start().warband.potentials[0]
+    const base = start().warband.prospects[0]
     const shallow = { ...base, capacity: 2, battles: 99, growth: 0, mutations: [
       { id: 'horns', level: 3 },
       { id: 'carapace', level: 3 },
@@ -408,30 +408,30 @@ describe('capacity', () => {
   })
 
   it('prices unused capacity once it is known', () => {
-    const base = start().warband.potentials[0]
+    const base = start().warband.prospects[0]
     const one = { ...base, capacity: 1, appraised: true, mutations: [{ id: 'horns', level: 3 }] }
     const six = { ...one, capacity: 6 }
-    expect(potentialCost(six, 10)).toBeGreaterThan(potentialCost(one, 10))
+    expect(prospectCost(six, 10)).toBeGreaterThan(prospectCost(one, 10))
   })
 
   it('prices an ungraded body identically whatever it is actually worth', () => {
     // This is the whole market. If the price tag moved with the hidden value
     // the player could read capacity straight off the shop and there would be
     // no gamble to take.
-    const base = { ...start().warband.potentials[0], appraised: false, mutations: [] }
-    const prices = [1, 2, 3, 4, 5, 6, 7].map((c) => potentialCost({ ...base, capacity: c }, 10))
+    const base = { ...start().warband.prospects[0], appraised: false, mutations: [] }
+    const prices = [1, 2, 3, 4, 5, 6, 7].map((c) => prospectCost({ ...base, capacity: c }, 10))
     expect(new Set(prices).size).toBe(1)
   })
 
   it('charges a premium for certainty', () => {
-    const base = { ...start().warband.potentials[0], capacity: ASSUMED_CAPACITY, mutations: [] }
-    expect(potentialCost({ ...base, appraised: true }, 10)).toBeGreaterThan(
-      potentialCost({ ...base, appraised: false }, 10),
+    const base = { ...start().warband.prospects[0], capacity: ASSUMED_CAPACITY, mutations: [] }
+    expect(prospectCost({ ...base, appraised: true }, 10)).toBeGreaterThan(
+      prospectCost({ ...base, appraised: false }, 10),
     )
   })
 
   it('reveals a ceiling once a body stops growing', () => {
-    const base = start().warband.potentials[0]
+    const base = start().warband.prospects[0]
     const growing = { ...base, appraised: false, capacity: 3, mutations: [{ id: 'a', level: 1 }] }
     const done = { ...growing, mutations: [
       { id: 'a', level: 1 },
@@ -444,12 +444,12 @@ describe('capacity', () => {
 
   it('spends salvage to appraise, and only once', () => {
     const run = start()
-    const p = run.warband.potentials.find((x) => !x.appraised)
+    const p = run.warband.prospects.find((x) => !x.appraised)
     if (!p) return
 
     const after = appraise(run, p.id)
     expect(after.warband.salvage).toBe(run.warband.salvage - APPRAISAL_COST)
-    expect(after.warband.potentials.find((x) => x.id === p.id)!.appraised).toBe(true)
+    expect(after.warband.prospects.find((x) => x.id === p.id)!.appraised).toBe(true)
     // Already graded — no further charge.
     expect(appraise(after, p.id)).toBe(after)
     // Cannot afford it.
@@ -458,7 +458,7 @@ describe('capacity', () => {
   })
 
   it('only lets deep bodies reach Firstborn', () => {
-    const base = start().warband.potentials[0]
+    const base = start().warband.prospects[0]
     expect(canBecomeFirstborn({ ...base, capacity: FIRSTBORN_AT_MUTATIONS })).toBe(true)
     expect(canBecomeFirstborn({ ...base, capacity: FIRSTBORN_AT_MUTATIONS - 1 })).toBe(false)
   })
@@ -498,11 +498,11 @@ describe('wound ladder', () => {
   })
 
   it('applies a wound penalty to exactly the stat(s) its zone owns', () => {
-    const base = resolvePotentialStats(start().warband.potentials[0])
+    const base = resolveProspectStats(start().warband.prospects[0])
 
     const withWound = (zone: Wound['zone']) => {
-      const p = { ...start().warband.potentials[0], wound: { zone, rung: 1 as const } }
-      return resolvePotentialStats(p)
+      const p = { ...start().warband.prospects[0], wound: { zone, rung: 1 as const } }
+      return resolveProspectStats(p)
     }
 
     const head = withWound('head')
@@ -535,7 +535,7 @@ describe('wound ladder', () => {
     expect(JSON.stringify(crippled)).not.toBe(JSON.stringify(healthy))
   })
 
-  it('wounds a Potential who survives a battle while taking damage', () => {
+  it('wounds a Prospect who survives a battle while taking damage', () => {
     // A small, badly outmatched player force almost certainly takes damage
     // on its way to losing — real end-to-end wiring through resolveBattle,
     // not just the pure functions above.
@@ -558,12 +558,12 @@ describe('wound ladder', () => {
     battle.run()
 
     const resolved = resolveBattle(run, battle.results(), battle.winner, battle.tick, setup.playerSources)
-    const anyWounded = resolved.warband.potentials.some((p) => p.wound !== null)
-    const anyDied = resolved.warband.potentials.length < run.warband.potentials.length
-    // Overwhelmed 6x, at least one Potential should be marked up in some way
+    const anyWounded = resolved.warband.prospects.some((p) => p.wound !== null)
+    const anyDied = resolved.warband.prospects.length < run.warband.prospects.length
+    // Overwhelmed 6x, at least one Prospect should be marked up in some way
     // — wounded if it survived, gone if it didn't. Both are the wound ladder
     // and permadeath doing their job.
-    expect(anyWounded || anyDied || resolved.warband.potentials.length === 0).toBe(true)
+    expect(anyWounded || anyDied || resolved.warband.prospects.length === 0).toBe(true)
   })
 
   it('treats a wound for salvage, one rung per payment', () => {
@@ -573,33 +573,33 @@ describe('wound ladder', () => {
       warband: {
         ...run.warband,
         salvage: TREAT_COST * 2,
-        potentials: run.warband.potentials.map((p, i) =>
+        prospects: run.warband.prospects.map((p, i) =>
           i === 0 ? { ...p, wound: { zone: 'core' as const, rung: 2 as const } } : p,
         ),
       },
     }
-    const target = wounded.warband.potentials[0]
+    const target = wounded.warband.prospects[0]
 
     const once = treatWound(wounded, target.id)
     expect(once.warband.salvage).toBe(TREAT_COST)
-    expect(once.warband.potentials[0].wound).toEqual({ zone: 'core', rung: 1 })
+    expect(once.warband.prospects[0].wound).toEqual({ zone: 'core', rung: 1 })
 
     const twice = treatWound(once, target.id)
     expect(twice.warband.salvage).toBe(0)
-    expect(twice.warband.potentials[0].wound).toBeNull()
+    expect(twice.warband.prospects[0].wound).toBeNull()
 
     // Fully healed — no further charge.
     expect(treatWound(twice, target.id)).toBe(twice)
 
     // Cannot afford it.
     const broke = { ...run, warband: { ...run.warband, salvage: 0 } }
-    const brokeTarget = broke.warband.potentials.find((p) => p.wound === null)
+    const brokeTarget = broke.warband.prospects.find((p) => p.wound === null)
     if (brokeTarget) {
       const stillWounded = {
         ...broke,
         warband: {
           ...broke.warband,
-          potentials: broke.warband.potentials.map((p) =>
+          prospects: broke.warband.prospects.map((p) =>
             p.id === brokeTarget.id ? { ...p, wound: { zone: 'legs' as const, rung: 1 as const } } : p,
           ),
         },
@@ -611,7 +611,7 @@ describe('wound ladder', () => {
 
 describe('Firstborn promotion', () => {
   const withMutations = (n: number) => ({
-    ...start().warband.potentials[0],
+    ...start().warband.prospects[0],
     capacity: 7,
     appraised: true,
     wound: null,
@@ -628,13 +628,13 @@ describe('Firstborn promotion', () => {
     // stock it came from.
     const before = withMutations(1)
     const after = withMutations(FIRSTBORN_AT_MUTATIONS)
-    expect(potentialTitle(before, 'Chaff')).toContain('Chaff')
-    expect(potentialTitle(after, 'Chaff')).not.toContain('Chaff')
-    expect(potentialTitle(after, 'Chaff')).toContain('Firstborn')
+    expect(prospectTitle(before, 'Chaff')).toContain('Chaff')
+    expect(prospectTitle(after, 'Chaff')).not.toContain('Chaff')
+    expect(prospectTitle(after, 'Chaff')).toContain('Firstborn')
   })
 
   it('leaks at full level instead of half — the whole payoff', () => {
-    const squad = { id: 's', typeId: 0, count: 20, leader: { kind: 'potential' as const, id: 'x' } }
+    const squad = { id: 's', typeId: 0, count: 20, leader: { kind: 'prospect' as const, id: 'x' } }
     const horns = (n: number) => ({
       ...withMutations(0),
       mutations: Array.from({ length: n }, (_, i) => (i === 0 ? { id: 'horns', level: 6 } : { id: `m${i}`, level: 1 })),
@@ -658,8 +658,8 @@ describe('Firstborn promotion', () => {
   })
 
   it('is tougher in its own right', () => {
-    expect(resolvePotentialStats(withMutations(FIRSTBORN_AT_MUTATIONS)).hp).toBeGreaterThan(
-      resolvePotentialStats({ ...withMutations(FIRSTBORN_AT_MUTATIONS - 1), mutations: [] }).hp,
+    expect(resolveProspectStats(withMutations(FIRSTBORN_AT_MUTATIONS)).hp).toBeGreaterThan(
+      resolveProspectStats({ ...withMutations(FIRSTBORN_AT_MUTATIONS - 1), mutations: [] }).hp,
     )
   })
 
@@ -668,14 +668,14 @@ describe('Firstborn promotion', () => {
     const p = { ...withMutations(FIRSTBORN_AT_MUTATIONS - 1), id: 'promote-me' }
     const run: RunState = {
       ...base,
-      warband: { ...base.warband, potentials: [p] },
-      growth: [{ potentialId: p.id, choices: [{ id: 'horns', level: 5 }] }],
+      warband: { ...base.warband, prospects: [p] },
+      growth: [{ prospectId: p.id, choices: [{ id: 'horns', level: 5 }] }],
       promoted: [],
     }
 
     const after = chooseMutation(run, p.id, 0)
     expect(after.promoted).toEqual([p.id])
-    expect(isFirstborn(after.warband.potentials[0])).toBe(true)
+    expect(isFirstborn(after.warband.prospects[0])).toBe(true)
   })
 
   it('does not announce a promotion that did not happen', () => {
@@ -683,8 +683,8 @@ describe('Firstborn promotion', () => {
     const p = { ...withMutations(1), id: 'still-stock' }
     const run: RunState = {
       ...base,
-      warband: { ...base.warband, potentials: [p] },
-      growth: [{ potentialId: p.id, choices: [{ id: 'horns', level: 5 }] }],
+      warband: { ...base.warband, prospects: [p] },
+      growth: [{ prospectId: p.id, choices: [{ id: 'horns', level: 5 }] }],
       promoted: [],
     }
     expect(chooseMutation(run, p.id, 0).promoted).toEqual([])

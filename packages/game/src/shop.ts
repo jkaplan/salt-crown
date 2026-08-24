@@ -1,20 +1,20 @@
 import { Rng } from '@salt/sim'
 import { OFFICER_RANKS_BY_ID, rollOfficer } from './officers.js'
 import type { Officer } from './officers.js'
-import { potentialCost, rollPotential } from './potentials.js'
+import { prospectCost, rollProspect } from './prospects.js'
 
 /** Fraction of shop standouts that arrive already graded. */
 const APPRAISED_STOCK_CHANCE = 0.25
-import type { Potential } from './potentials.js'
+import type { Prospect } from './prospects.js'
 import { MUTANT_TYPES, TRUEKIN_TYPES } from './units.js'
 import { squadCost } from './roster.js'
 
 /**
- * A batch of bodies. Mutant batches come with one or two Potentials — the
+ * A batch of bodies. Mutant batches come with one or two Prospects — the
  * standouts that came out with something useful — and the rest is fodder.
  *
- * That's the lottery: you're mostly buying the Potentials, and the fodder is
- * what comes in the same crate. True Kin batches have no Potentials, because
+ * That's the lottery: you're mostly buying the Prospects, and the fodder is
+ * what comes in the same crate. True Kin batches have no Prospects, because
  * True Kin do not mutate.
  */
 export interface SquadOffer {
@@ -22,7 +22,7 @@ export interface SquadOffer {
   id: string
   typeId: number
   count: number
-  potentials: Potential[]
+  prospects: Prospect[]
   cost: number
 }
 
@@ -49,28 +49,28 @@ function rollSquadOffer(rng: Rng, encounterIndex: number): SquadOffer {
   const count = isTrueKin ? 4 + rng.int(7) : 10 + rng.int(13)
 
   // Roughly one standout per dozen bodies, sometimes two, sometimes none.
-  const potentials: Potential[] = []
+  const prospects: Prospect[] = []
   if (!isTrueKin) {
     const howMany = rng.float() < 0.18 ? 0 : rng.float() < 0.3 ? 2 : 1
     for (let i = 0; i < howMany; i++) {
-      const p = rollPotential(rng, type.id, encounterIndex)
+      const p = rollProspect(rng, type.id, encounterIndex)
       // Some sellers have had their stock graded and charge for the certainty.
       // The rest is blind, priced on the average, and is where the money is
       // made or lost.
-      potentials.push(rng.float() < APPRAISED_STOCK_CHANCE ? { ...p, appraised: true } : p)
+      prospects.push(rng.float() < APPRAISED_STOCK_CHANCE ? { ...p, appraised: true } : p)
     }
   }
 
   let cost = squadCost(type.id, count)
   // A standout is priced on what it can become, not just what it is.
-  for (const p of potentials) cost += potentialCost(p, type.cost)
+  for (const p of prospects) cost += prospectCost(p, type.cost)
 
   return {
     kind: 'squad',
     id: newId(rng, 'o'),
     typeId: type.id,
     count,
-    potentials,
+    prospects,
     cost: Math.round(cost),
   }
 }

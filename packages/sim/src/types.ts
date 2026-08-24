@@ -59,11 +59,11 @@ export interface SimGroup {
    * fast, True Kin hold, Machines never notice. See docs/V0-DESIGN.md §7.
    */
   discipline: number
-  /** Title of this group's leader, if any — an Officer's or a Potential's own name. Rendered as a banner in battle. */
+  /** Title of this group's leader, if any — an Officer's or a Prospect's own name. Rendered as a banner in battle. */
   leaderLabel?: string | null
   /**
-   * True for a group that IS one named individual — a Potential fighting as
-   * its own body, per docs/V0-DESIGN.md §4 (every Potential gets its own
+   * True for a group that IS one named individual — a Prospect fighting as
+   * its own body, per docs/V0-DESIGN.md §4 (every Prospect gets its own
    * group, leading or not, so none of them can hide inside a squad and
    * become unkillable). Always paired with count === 1. Drives which groups
    * emit BattleEvents: fodder and Officer-led squads have no individual

@@ -10,17 +10,17 @@ export {
 } from './officers.js'
 export type { Officer, OfficerRank } from './officers.js'
 export {
-  POTENTIAL_HP_MULT,
-  POTENTIAL_COST_PER_LEVEL,
-  rollPotential,
-  potentialCost,
-  potentialTitle,
+  PROSPECT_HP_MULT,
+  PROSPECT_COST_PER_LEVEL,
+  rollProspect,
+  prospectCost,
+  prospectTitle,
   isReadyToMutate,
   isMaxed,
   canBecomeFirstborn,
   rollCapacity,
   capacityGrade,
-  POTENTIAL_COST_PER_CAPACITY,
+  PROSPECT_COST_PER_CAPACITY,
   APPRAISAL_COST,
   ASSUMED_CAPACITY,
   revealIfMaxed,
@@ -29,8 +29,8 @@ export {
   rollGrowthChoices,
   BATTLES_PER_MUTATION,
   FIRSTBORN_AT_MUTATIONS,
-} from './potentials.js'
-export type { Potential } from './potentials.js'
+} from './prospects.js'
+export type { Prospect } from './prospects.js'
 export {
   WOUND_ZONES,
   WOUND_RUNG_NAMES,
@@ -51,15 +51,15 @@ export {
   squadLabel,
   squadCost,
   resolveSquadStats,
-  resolvePotentialStats,
+  resolveProspectStats,
   resolveDiscipline,
   squadShape,
   statPower,
   squadPower,
-  potentialPower,
+  prospectPower,
   warbandPower,
   findOfficer,
-  findLeadingPotential,
+  findLeadingProspect,
   totalFodder,
   totalBodies,
   fodderByType,
@@ -90,7 +90,7 @@ export type {
   Phase,
   BattleReport,
   SquadLoss,
-  PotentialLoss,
+  ProspectLoss,
   BattleSetup,
   GrowthOffer,
 } from './run.js'

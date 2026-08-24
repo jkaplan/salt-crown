@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { Battle, BattleEventType, Rng, TEAM_A, TEAM_B, hashSeed } from '@salt/sim'
 import {
   makeGroup,
-  resolvePotentialStats,
+  resolveProspectStats,
   resolveSquadStats,
   OFFICER_RANKS,
   UNIT_TYPES,
@@ -229,7 +229,7 @@ describe('Battle events', () => {
 })
 
 describe('Stat resolution', () => {
-  const potential = (mutations: { id: string; level: number }[]) => ({
+  const prospect = (mutations: { id: string; level: number }[]) => ({
     id: 'x', typeId: 0, name: 'Test', mutations, battles: 0, growth: 0, capacity: 6, appraised: true,
     wound: null,
   })
@@ -240,34 +240,34 @@ describe('Stat resolution', () => {
     expect(s).toEqual({ ...UNIT_TYPES[0].base, regen: 0, quills: 0, frenzy: 0 })
   })
 
-  it('applies a Potential’s mutations at level', () => {
-    const bare = resolvePotentialStats(potential([]))
-    const horned = resolvePotentialStats(potential([{ id: 'horns', level: 4 }]))
+  it('applies a Prospect’s mutations at level', () => {
+    const bare = resolveProspectStats(prospect([]))
+    const horned = resolveProspectStats(prospect([{ id: 'horns', level: 4 }]))
     expect(horned.damage).toBeCloseTo(bare.damage + 6, 5)
   })
 
-  it('makes Potentials sturdier than the fodder they came from', () => {
+  it('makes Prospects sturdier than the fodder they came from', () => {
     const fodder = resolveSquadStats({ id: 'x', typeId: 0, count: 1, leader: null }, null)
-    const standout = resolvePotentialStats(potential([]))
+    const standout = resolveProspectStats(prospect([]))
     expect(standout.hp).toBeGreaterThan(fodder.hp)
   })
 
-  it('leaks a leading Potential’s mutations to its squad at half level', () => {
+  it('leaks a leading Prospect’s mutations to its squad at half level', () => {
     // A Horns 5 standout should give its squad Horns 3 (ceil(5/2)), not the
-    // full 5 — that gap is what makes an Officer vs. a Potential leader a
+    // full 5 — that gap is what makes an Officer vs. a Prospect leader a
     // real choice rather than a strictly dominant one.
-    const leader = potential([{ id: 'horns', level: 5 }])
+    const leader = prospect([{ id: 'horns', level: 5 }])
     const bare = resolveSquadStats({ id: 'x', typeId: 0, count: 20, leader: null }, null)
     const led = resolveSquadStats(
-      { id: 'x', typeId: 0, count: 20, leader: { kind: 'potential', id: 'x' } },
+      { id: 'x', typeId: 0, count: 20, leader: { kind: 'prospect', id: 'x' } },
       null,
       leader,
     )
     expect(led.damage).toBeCloseTo(bare.damage + 3 * 1.5, 5)
   })
 
-  it('lets an Officer override a Potential leader on the same squad', () => {
-    const leader = potential([{ id: 'horns', level: 5 }])
+  it('lets an Officer override a Prospect leader on the same squad', () => {
+    const leader = prospect([{ id: 'horns', level: 5 }])
     const officer = { id: 'o', name: 'Test', house: 'Test', rankId: OFFICER_RANKS[0].id, wound: null }
     const s = resolveSquadStats(
       { id: 'x', typeId: 0, count: 20, leader: { kind: 'officer', id: 'o' } },
@@ -280,8 +280,8 @@ describe('Stat resolution', () => {
   })
 
   it('clamps a bad mutation stack into legal values', () => {
-    const s = resolvePotentialStats(
-      potential([
+    const s = resolveProspectStats(
+      prospect([
         { id: 'dense-bone', level: 6 },
         { id: 'serrated-claws', level: 6 },
       ]),

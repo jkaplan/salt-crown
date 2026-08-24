@@ -102,7 +102,7 @@ supporting that decision gets `--t-meta`. Applied, that reads:
 | Screen | `--t-body` — the decision | `--t-meta` — the support |
 |---|---|---|
 | Camp / march | enemy bodies, reward, "losing ends the run" | encounter flavour |
-| Camp / recruit | price, and the named Potential in the batch | the stat strip |
+| Camp / recruit | price, and the named Prospect in the batch | the stat strip |
 | Camp / growth | what the mutation does | battles survived |
 | Commander | the officer's effect | rank, house, flavour line |
 | Report | the attrition table, who lived and died | timings, DPS breakdown |
@@ -166,7 +166,7 @@ The order that fixes the most per unit of work:
 3. ~~**Camp triage**~~ — ✅ done. March is `.btn-primary` at 48px; the march
    card is the only accent-edged card on the screen.
 4. ~~**Per-screen stat pruning**~~ — ✅ done. The always-on `<Stats>` strip
-   (five numbers, repeated identically on the battle line, the Potentials
+   (five numbers, repeated identically on the battle line, the Prospects
    roster, and every recruit row) is deleted. Battle line shows pace only;
    recruit shows price and capacity only; roster shows capacity and mutations
    only. Resolved stats — a squad's *actual* numbers after leader bonus and

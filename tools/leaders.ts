@@ -3,10 +3,10 @@
  *
  *   npm run sim:leaders -- --budget 400 --seeds 60
  *
- * A leading Potential was silently missing from the battlefield entirely and
+ * A leading Prospect was silently missing from the battlefield entirely and
  * nothing looked wrong. That is evidence the whole named tier is close to
  * decorative, so measure it directly: take a fixed force, then spend the same
- * salvage three ways — on an Officer, on a Potential, or on more bodies — and
+ * salvage three ways — on an Officer, on a Prospect, or on more bodies — and
  * see which wins more.
  *
  * If "more bodies" wins every column, leaders are a trap and the tier needs
@@ -20,7 +20,7 @@ import {
   toSimGroups,
   unitType,
 } from '@salt/game'
-import type { Officer, Potential, Squad, Warband } from '@salt/game'
+import type { Officer, Prospect, Squad, Warband } from '@salt/game'
 
 function arg(name: string, fallback: number): number {
   const i = process.argv.indexOf(`--${name}`)
@@ -43,12 +43,12 @@ function officer(rankId: string): Officer {
   return { id: 'off', rankId, name: 'Test', house: 'Vantry', wound: null }
 }
 
-function potential(typeId: number, mutationId: string, level: number): Potential {
+function prospect(typeId: number, mutationId: string, level: number): Prospect {
   return { id: 'pot', typeId, name: 'Test', mutations: [{ id: mutationId, level }], battles: 0, growth: 0, capacity: 6, appraised: true, wound: null }
 }
 
-function warband(squads: Squad[], officers: Officer[], potentials: Potential[]): Warband {
-  return { squads, officers, potentials, salvage: 0 }
+function warband(squads: Squad[], officers: Officer[], prospects: Prospect[]): Warband {
+  return { squads, officers, prospects, salvage: 0 }
 }
 
 /** Win rate of `player` against `foe` over `seeds` deterministic battles. */
@@ -152,14 +152,14 @@ for (const id of SHOWCASE) {
   for (const level of [2, 6]) {
     const cost = unitType(CHAFF).cost + level * 9
     const led = warband(
-      [squad(CHAFF, baseCount, { kind: 'potential', id: 'pot' })],
+      [squad(CHAFF, baseCount, { kind: 'prospect', id: 'pot' })],
       [],
-      [potential(CHAFF, id, level)],
+      [prospect(CHAFF, id, level)],
     )
     const w = winRate(led, foe)
     const alt = bodiesInstead(cost)
     console.log(
-      `  ${pad(cost, 3)} salvage    potential: ${`${id} ${level}`.padEnd(18)}` +
+      `  ${pad(cost, 3)} salvage    prospect: ${`${id} ${level}`.padEnd(18)}` +
         `${pad((w * 100).toFixed(0), 4)}%   ${pad(((w - baseline) * 100).toFixed(0), 5)}pp   ` +
         `${pad((alt * 100).toFixed(0), 4)}%`,
     )

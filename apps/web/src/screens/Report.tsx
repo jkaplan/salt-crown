@@ -18,8 +18,8 @@ export default function Report({ report, onContinue, isLast }: Props) {
   const seconds = report.ticks / TICKS_PER_SECOND
   const playerDps = seconds > 0 ? playerDamageDealt / seconds : 0
   const enemyDps = seconds > 0 ? enemyDamageDealt / seconds : 0
-  const lostPotentials = report.potentials.filter((p) => p.died)
-  const livedPotentials = report.potentials.filter((p) => !p.died)
+  const lostProspects = report.prospects.filter((p) => p.died)
+  const livedProspects = report.prospects.filter((p) => !p.died)
 
   return (
     <div className="report">
@@ -82,15 +82,15 @@ export default function Report({ report, onContinue, isLast }: Props) {
           </div>
         </div>
 
-        {report.potentials.length > 0 && (
-          <div className="potential-roll">
-            {lostPotentials.length > 0 && (
+        {report.prospects.length > 0 && (
+          <div className="prospect-roll">
+            {lostProspects.length > 0 && (
               <>
                 <h3 className="lost-head">Lost</h3>
                 <ul className="pot-list">
-                  {lostPotentials.map((p) => (
+                  {lostProspects.map((p) => (
                     <li key={p.name} className="pot-dead">
-                      <span className="potential-name">{p.name}</span>
+                      <span className="prospect-name">{p.name}</span>
                       <span className="dim">
                         {p.label} · {p.battles} battle{p.battles === 1 ? '' : 's'}
                       </span>
@@ -99,13 +99,13 @@ export default function Report({ report, onContinue, isLast }: Props) {
                 </ul>
               </>
             )}
-            {livedPotentials.length > 0 && (
+            {livedProspects.length > 0 && (
               <>
                 <h3>Still with you</h3>
                 <ul className="pot-list">
-                  {livedPotentials.map((p) => (
+                  {livedProspects.map((p) => (
                     <li key={p.name}>
-                      <span className="potential-name">{p.name}</span>
+                      <span className="prospect-name">{p.name}</span>
                       <span className="dim">
                         {p.battles} battle{p.battles === 1 ? '' : 's'} survived
                       </span>
@@ -145,9 +145,9 @@ export default function Report({ report, onContinue, isLast }: Props) {
           </tbody>
         </table>
 
-        {lostPotentials.length > 0 && (
+        {lostProspects.length > 0 && (
           <p className="hint">
-            A Potential does not come back. Fodder is a line item; these were the ones worth
+            A Prospect does not come back. Fodder is a line item; these were the ones worth
             watching.
           </p>
         )}

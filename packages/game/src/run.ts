@@ -10,11 +10,11 @@ import {
   APPRAISAL_COST,
   isFirstborn,
   isReadyToMutate,
-  potentialTitle,
+  prospectTitle,
   revealIfMaxed,
   rollGrowthChoices,
-  rollPotential,
-} from './potentials.js'
+  rollProspect,
+} from './prospects.js'
 import type { MutationRoll } from './mutations.js'
 import { MUTANT_TYPES } from './units.js'
 import { rollOfficer } from './officers.js'
@@ -43,7 +43,7 @@ export interface SquadLoss {
   damageTaken: number
 }
 
-export interface PotentialLoss {
+export interface ProspectLoss {
   name: string
   label: string
   died: boolean
@@ -55,14 +55,14 @@ export interface BattleReport {
   encounterName: string
   salvageEarned: number
   squads: SquadLoss[]
-  potentials: PotentialLoss[]
+  prospects: ProspectLoss[]
   enemy: GroupResult[]
   ticks: number
 }
 
-/** A Potential that has survived enough to earn a mutation, and its options. */
+/** A Prospect that has survived enough to earn a mutation, and its options. */
 export interface GrowthOffer {
-  potentialId: string
+  prospectId: string
   choices: MutationRoll[]
 }
 
@@ -82,17 +82,17 @@ export interface RunState {
   outcome: 'won' | 'lost' | null
 }
 
-/** One officer, a pile of fodder, and a single Potential to care about. */
+/** One officer, a pile of fodder, and a single Prospect to care about. */
 function startingWarband(rng: Rng, selectedOfficer?: Officer): Warband {
   const officer = selectedOfficer || rollOfficer(rng, 'off-start')
-  const potential = rollPotential(rng, MUTANT_TYPES[2].id, 0)
+  const prospect = rollProspect(rng, MUTANT_TYPES[2].id, 0)
   const squads: Squad[] = [
     { id: 'sq-start-1', typeId: MUTANT_TYPES[0].id, count: 18, leader: { kind: 'officer', id: officer.id } },
-    { id: 'sq-start-2', typeId: MUTANT_TYPES[2].id, count: 8, leader: { kind: 'potential', id: potential.id } },
+    { id: 'sq-start-2', typeId: MUTANT_TYPES[2].id, count: 8, leader: { kind: 'prospect', id: prospect.id } },
   ]
   return {
     squads,
-    potentials: [potential],
+    prospects: [prospect],
     officers: [officer],
     salvage: 120,
   }
@@ -117,32 +117,32 @@ export function newRun(seedText: string, selectedOfficer?: Officer): RunState {
 }
 
 /**
- * Rolls the growth options for every Potential that has earned one.
+ * Rolls the growth options for every Prospect that has earned one.
  *
  * Done once when a camp opens and stored on the run, so the choices cannot be
  * rerolled by navigating away and back — the pick is meant to be a
  * commitment, and a rerollable commitment is not one.
  */
 function rollGrowth(rng: Rng, warband: Warband, encounterIndex: number): GrowthOffer[] {
-  return warband.potentials
+  return warband.prospects
     .filter(isReadyToMutate)
-    .map((p) => ({ potentialId: p.id, choices: rollGrowthChoices(rng, p, encounterIndex) }))
+    .map((p) => ({ prospectId: p.id, choices: rollGrowthChoices(rng, p, encounterIndex) }))
     .filter((offer) => offer.choices.length > 0)
 }
 
 /** Take one of the offered mutations. Permanent — there is no undo. */
 export function chooseMutation(
   state: RunState,
-  potentialId: string,
+  prospectId: string,
   choiceIndex: number,
 ): RunState {
-  const offer = state.growth.find((g) => g.potentialId === potentialId)
+  const offer = state.growth.find((g) => g.prospectId === prospectId)
   const choice = offer?.choices[choiceIndex]
   if (!offer || !choice) return state
 
-  const before = state.warband.potentials.find((p) => p.id === potentialId)
-  const potentials = state.warband.potentials.map((p) =>
-    p.id === potentialId
+  const before = state.warband.prospects.find((p) => p.id === prospectId)
+  const prospects = state.warband.prospects.map((p) =>
+    p.id === prospectId
       ? revealIfMaxed({ ...p, mutations: [...p.mutations, choice], growth: p.growth + 1 })
       : p,
   )
@@ -153,14 +153,14 @@ export function chooseMutation(
    * has to be announced: this is the rarest thing in a run and the player
    * should not have to notice a title quietly changing in a list.
    */
-  const after = potentials.find((p) => p.id === potentialId)
+  const after = prospects.find((p) => p.id === prospectId)
   const promoted =
     before && after && !isFirstborn(before) && isFirstborn(after) ? after.id : null
 
   return {
     ...state,
-    warband: { ...state.warband, potentials },
-    growth: state.growth.filter((g) => g.potentialId !== potentialId),
+    warband: { ...state.warband, prospects },
+    growth: state.growth.filter((g) => g.prospectId !== prospectId),
     promoted: promoted ? [...state.promoted, promoted] : state.promoted,
   }
 }
@@ -174,8 +174,8 @@ export function chooseMutation(
  * quantity, and it is worth doing before you decide whether a body is worth
  * protecting.
  */
-export function appraise(state: RunState, potentialId: string): RunState {
-  const target = state.warband.potentials.find((p) => p.id === potentialId)
+export function appraise(state: RunState, prospectId: string): RunState {
+  const target = state.warband.prospects.find((p) => p.id === prospectId)
   if (!target || target.appraised) return state
   if (state.warband.salvage < APPRAISAL_COST) return state
 
@@ -184,8 +184,8 @@ export function appraise(state: RunState, potentialId: string): RunState {
     warband: {
       ...state.warband,
       salvage: state.warband.salvage - APPRAISAL_COST,
-      potentials: state.warband.potentials.map((p) =>
-        p.id === potentialId ? { ...p, appraised: true } : p,
+      prospects: state.warband.prospects.map((p) =>
+        p.id === prospectId ? { ...p, appraised: true } : p,
       ),
     },
   }
@@ -194,11 +194,11 @@ export function appraise(state: RunState, potentialId: string): RunState {
 /**
  * Pay to advance one rung of recovery — docs/V0-DESIGN.md §7's "spend to
  * heal, or send them in hurt and risk the next rung." One rung per payment,
- * same step size as free recovery, so a badly wounded Potential is a choice
+ * same step size as free recovery, so a badly wounded Prospect is a choice
  * of how many times to pay rather than one lump sum.
  */
-export function treatWound(state: RunState, potentialId: string): RunState {
-  const target = state.warband.potentials.find((p) => p.id === potentialId)
+export function treatWound(state: RunState, prospectId: string): RunState {
+  const target = state.warband.prospects.find((p) => p.id === prospectId)
   if (!target || !target.wound) return state
   if (state.warband.salvage < TREAT_COST) return state
 
@@ -207,8 +207,8 @@ export function treatWound(state: RunState, potentialId: string): RunState {
     warband: {
       ...state.warband,
       salvage: state.warband.salvage - TREAT_COST,
-      potentials: state.warband.potentials.map((p) =>
-        p.id === potentialId ? { ...p, wound: recoverWound(p.wound, 1) } : p,
+      prospects: state.warband.prospects.map((p) =>
+        p.id === prospectId ? { ...p, wound: recoverWound(p.wound, 1) } : p,
       ),
     },
   }
@@ -222,17 +222,17 @@ export function buy(state: RunState, offerId: string): RunState {
     ...state.warband,
     salvage: state.warband.salvage - offer.cost,
     squads: [...state.warband.squads],
-    potentials: [...state.warband.potentials],
+    prospects: [...state.warband.prospects],
     officers: [...state.warband.officers],
   }
 
   if (offer.kind === 'squad') {
-    const leader = offer.potentials[0]
+    const leader = offer.prospects[0]
     const newSquad = {
       id: offer.id,
       typeId: offer.typeId,
       count: offer.count,
-      leader: leader ? { kind: 'potential' as const, id: leader.id } : null,
+      leader: leader ? { kind: 'prospect' as const, id: leader.id } : null,
     }
     // Land next to the last squad of the same type instead of always at the
     // tail, so repeat buys cluster in the battle line instead of scattering.
@@ -244,7 +244,7 @@ export function buy(state: RunState, offerId: string): RunState {
     }
     if (lastOfType === -1) warband.squads.push(newSquad)
     else warband.squads.splice(lastOfType + 1, 0, newSquad)
-    warband.potentials.push(...offer.potentials)
+    warband.prospects.push(...offer.prospects)
   } else {
     warband.officers.push(offer.officer)
   }
@@ -254,8 +254,8 @@ export function buy(state: RunState, offerId: string): RunState {
 
 /**
  * One leader per squad, of either kind, so assigning is genuinely a choice
- * between an Officer's flat bonus and a Potential's mutation leak. A
- * Potential can only lead its own kind — a mutant does not command True Kin.
+ * between an Officer's flat bonus and a Prospect's mutation leak. A
+ * Prospect can only lead its own kind — a mutant does not command True Kin.
  * Any leader can only lead one squad at a time.
  */
 export function assignLeader(
@@ -266,7 +266,7 @@ export function assignLeader(
   const target = state.warband.squads.find((sq) => sq.id === squadId)
   if (!target) return state
 
-  if (leader?.kind === 'potential' && unitType(target.typeId).lineage !== 'mutant') {
+  if (leader?.kind === 'prospect' && unitType(target.typeId).lineage !== 'mutant') {
     return state
   }
 
@@ -343,10 +343,10 @@ export function march(state: RunState): RunState {
  * Battles are fought to the finish, so a defeat leaves nothing standing. That
  * is why losing ends the run — see docs/V0-DESIGN.md §7.
  *
- * A Potential always fights as its own body, whether or not it is leading a
+ * A Prospect always fights as its own body, whether or not it is leading a
  * squad, so it can die independently of the squad it leads — losing a leader
  * mid-battle just means the squad finishes the fight on its own stats.
- * Potentials that live gain a battle towards Firstborn (M2).
+ * Prospects that live gain a battle towards Firstborn (M2).
  */
 export function resolveBattle(
   state: RunState,
@@ -360,10 +360,10 @@ export function resolveBattle(
   const won = winner === TEAM_A
 
   const squadResult = new Map<string, GroupResult>()
-  const potentialResult = new Map<string, GroupResult>()
+  const prospectResult = new Map<string, GroupResult>()
   playerSources.forEach((src, i) => {
     if (src.kind === 'squad') squadResult.set(src.id, playerResults[i])
-    else potentialResult.set(src.id, playerResults[i])
+    else prospectResult.set(src.id, playerResults[i])
   })
 
   const squadLosses: SquadLoss[] = []
@@ -384,19 +384,19 @@ export function resolveBattle(
     })
     .filter((sq) => sq.count > 0)
 
-  const potentialLosses: PotentialLoss[] = []
-  const potentials = state.warband.potentials
+  const prospectLosses: ProspectLoss[] = []
+  const prospects = state.warband.prospects
     .map((p) => {
-      const r = potentialResult.get(p.id)
+      const r = prospectResult.get(p.id)
       const died = r ? r.survived === 0 : false
-      potentialLosses.push({
+      prospectLosses.push({
         name: p.name,
-        label: potentialTitle(p, unitType(p.typeId).name),
+        label: prospectTitle(p, unitType(p.typeId).name),
         died,
         battles: p.battles + (died ? 0 : 1),
       })
       if (died) return null
-      // Wound ladder — docs/V0-DESIGN.md §7. A Potential always fights as its
+      // Wound ladder — docs/V0-DESIGN.md §7. A Prospect always fights as its
       // own body (see the doc comment above), so the trigger is direct: it
       // survived and still took damage. Free recovery (Mutant: 2 rungs) is
       // applied in the same pass, so a fresh wound already has a chance to
@@ -411,7 +411,7 @@ export function resolveBattle(
   // can't use the direct hit trigger above. Proxy: if the squad they led
   // ended the battle COLLAPSING, they were in the thick of a losing fight and
   // have a chance of a wound too. Free recovery (True Kin: 1 rung) applies
-  // to every Officer regardless, same as Potentials above.
+  // to every Officer regardless, same as Prospects above.
   const officerSquadResult = new Map<string, GroupResult>()
   for (const sq of state.warband.squads) {
     if (sq.leader?.kind === 'officer') {
@@ -431,14 +431,14 @@ export function resolveBattle(
   })
 
   // A leader who died no longer leads anyone.
-  const livingPotentials = new Set(potentials.map((p) => p.id))
+  const livingProspects = new Set(prospects.map((p) => p.id))
   const livingOfficers = new Set(officers.map((o) => o.id))
   const survivingSquads = squads.map((sq) => {
     if (!sq.leader) return sq
     const alive =
       sq.leader.kind === 'officer'
         ? livingOfficers.has(sq.leader.id)
-        : livingPotentials.has(sq.leader.id)
+        : livingProspects.has(sq.leader.id)
     return alive ? sq : { ...sq, leader: null }
   })
 
@@ -450,7 +450,7 @@ export function resolveBattle(
     warband: {
       ...state.warband,
       squads: survivingSquads,
-      potentials,
+      prospects,
       officers,
       salvage: state.warband.salvage + salvageEarned,
     },
@@ -459,7 +459,7 @@ export function resolveBattle(
       encounterName: state.encounter.name,
       salvageEarned,
       squads: squadLosses,
-      potentials: potentialLosses,
+      prospects: prospectLosses,
       enemy: enemyResults,
       ticks,
     },

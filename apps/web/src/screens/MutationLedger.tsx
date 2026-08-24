@@ -79,7 +79,7 @@ export default function MutationLedger() {
           <h2>Mutation ledger</h2>
         </div>
         <p className="mutation-ledger__copy">
-          Available mutations in the current V0 build. A leading Potential leaks the mutation to its squad at half level.
+          Available mutations in the current V0 build. A leading Prospect leaks the mutation to its squad at half level.
         </p>
       </header>
 
@@ -201,7 +201,7 @@ export default function MutationLedger() {
               <div className="mutation-detail__rule">
                 <span className="summary-label">Rule</span>
                 <p>
-                  Leading Potentials leak this mutation to the squad they command at half level, minimum 1.
+                  Leading Prospects leak this mutation to the squad they command at half level, minimum 1.
                 </p>
               </div>
             </>

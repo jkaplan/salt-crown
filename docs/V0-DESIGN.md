@@ -115,28 +115,28 @@ Individual identity, hit zones, and permadeath cannot apply to 200 units — nob
 - Each leads one squad and grants it a flat bonus plus discipline
 - Always fewer officers than squads, so assigning them is a decision
 
-**Potentials** — mutants, ~1 per dozen bodies recruited
+**Prospects** — mutants, ~1 per dozen bodies recruited
 - Mutants that came out of the vats with something useful. Individually named, individually simulated, individually killable — and permanently dead when killed.
 - Carry the mutations. Sturdier than the fodder they came from (×2.2 HP), because being noticed at all means having survived something.
-- **Can lead a squad of their own lineage.** Doing so leaks their mutations to the whole squad at half level (rounded up, min 1): a Horns 5 standout gives its squad Horns 3. This is what makes a Potential worth more than one extra body — mutation stops being one fighter's stat line and becomes an army-wide multiplier.
-- Every battle survived is a step toward **Firstborn** (M2). Potentials *are* the Firstborn pipeline.
+- **Can lead a squad of their own lineage.** Doing so leaks their mutations to the whole squad at half level (rounded up, min 1): a Horns 5 standout gives its squad Horns 3. This is what makes a Prospect worth more than one extra body — mutation stops being one fighter's stat line and becomes an army-wide multiplier.
+- Every battle survived is a step toward **Firstborn** (M2). Prospects *are* the Firstborn pipeline.
 
 **Fodder** — everything else
 - Anonymous, grouped into squads by unit type. **No mutations at all.**
-- A squad tracks `count`, `type`, and its leader (an Officer or a leading Potential — never both). Deaths are a number.
+- A squad tracks `count`, `type`, and its leader (an Officer or a leading Prospect — never both). Deaths are a number.
 - The roster shows one collapsed "Infantry: 128 bodies", expandable to the per-type breakdown. At 140 bodies you don't want twelve cards, you want one number and your handful of people.
 
 ### One leader per squad, of either kind
 
-A squad has exactly one leader slot. Put an Officer there for a flat, reliable bonus. Put a Potential there for the mutation leak — cheaper to acquire, higher variance, and it ties the squad's fate to a fighter who can die independently of it. **A Potential cannot lead True Kin** — a mutant does not command that caste. The choice between the two is genuinely a build decision, not a strict upgrade in either direction.
+A squad has exactly one leader slot. Put an Officer there for a flat, reliable bonus. Put a Prospect there for the mutation leak — cheaper to acquire, higher variance, and it ties the squad's fate to a fighter who can die independently of it. **A Prospect cannot lead True Kin** — a mutant does not command that caste. The choice between the two is genuinely a build decision, not a strict upgrade in either direction.
 
 ### Why mutations are individual, not squad-wide
 
 An earlier version gave the whole squad a shared mutation roll — twenty Chaff, all with Horns 3. That is not how a random process works, and it made the recruit screen unreadable: you were buying a stat block rather than a person.
 
-One or two standouts per batch is more believable *and* more legible. You are mostly buying the Potentials; the fodder is what comes in the same crate.
+One or two standouts per batch is more believable *and* more legible. You are mostly buying the Prospects; the fodder is what comes in the same crate.
 
-**"Potential" is the True Kin's word for them** — worth watching, possibly worth elevating. It is exactly as condescending as it sounds, coming from a caste that bred them in the first place.
+**"Prospect" is the True Kin's word for them** — worth watching, possibly worth elevating. It is exactly as condescending as it sounds, coming from a caste that bred them in the first place.
 
 ## 5. Combat
 
@@ -219,7 +219,7 @@ flavour and creates constant triage instead of pure accumulation. Pair it with
 upkeep on held stock (M3's Water economy) and hoarding gets a price, which is
 what makes a market a market.
 
-Naming note: **"Potential" should become "Prospect."** Assayers assay
+Naming note: **"Prospect" should become "Prospect."** Assayers assay
 prospects; the mining register is already established, and the word means both
 "someone who might become something" and "a claim that might yield". It keeps
 the condescension too — calling a person a prospect treats them as a site to
@@ -247,14 +247,14 @@ Both reports trace to the same root cause, so they're one problem with two
 surfaces.
 
 **What exists today:** `toSimGroups` (`packages/game/src/roster.ts`) gives
-*every* Potential its own one-body sim group, leading or not — "every
-Potential fights as its own body, including one that is leading," so none of
+*every* Prospect its own one-body sim group, leading or not — "every
+Prospect fights as its own body, including one that is leading," so none of
 them can hide behind a squad and become unkillable. `BattleView.ts` draws a
 banner (a 46px ring at 28% opacity, tinted to the team's accent colour, plus
-a name label) over any group carrying a `leaderLabel`. Since every Potential
-carries one, **every Potential in the warband gets an identical banner** —
+a name label) over any group carrying a `leaderLabel`. Since every Prospect
+carries one, **every Prospect in the warband gets an identical banner** —
 not just the ones currently leading a squad. §5b already noted runs drift to
-a dozen-plus Potentials; a dozen identical faint rings in the same hue read as
+a dozen-plus Prospects; a dozen identical faint rings in the same hue read as
 a texture, not as individuals. That's the literal mechanism behind "I can't
 tell who is important other than the name" — the marker exists, it just
 doesn't scale past a handful of instances.
@@ -268,7 +268,7 @@ close and any fix should keep that distinction rather than paper over it.
 
 The only current interface for tracking any of this mid-battle is the
 `Details` panel (`ParametersPanel.tsx`) — a full diagnostic dump of every
-squad, Officer, and Potential, gated behind the same toggle as tick count and
+squad, Officer, and Prospect, gated behind the same toggle as tick count and
 ms/tick. It's the right home for diagnostics and the wrong one for "is my
 Firstborn still alive," which is a glance question, not a drill-down one.
 
@@ -286,8 +286,8 @@ used to be drawn last specifically to sit over everyone, which worked when it
 was a flat disc but would have swallowed a scaled-up body if left in front.
 Verified in a live browser session (headless Chrome over CDP, since neither
 `chromium-cli` nor Playwright was available in this environment): a leading
-Potential visibly pops out of a packed formation now, clearly bigger with a
-gold halo, where before every Potential's marker looked identical regardless
+Prospect visibly pops out of a packed formation now, clearly bigger with a
+gold halo, where before every Prospect's marker looked identical regardless
 of count.
 
 **Known follow-up, not fixed:** with two leaders adjacent, their name labels
@@ -329,7 +329,7 @@ roughly in order of how much they touch the invariant above:
   foreclose anything.
 - **Conditional auto-merge.** Merge a new batch into an existing squad of the
   same type only when that squad is *unled* and the new batch carries no
-  standout Potential to lead — i.e. only when merging can't destroy a
+  standout Prospect to lead — i.e. only when merging can't destroy a
   leadership assignment. Reduces clutter for the common case (buying plain
   fodder) without the surprising-silent-behavior-change risk.
 - **Explicit merge action.** A button on a squad row — "Combine with other
@@ -353,7 +353,7 @@ new view on existing data.
 **Decided: build the shared instrumentation now, log UI later.** ✅ The sim
 side is built (`packages/sim/src/battle.ts`, `types.ts`) — the UI is not.
 `Battle` now carries a preallocated, fixed-capacity (512) ring buffer of
-`BattleEvent`s: a named individual (a Potential fighting as its own body, per
+`BattleEvent`s: a named individual (a Prospect fighting as its own body, per
 §4's note above — never a fodder squad, which has no individual identity to
 report on) taking a hit or dying, or any group's effectiveness first crossing
 `COLLAPSE_THRESHOLD` (0.6 — the same constant `Report.tsx`'s `.collapsing` row
@@ -398,7 +398,7 @@ earlier the same session). **Persistent rival leaders is next** — it was
 explicitly blocked on this, and now isn't.
 
 Also decided: gear stays Officers-only (bionics, M3, unbuilt) for now.
-Potentials do not get a second itemization layer alongside mutations —
+Prospects do not get a second itemization layer alongside mutations —
 mutations already are their build, and mutations/bionics exclusivity per
 lineage is a load-bearing invariant (CLAUDE.md), not a gap to fill.
 
@@ -481,7 +481,7 @@ Free recovery between battles is one rung, Strained → Healthy only. Worse cost
 several independent ones: the first hit taken while surviving rolls a zone and
 starts at Strained; a later hit while already wounded moves the *same* zone up
 one rung, capped at Crippled. `TREAT_COST` (40 Salvage, placeholder) buys one
-rung of paid recovery — a "Treat" button next to the wound on the Potentials
+rung of paid recovery — a "Treat" button next to the wound on the Prospects
 roster row. `WOUND_PENALTY` (10% / 22% / 38% by rung, placeholder) is the
 fraction knocked off the zone's stat(s); all four numbers are exactly the kind
 this doc's own rule (§14) says to tune with the batch-sim harness, not argue
@@ -489,7 +489,7 @@ about in advance.
 
 **One real gap in "Named tier only, individually":** Officers have no body in
 the sim — they're a pure stat modifier (§4) — so they can't use the direct
-"took a hit" trigger a Potential uses. Proxy instead: if the squad an Officer
+"took a hit" trigger a Prospect uses. Proxy instead: if the squad an Officer
 led ended a battle COLLAPSING (§7's own effectiveness threshold), they had a
 `OFFICER_WOUND_CHANCE_ON_COLLAPSE` (35%, placeholder) chance of a wound too.
 And since an Officer has no HP/damage/speed stat for a zone to individually
@@ -561,7 +561,7 @@ Three sources, in ascending cost to build:
 
 *Not built. Depends on M2's wound ladder — recorded here so it isn't lost.*
 
-Rival warbands already generate named Officers and Potentials as squad leaders (`generateEncounter`). The natural extension: some of them **persist** instead of being regenerated fresh each encounter. A leader who survives a fight against you shows up again later — carrying a wound from the last one, at the head of a different band.
+Rival warbands already generate named Officers and Prospects as squad leaders (`generateEncounter`). The natural extension: some of them **persist** instead of being regenerated fresh each encounter. A leader who survives a fight against you shows up again later — carrying a wound from the last one, at the head of a different band.
 
 This is the world-exists-independently-of-you principle (§2) made mechanical, and it gives permadeath real weight on the enemy side too: killing a rival leader *for good* becomes an accomplishment rather than clearing an encounter. Needs: a persistent enemy roster instead of full regeneration, and the wound ladder to have somewhere to record what happened to them. Candidate for M2–M4.
 

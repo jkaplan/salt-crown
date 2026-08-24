@@ -2,8 +2,8 @@ import type { BattleSetup, RunState, SquadLeader } from '@salt/game'
 import {
   findOfficer,
   officerTitle,
-  potentialTitle,
-  resolvePotentialStats,
+  prospectTitle,
+  resolveProspectStats,
   resolveSquadStats,
   squadLabel,
   unitType,
@@ -35,8 +35,8 @@ function leaderText(leader: SquadLeader | null, run: RunState): string {
     return officer ? officerTitle(officer) : 'officer'
   }
 
-  const potential = run.warband.potentials.find((entry) => entry.id === leader.id)
-  return potential ? potentialTitle(potential, unitType(potential.typeId).name) : 'potential'
+  const prospect = run.warband.prospects.find((entry) => entry.id === leader.id)
+  return prospect ? prospectTitle(prospect, unitType(prospect.typeId).name) : 'prospect'
 }
 
 function squadStatsLine(squad: RunState['warband']['squads'][number], run: RunState): string {
@@ -75,7 +75,7 @@ function squadHealth(
   const stats = resolveSquadStats(
     squad,
     findOfficer(run.warband, squad),
-    run.warband.potentials.find((potential) => potential.id === squad.leader?.id) ?? null,
+    run.warband.prospects.find((prospect) => prospect.id === squad.leader?.id) ?? null,
   )
   return { current: stats.hp * squad.count, max: stats.hp * squad.count }
 }
@@ -114,7 +114,7 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
         <article className="parameter-card spotlight-card">
           <span className="eyebrow">Total health</span>
           <HealthBar current={warbandHealth} max={warbandMaxHealth} tone="player" />
-          <span>{warband.squads.length} squads · {warband.potentials.length} potentials</span>
+          <span>{warband.squads.length} squads · {warband.prospects.length} prospects</span>
           <span className="dim-copy">The squad cards below show each unit group in detail.</span>
         </article>
         <div className="quick-stats">
@@ -123,8 +123,8 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
             <strong>{healthText({ current: warbandHealth, max: warbandMaxHealth })}</strong>
           </div>
           <div>
-            <span className="summary-label">Potentials</span>
-            <strong>{warband.potentials.length}</strong>
+            <span className="summary-label">Prospects</span>
+            <strong>{warband.prospects.length}</strong>
           </div>
           <div>
             <span className="summary-label">Bodies</span>
@@ -148,8 +148,8 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
           <dd>{warband.squads.reduce((sum, squad) => sum + squad.count, 0)}</dd>
           <dt>Officers</dt>
           <dd>{warband.officers.length}</dd>
-          <dt>Potentials</dt>
-          <dd>{warband.potentials.length}</dd>
+          <dt>Prospects</dt>
+          <dd>{warband.prospects.length}</dd>
         </dl>
       </section>
 
@@ -185,15 +185,15 @@ export default function ParametersPanel({ run, setup, liveStats }: Props) {
       </section>
 
       <section>
-        <h2>Potentials</h2>
+        <h2>Prospects</h2>
         <div className="parameter-list">
-          {warband.potentials.map((potential) => {
-            const stats = resolvePotentialStats(potential)
+          {warband.prospects.map((prospect) => {
+            const stats = resolveProspectStats(prospect)
             return (
-              <article key={potential.id} className="parameter-card potential-card">
-                <strong>{potentialTitle(potential, unitType(potential.typeId).name)}</strong>
+              <article key={prospect.id} className="parameter-card prospect-card">
+                <strong>{prospectTitle(prospect, unitType(prospect.typeId).name)}</strong>
                 <span>{stats.hp.toFixed(0)} hp · {stats.damage.toFixed(1)} dmg · {stats.armor.toFixed(1)} arm · {stats.moveSpeed.toFixed(1)} speed · {(stats.accuracy * 100).toFixed(0)}% acc</span>
-                <span>{potential.mutations.length} mutation{potential.mutations.length === 1 ? '' : 's'}</span>
+                <span>{prospect.mutations.length} mutation{prospect.mutations.length === 1 ? '' : 's'}</span>
               </article>
             )
           })}

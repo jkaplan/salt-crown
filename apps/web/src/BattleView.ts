@@ -56,7 +56,7 @@ const FLASH_TICKS = 5
 const FLASH_STEPS = 12
 /**
  * A leader's own body renders at this multiple of a normal one — see
- * docs/V0-DESIGN.md §5c. Every Potential is its own group regardless of
+ * docs/V0-DESIGN.md §5c. Every Prospect is its own group regardless of
  * whether it's currently leading (so none of them can hide inside a squad
  * and become unkillable), so this is what made a dozen-plus of them read as
  * one indistinct texture: an identical faint ring on an identically-sized

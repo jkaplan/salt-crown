@@ -3,12 +3,12 @@ import type { Rng } from '@salt/sim'
 
 /**
  * The wound ladder — docs/V0-DESIGN.md §7. Named tier only, individually:
- * Officers and Potentials, never fodder, which has no individual identity to
+ * Officers and Prospects, never fodder, which has no individual identity to
  * carry a wound on.
  *
  *   Healthy -> Strained -> Injured -> Crippled -> Dead
  *
- * Dead isn't represented here — that's just the Potential or Officer being
+ * Dead isn't represented here — that's just the Prospect or Officer being
  * removed, already handled elsewhere. This module only covers the three
  * living rungs above Healthy.
  */
@@ -50,7 +50,7 @@ export const WOUND_PENALTY: Record<WoundRung, number> = {
 export const TREAT_COST = 40
 
 /**
- * An Officer has no body to take a hit, so it can't use the Potential
+ * An Officer has no body to take a hit, so it can't use the Prospect
  * trigger (survived and took damage). Proxy instead: if the squad it led
  * ended the battle COLLAPSING (docs/V0-DESIGN §7 / the report's own
  * threshold), the Officer was in the thick of a losing fight and has this
@@ -91,7 +91,7 @@ export function recoverWound(current: Wound | null, rungs: number): Wound | null
 }
 
 /**
- * Applied to a Potential's own resolved stats, by zone — docs/V0-DESIGN §7's
+ * Applied to a Prospect's own resolved stats, by zone — docs/V0-DESIGN §7's
  * zone table: Head -> accuracy, Core -> max HP, Arms -> damage,
  * Legs -> move and evade.
  */

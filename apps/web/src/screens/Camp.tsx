@@ -8,11 +8,11 @@ import {
   isFirstborn,
   MUTATIONS_BY_ID,
   OFFICER_RANKS_BY_ID,
-  findLeadingPotential,
+  findLeadingProspect,
   findOfficer,
   fodderByType,
   officerTitle,
-  resolvePotentialStats,
+  resolveProspectStats,
   resolveSquadStats,
   totalBodies,
   totalFodder,
@@ -24,7 +24,7 @@ import {
 import type {
   GrowthOffer,
   Offer,
-  Potential,
+  Prospect,
   RunState,
   Squad,
   SquadLeader,
@@ -57,9 +57,9 @@ interface Props {
   run: RunState
   onBuy: (offerId: string) => void
   onAssign: (squadId: string, leader: SquadLeader | null) => void
-  onChooseMutation: (potentialId: string, choiceIndex: number) => void
-  onAppraise: (potentialId: string) => void
-  onTreatWound: (potentialId: string) => void
+  onChooseMutation: (prospectId: string, choiceIndex: number) => void
+  onAppraise: (prospectId: string) => void
+  onTreatWound: (prospectId: string) => void
   onMoveSquad: (squadId: string, dir: -1 | 1) => void
   onPlaceSquad: (squadId: string, toIndex: number) => void
   onMarch: () => void
@@ -83,12 +83,12 @@ function leaderKey(leader: SquadLeader | null): string {
 function parseLeaderKey(key: string): SquadLeader | null {
   if (!key) return null
   const [kind, id] = key.split(':')
-  return kind === 'officer' || kind === 'potential' ? { kind, id } : null
+  return kind === 'officer' || kind === 'prospect' ? { kind, id } : null
 }
 
 /**
  * The single place leadership is assigned. It used to be settable from both
- * the squad and the Potential, two controls mutating one relationship from
+ * the squad and the Prospect, two controls mutating one relationship from
  * opposite ends — which is confusing and lets them disagree.
  */
 function LeaderSelect({
@@ -122,10 +122,10 @@ function LeaderSelect({
         ))}
       {/* A mutant does not command True Kin. */}
       {isMutant &&
-        warband.potentials
-          .filter((p) => !taken.has(`potential:${p.id}`))
+        warband.prospects
+          .filter((p) => !taken.has(`prospect:${p.id}`))
           .map((p) => (
-            <option key={p.id} value={`potential:${p.id}`}>
+            <option key={p.id} value={`prospect:${p.id}`}>
               {p.name} — leaks mutations
             </option>
           ))}
@@ -155,8 +155,8 @@ function SquadRow({
   onGripDown: (e: React.PointerEvent, squadId: string) => void
 }) {
   const officer = findOfficer(warband, squad)
-  const potential = findLeadingPotential(warband, squad)
-  const stats = resolveSquadStats(squad, officer, potential)
+  const prospect = findLeadingProspect(warband, squad)
+  const stats = resolveSquadStats(squad, officer, prospect)
 
   const className = [
     'row',
@@ -211,8 +211,8 @@ function SquadRow({
  * empty slots and the other is finished — so it gets a shape you can read at
  * a glance rather than a number in a list.
  */
-function Capacity({ potential }: { potential: Potential }) {
-  const filled = potential.mutations.length
+function Capacity({ prospect }: { prospect: Prospect }) {
+  const filled = prospect.mutations.length
 
   /*
    * An ungraded body must LOOK ungraded. If the slots were drawn from the
@@ -220,7 +220,7 @@ function Capacity({ potential }: { potential: Potential }) {
    * only what it already carries, plus an open question mark. That gap is the
    * entire market.
    */
-  if (!potential.appraised) {
+  if (!prospect.appraised) {
     return (
       <span
         className="capacity unknown"
@@ -235,59 +235,59 @@ function Capacity({ potential }: { potential: Potential }) {
     )
   }
 
-  const maxed = isMaxed(potential)
-  const legend = canBecomeFirstborn(potential)
+  const maxed = isMaxed(prospect)
+  const legend = canBecomeFirstborn(prospect)
 
   return (
     <span
       className={`capacity${maxed ? ' maxed' : ''}${legend ? ' legend' : ''}`}
-      title={`Capacity ${potential.capacity} — ${capacityGrade(potential.capacity)}. ${
+      title={`Capacity ${prospect.capacity} — ${capacityGrade(prospect.capacity)}. ${
         maxed
           ? 'This body can hold no more.'
-          : `${potential.capacity - filled} more mutation(s) possible.`
+          : `${prospect.capacity - filled} more mutation(s) possible.`
       }${legend ? ' Deep enough to become a Firstborn.' : ''}`}
     >
-      {Array.from({ length: potential.capacity }, (_, i) => (
+      {Array.from({ length: prospect.capacity }, (_, i) => (
         <i key={i} className={i < filled ? 'slot on' : 'slot'} />
       ))}
-      <span className="capacity-word">{maxed ? 'finished' : capacityGrade(potential.capacity)}</span>
+      <span className="capacity-word">{maxed ? 'finished' : capacityGrade(prospect.capacity)}</span>
     </span>
   )
 }
 
-function PotentialRow({
-  potential,
+function ProspectRow({
+  prospect,
   warband,
   salvage,
   onAppraise,
   onTreatWound,
 }: {
-  potential: Potential
+  prospect: Prospect
   warband: Warband
   salvage: number
   onAppraise: Props['onAppraise']
   onTreatWound: Props['onTreatWound']
 }) {
-  const stats = resolvePotentialStats(potential)
+  const stats = resolveProspectStats(prospect)
   const leading = warband.squads.find(
-    (sq) => sq.leader?.kind === 'potential' && sq.leader.id === potential.id,
+    (sq) => sq.leader?.kind === 'prospect' && sq.leader.id === prospect.id,
   )
-  const wound = potential.wound
+  const wound = prospect.wound
 
   return (
     <li className="row">
       <div className="row-main">
-        <UnitShape typeId={potential.typeId} />
+        <UnitShape typeId={prospect.typeId} />
         <span className="row-name">
-          <b className={isFirstborn(potential) ? 'potential-name firstborn' : 'potential-name'}>
-            {potential.name}
+          <b className={isFirstborn(prospect) ? 'prospect-name firstborn' : 'prospect-name'}>
+            {prospect.name}
           </b>
           {/* A Firstborn is no longer described by the stock it came from. */}
-          {isFirstborn(potential) ? (
+          {isFirstborn(prospect) ? (
             <span className="firstborn-tag">Firstborn</span>
           ) : (
             <span className="dim">
-              <UnitName typeId={potential.typeId} resolved={stats} />
+              <UnitName typeId={prospect.typeId} resolved={stats} />
             </span>
           )}
         </span>
@@ -296,10 +296,10 @@ function PotentialRow({
             {WOUND_RUNG_NAMES[wound.rung]} · {WOUND_ZONE_NAMES[wound.zone]}
           </span>
         )}
-        <Capacity potential={potential} />
+        <Capacity prospect={prospect} />
       </div>
       <div className="tags">
-        {potential.mutations.map((m) => (
+        {prospect.mutations.map((m) => (
           <MutationTag key={m.id} roll={m} />
         ))}
       </div>
@@ -308,11 +308,11 @@ function PotentialRow({
           ? `Leading ${unitType(leading.typeId).name} ×${leading.count}`
           : 'Not leading — assign from a squad'}
       </div>
-      {!potential.appraised && (
+      {!prospect.appraised && (
         <button
           className="btn-quiet assay"
           disabled={salvage < APPRAISAL_COST}
-          onClick={() => onAppraise(potential.id)}
+          onClick={() => onAppraise(prospect.id)}
         >
           Have an Assayer read it <span className="price">{APPRAISAL_COST}</span>
         </button>
@@ -321,7 +321,7 @@ function PotentialRow({
         <button
           className="btn-quiet treat"
           disabled={salvage < TREAT_COST}
-          onClick={() => onTreatWound(potential.id)}
+          onClick={() => onTreatWound(prospect.id)}
         >
           Treat — {WOUND_RUNG_NAMES[wound.rung]} heals one rung <span className="price">{TREAT_COST}</span>
         </button>
@@ -337,28 +337,28 @@ function PotentialRow({
  */
 function GrowthCard({
   offer,
-  potential,
+  prospect,
   onChoose,
 }: {
   offer: GrowthOffer
-  potential: Potential
+  prospect: Prospect
   onChoose: Props['onChooseMutation']
 }) {
-  const type = unitType(potential.typeId)
-  const next = potential.mutations.length + 1
+  const type = unitType(prospect.typeId)
+  const next = prospect.mutations.length + 1
 
   return (
     <li className="row growth needs-you">
       <div className="row-main">
-        <UnitShape typeId={potential.typeId} />
+        <UnitShape typeId={prospect.typeId} />
         <span className="row-name">
-          <b className="potential-name">{potential.name}</b>
+          <b className="prospect-name">{prospect.name}</b>
           <span className="dim">
-            {type.name} · {potential.battles} battle{potential.battles === 1 ? '' : 's'} survived
+            {type.name} · {prospect.battles} battle{prospect.battles === 1 ? '' : 's'} survived
           </span>
         </span>
         <span className="row-meta">
-          mutation {next} of {potential.capacity}
+          mutation {next} of {prospect.capacity}
         </span>
       </div>
       <div className="growth-choices">
@@ -368,7 +368,7 @@ function GrowthCard({
             <button
               key={choice.id}
               className="growth-choice"
-              onClick={() => onChoose(potential.id, i)}
+              onClick={() => onChoose(prospect.id, i)}
             >
               <span className="gc-name">
                 {def?.name} <b>{choice.level}</b>
@@ -429,12 +429,12 @@ function OfferRow({
           </span>
           <span className="price-tag">{afford ? `Recruit ${offer.cost}` : `${offer.cost}`}</span>
         </span>
-        {offer.potentials.length > 0 ? (
+        {offer.prospects.length > 0 ? (
           <span className="standouts">
-            {offer.potentials.map((p) => (
+            {offer.prospects.map((p) => (
               <span key={p.id} className="standout">
-                <b className="potential-name">{p.name}</b>
-                <Capacity potential={p} />
+                <b className="prospect-name">{p.name}</b>
+                <Capacity prospect={p} />
                 <span className="dim">
                   {p.mutations.map((m) => `${m.id} ${m.level}`).join(', ')}
                 </span>
@@ -529,7 +529,7 @@ export default function Camp({
   const bodiesFlash = useJustChanged(bodies)
   const idle =
     warband.officers.length +
-    warband.potentials.length -
+    warband.prospects.length -
     warband.squads.filter((s) => s.leader).length
 
   return (
@@ -547,7 +547,7 @@ export default function Camp({
           <b className={bodiesFlash.trim()}>{bodies}</b> bodies
         </span>
         <span>
-          <b className="potential-name">{warband.potentials.length}</b> potentials
+          <b className="prospect-name">{warband.prospects.length}</b> prospects
         </span>
       </div>
 
@@ -573,12 +573,12 @@ export default function Camp({
       {run.promoted.length > 0 && (
         <div className="promotion">
           {run.promoted.map((id) => {
-            const p = warband.potentials.find((x) => x.id === id)
+            const p = warband.prospects.find((x) => x.id === id)
             if (!p) return null
             return (
               <div key={id} className="promotion-line">
                 <span className="promotion-word">Firstborn</span>
-                <b className="potential-name">{p.name}</b>
+                <b className="prospect-name">{p.name}</b>
                 <span className="dim">
                   came back from {p.battles} battles and stopped being stock. Their mutations
                   now reach the whole squad at full strength.
@@ -596,13 +596,13 @@ export default function Camp({
         >
           <ul className="rows">
             {run.growth.map((offer) => {
-              const p = warband.potentials.find((x) => x.id === offer.potentialId)
+              const p = warband.prospects.find((x) => x.id === offer.prospectId)
               if (!p) return null
               return (
                 <GrowthCard
-                  key={offer.potentialId}
+                  key={offer.prospectId}
                   offer={offer}
-                  potential={p}
+                  prospect={p}
                   onChoose={onChooseMutation}
                 />
               )
@@ -662,12 +662,12 @@ export default function Camp({
             )}
           </Section>
 
-          <Section title="Potentials" meta={warband.potentials.length || undefined}>
+          <Section title="Prospects" meta={warband.prospects.length || undefined}>
             <ul className="rows">
-              {warband.potentials.map((p) => (
-                <PotentialRow
+              {warband.prospects.map((p) => (
+                <ProspectRow
                 key={p.id}
-                potential={p}
+                prospect={p}
                 warband={warband}
                 salvage={warband.salvage}
                 onAppraise={onAppraise}
@@ -675,7 +675,7 @@ export default function Camp({
               />
               ))}
             </ul>
-            {warband.potentials.length === 0 && (
+            {warband.prospects.length === 0 && (
               <p className="empty">
                 None. Mutant batches throw up one or two standouts — the rest is fodder.
               </p>

@@ -19,7 +19,7 @@ import {
   march,
   newRun,
   resolveBattle,
-  potentialPower,
+  prospectPower,
   squadPower,
   totalBodies,
   unitType,
@@ -47,7 +47,7 @@ function shop(state: RunState): RunState {
         if (o.kind === 'officer') return { id: o.id, value: 45 / o.cost }
         const power =
           squadPower({ id: o.id, typeId: o.typeId, count: o.count, leader: null }, null) +
-          o.potentials.reduce((n, p) => n + potentialPower(p), 0)
+          o.prospects.reduce((n, p) => n + prospectPower(p), 0)
         return { id: o.id, value: power / o.cost }
       })
       .sort((a, b) => b.value - a.value)
@@ -64,14 +64,14 @@ function shop(state: RunState): RunState {
     if (biggest[i]) s = assignLeader(s, biggest[i].id, { kind: 'officer', id: o.id })
   })
 
-  // Potentials lead the biggest still-unled mutant squad they qualify for.
+  // Prospects lead the biggest still-unled mutant squad they qualify for.
   const led = new Set(s.warband.squads.filter((sq) => sq.leader).map((sq) => sq.id))
-  for (const p of s.warband.potentials) {
+  for (const p of s.warband.prospects) {
     const target = s.warband.squads
       .filter((sq) => !led.has(sq.id) && unitType(sq.typeId).lineage === 'mutant')
       .sort((a, b) => b.count - a.count)[0]
     if (!target) continue
-    s = assignLeader(s, target.id, { kind: 'potential', id: p.id })
+    s = assignLeader(s, target.id, { kind: 'prospect', id: p.id })
     led.add(target.id)
   }
   return s

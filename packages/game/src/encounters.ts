@@ -1,8 +1,8 @@
 import { Rng } from '@salt/sim'
 import { rollOfficer } from './officers.js'
 import type { Officer } from './officers.js'
-import { rollPotential } from './potentials.js'
-import type { Potential } from './potentials.js'
+import { rollProspect } from './prospects.js'
+import type { Prospect } from './prospects.js'
 import type { Warband } from './roster.js'
 import { squadCost } from './roster.js'
 import { MUTANT_TYPES, TRUEKIN_TYPES } from './units.js'
@@ -58,7 +58,7 @@ export function generateEncounter(rng: Rng, index: number): Encounter {
   const truekinChance = 0.12 + index * 0.07
 
   const squads: Warband['squads'] = []
-  const potentials: Potential[] = []
+  const prospects: Prospect[] = []
   let guard = 0
   while (budget > 25 && guard++ < 12) {
     const isTrueKin = rng.float() < truekinChance
@@ -76,7 +76,7 @@ export function generateEncounter(rng: Rng, index: number): Encounter {
     })
     // Rival bands throw up standouts the same way you do.
     if (!isTrueKin && rng.float() < 0.5) {
-      potentials.push(rollPotential(rng, type.id, index))
+      prospects.push(rollProspect(rng, type.id, index))
       budget -= type.cost * 3
     }
     budget -= cost
@@ -100,8 +100,8 @@ export function generateEncounter(rng: Rng, index: number): Encounter {
     squads[0].leader = { kind: 'officer', id: officer.id }
   }
 
-  const enemy: Warband = { squads, potentials, officers, salvage: 0 }
-  const bodies = squads.reduce((n, s) => n + s.count, 0) + potentials.length
+  const enemy: Warband = { squads, prospects, officers, salvage: 0 }
+  const bodies = squads.reduce((n, s) => n + s.count, 0) + prospects.length
 
   return {
     index,
