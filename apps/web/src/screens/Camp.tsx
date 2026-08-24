@@ -5,6 +5,7 @@ import {
   capacityGrade,
   APPRAISAL_COST,
   isMaxed,
+  isFirstborn,
   MUTATIONS_BY_ID,
   OFFICER_RANKS_BY_ID,
   findLeadingPotential,
@@ -278,10 +279,17 @@ function PotentialRow({
       <div className="row-main">
         <UnitShape typeId={potential.typeId} />
         <span className="row-name">
-          <b className="potential-name">{potential.name}</b>
-          <span className="dim">
-            <UnitName typeId={potential.typeId} resolved={stats} />
-          </span>
+          <b className={isFirstborn(potential) ? 'potential-name firstborn' : 'potential-name'}>
+            {potential.name}
+          </b>
+          {/* A Firstborn is no longer described by the stock it came from. */}
+          {isFirstborn(potential) ? (
+            <span className="firstborn-tag">Firstborn</span>
+          ) : (
+            <span className="dim">
+              <UnitName typeId={potential.typeId} resolved={stats} />
+            </span>
+          )}
         </span>
         {wound && (
           <span className="wound" title={`${WOUND_ZONE_NAMES[wound.zone]} — costs ${TREAT_COST} salvage per rung to treat`}>
@@ -556,6 +564,30 @@ export default function Camp({
           March
         </button>
       </div>
+
+      {/*
+        The rarest thing in a run. About 2% of Prospects have the capacity to
+        get here at all, and getting there takes ten battles alive — so it is
+        announced rather than left to be noticed as a changed title in a list.
+      */}
+      {run.promoted.length > 0 && (
+        <div className="promotion">
+          {run.promoted.map((id) => {
+            const p = warband.potentials.find((x) => x.id === id)
+            if (!p) return null
+            return (
+              <div key={id} className="promotion-line">
+                <span className="promotion-word">Firstborn</span>
+                <b className="potential-name">{p.name}</b>
+                <span className="dim">
+                  came back from {p.battles} battles and stopped being stock. Their mutations
+                  now reach the whole squad at full strength.
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {run.growth.length > 0 && (
         <Section

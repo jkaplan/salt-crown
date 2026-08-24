@@ -153,6 +153,16 @@ const NICKNAMES = [
 /** Potentials are the ones who got noticed, so they are a little harder to kill. */
 export const POTENTIAL_HP_MULT = 2.2
 
+/**
+ * A Firstborn has survived ten battles and filled a body deep enough to hold
+ * five mutations. It should read as a different class of thing, not a
+ * slightly better Potential.
+ */
+export const FIRSTBORN_HP_MULT = 3.4
+
+/** A squad led by a legend holds past the point where mutants normally fold. */
+export const FIRSTBORN_DISCIPLINE_BONUS = 0.2
+
 /** Salvage premium per mutation level. A good roll is worth paying for. */
 export const POTENTIAL_COST_PER_LEVEL = 9
 
@@ -216,8 +226,18 @@ export function revealIfMaxed(p: Potential): Potential {
   return !p.appraised && p.mutations.length >= p.capacity ? { ...p, appraised: true } : p
 }
 
+/**
+ * The Houses coined "Firstborn" as a joke — a ceremonial elevation of a
+ * favoured slave, mocking their own succession rites. Outside the caste
+ * system it came to mean the one who survived, and the mutants took the word
+ * and meant it.
+ *
+ * So the title *replaces* the unit type rather than decorating it. A promoted
+ * mutant stops being "Rust the Chaff" and becomes "Rust, Firstborn" — it is
+ * no longer described by the stock it came from.
+ */
 export function potentialTitle(p: Potential, typeName: string): string {
-  return `${p.name} the ${typeName}`
+  return isFirstborn(p) ? `${p.name}, Firstborn` : `${p.name} the ${typeName}`
 }
 
 /**

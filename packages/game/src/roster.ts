@@ -4,7 +4,13 @@ import { MUTATIONS_BY_ID, leakLevel } from './mutations.js'
 import type { MutationRoll } from './mutations.js'
 import { OFFICER_RANKS_BY_ID, officerTitle } from './officers.js'
 import type { Officer } from './officers.js'
-import { POTENTIAL_HP_MULT, potentialTitle } from './potentials.js'
+import {
+  FIRSTBORN_DISCIPLINE_BONUS,
+  FIRSTBORN_HP_MULT,
+  POTENTIAL_HP_MULT,
+  isFirstborn,
+  potentialTitle,
+} from './potentials.js'
 import type { Potential } from './potentials.js'
 import { DISCIPLINE, UNIT_TYPES } from './units.js'
 import { applyWoundPenalty, officerBonusMultiplier } from './wounds.js'
@@ -105,8 +111,18 @@ export function resolveSquadStats(
   if (officer) {
     OFFICER_RANKS_BY_ID.get(officer.rankId)?.apply(s, officerBonusMultiplier(officer.wound))
   } else if (leader) {
+    /*
+     * A Potential leaks at half level. A FIRSTBORN leaks at full.
+     *
+     * That is the whole payoff for ten battles survived, and it is deliberately
+     * large: five mutations at full strength across twenty bodies is the kind
+     * of multiplier that beats simply bringing more bodies. See V0-DESIGN 6b —
+     * numbers dominate until quality multipliers get big enough, and this is
+     * the biggest one in the game.
+     */
+    const full = isFirstborn(leader)
     for (const roll of leader.mutations) {
-      MUTATIONS_BY_ID.get(roll.id)?.apply(s, leakLevel(roll.level))
+      MUTATIONS_BY_ID.get(roll.id)?.apply(s, full ? roll.level : leakLevel(roll.level))
     }
   }
   return clamp(s)
@@ -119,7 +135,7 @@ export function resolveSquadStats(
  */
 export function resolvePotentialStats(p: Potential): ResolvedStats {
   const s = baseStats(p.typeId)
-  s.hp *= POTENTIAL_HP_MULT
+  s.hp *= isFirstborn(p) ? FIRSTBORN_HP_MULT : POTENTIAL_HP_MULT
   for (const roll of p.mutations) {
     MUTATIONS_BY_ID.get(roll.id)?.apply(s, roll.level)
   }
@@ -127,9 +143,16 @@ export function resolvePotentialStats(p: Potential): ResolvedStats {
   return clamp(s)
 }
 
-export function resolveDiscipline(typeId: number, officer: Officer | null): number {
+export function resolveDiscipline(
+  typeId: number,
+  officer: Officer | null,
+  leader: Potential | null = null,
+): number {
   const base = DISCIPLINE[unitType(typeId).lineage]
-  const bonus = officer ? (OFFICER_RANKS_BY_ID.get(officer.rankId)?.moraleBonus ?? 0) : 0
+  let bonus = officer ? (OFFICER_RANKS_BY_ID.get(officer.rankId)?.moraleBonus ?? 0) : 0
+  // Mutants fold at 0.35. One of their own who came back ten times is a
+  // reason to keep standing.
+  if (!officer && leader && isFirstborn(leader)) bonus += FIRSTBORN_DISCIPLINE_BONUS
   return Math.min(0.95, base + bonus)
 }
 
@@ -211,7 +234,7 @@ export function toSimGroups(
       shape: squadShape(sq.typeId),
       // The leader's mutations leak into the squad's stats...
       stats: resolveSquadStats(sq, officer, leader),
-      discipline: resolveDiscipline(sq.typeId, officer),
+      discipline: resolveDiscipline(sq.typeId, officer, leader),
       // ...but a Potential leader carries its own banner on its own group
       // below, so only an officer labels the squad itself.
       leaderLabel: officer ? officerTitle(officer) : null,

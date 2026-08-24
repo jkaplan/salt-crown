@@ -8,6 +8,7 @@ import { toSimGroups, totalBodies, unitType } from './roster.js'
 import type { GroupSource, Squad, SquadLeader, Warband } from './roster.js'
 import {
   APPRAISAL_COST,
+  isFirstborn,
   isReadyToMutate,
   potentialTitle,
   revealIfMaxed,
@@ -76,6 +77,8 @@ export interface RunState {
   report: BattleReport | null
   /** Growth picks waiting at this camp. Rolled once so they cannot be rerolled. */
   growth: GrowthOffer[]
+  /** Prospects promoted to Firstborn since the last camp. Announced, then cleared. */
+  promoted: string[]
   outcome: 'won' | 'lost' | null
 }
 
@@ -108,6 +111,7 @@ export function newRun(seedText: string, selectedOfficer?: Officer): RunState {
     encounter: generateEncounter(rng, 0),
     report: null,
     growth: [],
+    promoted: [],
     outcome: null,
   }
 }
@@ -136,16 +140,28 @@ export function chooseMutation(
   const choice = offer?.choices[choiceIndex]
   if (!offer || !choice) return state
 
+  const before = state.warband.potentials.find((p) => p.id === potentialId)
   const potentials = state.warband.potentials.map((p) =>
     p.id === potentialId
       ? revealIfMaxed({ ...p, mutations: [...p.mutations, choice], growth: p.growth + 1 })
       : p,
   )
 
+  /*
+   * Promotion is derived, not stored — a Firstborn is simply a Prospect with
+   * enough mutations, so there is no flag to keep in sync. But the *moment*
+   * has to be announced: this is the rarest thing in a run and the player
+   * should not have to notice a title quietly changing in a list.
+   */
+  const after = potentials.find((p) => p.id === potentialId)
+  const promoted =
+    before && after && !isFirstborn(before) && isFirstborn(after) ? after.id : null
+
   return {
     ...state,
     warband: { ...state.warband, potentials },
     growth: state.growth.filter((g) => g.potentialId !== potentialId),
+    promoted: promoted ? [...state.promoted, promoted] : state.promoted,
   }
 }
 
@@ -475,6 +491,7 @@ export function advance(state: RunState): RunState {
     encounter: generateEncounter(state.rng, next),
     report: null,
     growth: rollGrowth(state.rng, state.warband, next),
+    promoted: [],
   }
 }
 

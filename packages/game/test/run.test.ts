@@ -11,7 +11,10 @@ import {
   BATTLES_PER_MUTATION,
   FIRSTBORN_AT_MUTATIONS,
   chooseMutation,
+  isFirstborn,
   isReadyToMutate,
+  potentialTitle,
+  resolveDiscipline,
   isMaxed,
   canBecomeFirstborn,
   rollCapacity,
@@ -603,5 +606,87 @@ describe('wound ladder', () => {
       }
       expect(treatWound(stillWounded, brokeTarget.id)).toBe(stillWounded)
     }
+  })
+})
+
+describe('Firstborn promotion', () => {
+  const withMutations = (n: number) => ({
+    ...start().warband.potentials[0],
+    capacity: 7,
+    appraised: true,
+    wound: null,
+    mutations: Array.from({ length: n }, (_, i) => ({ id: `m${i}`, level: 4 })),
+  })
+
+  it('promotes only at the mutation threshold', () => {
+    expect(isFirstborn(withMutations(FIRSTBORN_AT_MUTATIONS - 1))).toBe(false)
+    expect(isFirstborn(withMutations(FIRSTBORN_AT_MUTATIONS))).toBe(true)
+  })
+
+  it('replaces the unit type in the title rather than decorating it', () => {
+    // "Rust the Chaff" becomes "Rust, Firstborn" — no longer described by the
+    // stock it came from.
+    const before = withMutations(1)
+    const after = withMutations(FIRSTBORN_AT_MUTATIONS)
+    expect(potentialTitle(before, 'Chaff')).toContain('Chaff')
+    expect(potentialTitle(after, 'Chaff')).not.toContain('Chaff')
+    expect(potentialTitle(after, 'Chaff')).toContain('Firstborn')
+  })
+
+  it('leaks at full level instead of half — the whole payoff', () => {
+    const squad = { id: 's', typeId: 0, count: 20, leader: { kind: 'potential' as const, id: 'x' } }
+    const horns = (n: number) => ({
+      ...withMutations(0),
+      mutations: Array.from({ length: n }, (_, i) => (i === 0 ? { id: 'horns', level: 6 } : { id: `m${i}`, level: 1 })),
+    })
+
+    const bare = resolveSquadStats({ ...squad, leader: null }, null)
+    const led = resolveSquadStats(squad, null, horns(1))
+    const legend = resolveSquadStats(squad, null, horns(FIRSTBORN_AT_MUTATIONS))
+
+    // Horns 6 leaks as 3 from a Prospect, as 6 from a Firstborn.
+    expect(led.damage).toBeCloseTo(bare.damage + 3 * 1.5, 5)
+    expect(legend.damage).toBeGreaterThan(led.damage)
+  })
+
+  it('makes a squad it leads hold together longer', () => {
+    const prospect = withMutations(1)
+    const legend = withMutations(FIRSTBORN_AT_MUTATIONS)
+    expect(resolveDiscipline(0, null, legend)).toBeGreaterThan(
+      resolveDiscipline(0, null, prospect),
+    )
+  })
+
+  it('is tougher in its own right', () => {
+    expect(resolvePotentialStats(withMutations(FIRSTBORN_AT_MUTATIONS)).hp).toBeGreaterThan(
+      resolvePotentialStats({ ...withMutations(FIRSTBORN_AT_MUTATIONS - 1), mutations: [] }).hp,
+    )
+  })
+
+  it('announces the promotion exactly once, at the moment it happens', () => {
+    const base = start()
+    const p = { ...withMutations(FIRSTBORN_AT_MUTATIONS - 1), id: 'promote-me' }
+    const run: RunState = {
+      ...base,
+      warband: { ...base.warband, potentials: [p] },
+      growth: [{ potentialId: p.id, choices: [{ id: 'horns', level: 5 }] }],
+      promoted: [],
+    }
+
+    const after = chooseMutation(run, p.id, 0)
+    expect(after.promoted).toEqual([p.id])
+    expect(isFirstborn(after.warband.potentials[0])).toBe(true)
+  })
+
+  it('does not announce a promotion that did not happen', () => {
+    const base = start()
+    const p = { ...withMutations(1), id: 'still-stock' }
+    const run: RunState = {
+      ...base,
+      warband: { ...base.warband, potentials: [p] },
+      growth: [{ potentialId: p.id, choices: [{ id: 'horns', level: 5 }] }],
+      promoted: [],
+    }
+    expect(chooseMutation(run, p.id, 0).promoted).toEqual([])
   })
 })
