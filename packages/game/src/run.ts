@@ -403,7 +403,7 @@ export function resolveEvent(state: RunState, choiceIndex: number): RunState {
  * The crew stops being fielded, which is the existing mechanism for "does not
  * deploy, does not accrue battles towards Firstborn, cannot die in the
  * battle" — exactly what being somewhere else means. setFielded also drops
- * their squad leadership, so a squad does not keep leaking mutations from a
+ * their squad leadership, so a squad does not keep the discipline bonus of a
  * Prospect who is two days away down a stairwell.
  */
 export function sendExpedition(state: RunState, verb: Verb, crew: string[]): RunState {
@@ -578,7 +578,7 @@ export function buy(state: RunState, offerId: string): RunState {
 
 /**
  * One leader per squad, of either kind, so assigning is genuinely a choice
- * between an Officer's flat bonus and a Prospect's mutation leak. A
+ * between an Officer's flat bonus and a Prospect's discipline bonus. A
  * Prospect can only lead its own kind — a mutant does not command True Kin.
  * Any leader can only lead one squad at a time.
  */

@@ -72,7 +72,7 @@ export const ORIGINS: readonly Origin[] = [
     blurb:
       'A slave, elevated by their owner as a House affectation, who walked away and kept the title.',
     detail:
-      'No Officers. You are the leader, and what you carry leaks to whoever you stand with. True Kin will not readily serve under a mutant and price themselves accordingly — a bionic core is a slow, expensive pivot rather than the default. Cheaper roster, weaker bodies, far more variance.',
+      'No Officers. You lead by steadying the line, not by remaking it — a squad you stand with holds better for your being there. True Kin will not readily serve under a mutant and price themselves accordingly — a bionic core is a slow, expensive pivot rather than the default. Cheaper roster, weaker bodies, far more variance.',
     truekinPremium: 2.1,
     // Fewer bodies to water, and no Officers drinking on the payroll.
     startingSalvage: 145,
@@ -89,9 +89,12 @@ export const ORIGINS_BY_ID = new Map(ORIGINS.map((o) => [o.id, o]))
  * Firstborn picks what they ARE. §13: "the True Kin start is about who leads
  * you, the mutant start is about what you are."
  *
- * It seeds the whole run, because a Firstborn leaks at FULL level — these are
- * the mutations every squad you lead will carry, so the opening choice sets
- * the build you are pushing toward rather than handing out a stat bump.
+ * These are PERSONAL. A leading Prospect no longer passes its mutations to
+ * its squad — see roster.ts — so this choice is not a squad-wide stat bump,
+ * it is what the player's own body can do. That still matters a great deal:
+ * the Firstborn fights as their own individual every battle (toSimGroups
+ * gives every Prospect its own group), and their survival is what keeps the
+ * discipline bonus on whatever squad they are leading that week.
  */
 export const MAX_FOUNDING_MUTATIONS = 3
 
@@ -101,8 +104,8 @@ export const MAX_FOUNDING_MUTATIONS = 3
  * §13 asks for "narrow and deep" to be a real alternative to "wide and
  * shallow", which needs the trade to be inside the same currency — offering
  * salvage instead would make it a different decision that happens to live on
- * the same screen. One mutation at level 6 leaking to a whole squad is a
- * genuinely different opening from three at level 2.
+ * the same screen. A level 6 Horns on the body doing the fighting is a
+ * genuinely different opening from three mutations at level 2.
  */
 export const FOUNDING_LEVELS: Record<number, number> = {
   1: 6,

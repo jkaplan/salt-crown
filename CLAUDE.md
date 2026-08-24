@@ -43,7 +43,7 @@ apps/web       Vite + React + Pixi. Imports sim. Sim NEVER imports this.
 
 - **Pure auto battler.** No positioning, no in-battle commands, no counter-triangle. Depth comes from composition under economic pressure, plus mutations and bionics. Do not reintroduce any of the three cut layers.
 - **Three tiers.** **Officers** (True Kin, named) → **Prospects** (mutants with mutations; individually named, simulated, and permanently killable; ~1 per dozen recruited; they are the Firstborn pipeline) → **Fodder** (anonymous squads by type, **no mutations at all**). Never give fodder mutations or per-body tracking; never make Prospects anonymous.
-- **One leader per squad, either kind.** An Officer grants a flat bonus; a leading Prospect leaks its mutations to the whole squad at half level (min 1) instead. A Prospect can only lead mutant squads — never True Kin. Never let both apply to the same squad at once.
+- **One leader per squad, either kind.** An Officer grants a flat stat bonus; a leading Prospect grants discipline only (bigger once they are Firstborn) — never their own mutations. Mutations stay with the body that has them; there is no mechanism for one body's mutation to apply to another's stats. A Prospect can only lead mutant squads — never True Kin. Never let both apply to the same squad at once.
 - **Lineages don't counter each other.** They differ by cost, reliability, and upgrade path.
   - Mutants: cheap fodder, physically frail, random mutations at random levels, gain more by surviving
   - True Kin: rare, durable, reliable. No mutations; bionics installed from ruin finds

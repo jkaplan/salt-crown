@@ -1,6 +1,6 @@
 import { TEAM_A, TEAM_B } from '@salt/sim'
 import type { ResolvedStats, SimGroup, UnitType } from '@salt/sim'
-import { MUTATIONS_BY_ID, leakLevel } from './mutations.js'
+import { MUTATIONS_BY_ID } from './mutations.js'
 import type { MutationRoll } from './mutations.js'
 import { applyBionics } from './bionics.js'
 import { applyCondition, machineTitle } from './machines.js'
@@ -122,14 +122,25 @@ export function findLeadingProspect(w: Warband, squad: Squad): Prospect | null {
 }
 
 /**
- * A squad led by a Prospect inherits that Prospect's mutations at half
- * level (min 1) — the leak. A squad led by an Officer gets the officer's flat
- * bonus instead. Only one can apply.
+ * A squad led by an Officer gets the rank's flat bonus and any fitted
+ * implants. A squad led by a Prospect gets LEADERSHIP only — see
+ * resolveDiscipline — never the leader's own mutations.
+ *
+ * Mutations used to "leak" onto the whole squad at half level, full for a
+ * Firstborn. Cut: nothing explains how one body's mutation applies to twenty
+ * others, and the game already has an honest mechanism for a leader making
+ * their squad steadier — discipline — without inventing a biological one.
+ * Mutations stay exactly what they say they are: what happened to this body.
+ * Squad-wide buffs are a job for relics and perks (V0.1), not for leaking.
  */
 export function resolveSquadStats(
   squad: Squad,
   officer: Officer | null,
-  leader: Prospect | null = null,
+  // Kept in the signature (underscore-prefixed: intentionally unused) so
+  // every call site still reads "who leads this" the same way
+  // resolveDiscipline's does — even though a Prospect leader has no effect
+  // on the squad's STATS any more, only on its discipline.
+  _leader: Prospect | null = null,
 ): ResolvedStats {
   const s = baseStats(squad.typeId)
   if (officer) {
@@ -137,21 +148,10 @@ export function resolveSquadStats(
     // Implants are not scaled by the wound. A wound degrades what a person
     // can do; it does not degrade hardware bolted to their skeleton.
     applyBionics(s, officer.bionics)
-  } else if (leader) {
-    /*
-     * A Prospect leaks at half level. A FIRSTBORN leaks at full.
-     *
-     * That is the whole payoff for ten battles survived, and it is deliberately
-     * large: five mutations at full strength across twenty bodies is the kind
-     * of multiplier that beats simply bringing more bodies. See V0-DESIGN 6b —
-     * numbers dominate until quality multipliers get big enough, and this is
-     * the biggest one in the game.
-     */
-    const full = isFirstborn(leader)
-    for (const roll of leader.mutations) {
-      MUTATIONS_BY_ID.get(roll.id)?.apply(s, full ? roll.level : leakLevel(roll.level))
-    }
   }
+  // A leading Prospect contributes nothing to the squad's STATS — only to its
+  // discipline, in resolveDiscipline. Leadership steadies a line; it does not
+  // rewrite anyone's biology.
   return clamp(s)
 }
 
@@ -189,6 +189,9 @@ export function machinePower(m: Machine): number {
   return statPower(resolveMachineStats(m), 1, 1)
 }
 
+/** Any Prospect leading a squad, not yet a Firstborn — someone worth holding the line for. */
+export const LEADING_PROSPECT_DISCIPLINE_BONUS = 0.05
+
 export function resolveDiscipline(
   typeId: number,
   officer: Officer | null,
@@ -198,9 +201,11 @@ export function resolveDiscipline(
   const type = unitType(typeId)
   const base = type.discipline ?? DISCIPLINE[type.lineage]
   let bonus = (officer ? (OFFICER_RANKS_BY_ID.get(officer.rankId)?.moraleBonus ?? 0) : 0) + morale
-  // Mutants fold at 0.35. One of their own who came back ten times is a
-  // reason to keep standing.
-  if (!officer && leader && isFirstborn(leader)) bonus += FIRSTBORN_DISCIPLINE_BONUS
+  // Mutants fold at 0.35. Any Prospect worth following steadies that a
+  // little; a Firstborn who came back ten times steadies it a great deal.
+  if (!officer && leader) {
+    bonus += isFirstborn(leader) ? FIRSTBORN_DISCIPLINE_BONUS : LEADING_PROSPECT_DISCIPLINE_BONUS
+  }
   return Math.min(0.95, base + bonus)
 }
 
@@ -303,11 +308,12 @@ export function toSimGroups(
       label: squadLabel(sq),
       color: unitType(sq.typeId).color,
       shape: squadShape(sq.typeId),
-      // The leader's mutations leak into the squad's stats...
       stats: resolveSquadStats(sq, officer, leader),
+      // The leader's DISCIPLINE reaches the squad; their mutations do not —
+      // see resolveSquadStats.
       discipline: resolveDiscipline(sq.typeId, officer, leader, w.morale),
-      // ...but a Prospect leader carries its own banner on its own group
-      // below, so only an officer labels the squad itself.
+      // A Prospect leader carries its own banner on its own group below, so
+      // only an officer labels the squad itself.
       leaderLabel: officer ? officerTitle(officer) : null,
     })
     sources.push({ kind: 'squad', id: sq.id })

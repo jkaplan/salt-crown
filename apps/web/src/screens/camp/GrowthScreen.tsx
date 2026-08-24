@@ -75,7 +75,7 @@ export default function GrowthScreen({
         </div>
 
         <p className="takeover-note">
-          Permanent, and it leaks to every squad they lead. Choose once.
+          Permanent, and theirs alone — it does not pass to a squad they lead. Choose once.
         </p>
       </div>
     </div>

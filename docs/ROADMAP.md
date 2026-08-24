@@ -44,7 +44,9 @@ First point at which "is this fun?" can be asked.
 
 **Result:** 21/21 tests green, lint and typecheck clean. All content is PLACEHOLDER, pending real judgement once played.
 
-Prospects were made leaders. A leading Prospect leaks its mutations to the whole squad at half level (min 1) — a Horns 5 standout gives twenty fighters Horns 3 — so a good roll is worth more than one extra body, and mutations start acting at army scale instead of on a single fighter. One leader slot per squad, either an Officer (flat bonus) or a leading Prospect (the leak); a Prospect can only lead its own lineage. This unified `officerId` into a single `leader` field across the codebase.
+Prospects were made leaders. A leading Prospect leaked its mutations to the whole squad at half level (min 1) — a Horns 5 standout gave twenty fighters Horns 3. One leader slot per squad, either an Officer (flat bonus) or a leading Prospect (the leak); a Prospect can only lead its own lineage. This unified `officerId` into a single `leader` field across the codebase.
+
+**Later cut.** The leak mechanic did not survive a fiction check — nothing explains how one bodys mutation applies to twenty others. Replaced with a discipline-only bonus; see the M4+ entry below.
 
 Routing was built, played, and cut. It ended mass battles anticlimactically — squads walked off before the clash resolved, which is the opposite of what the spectacle is for. Replaced with **morale as a damage multiplier**: battles run to annihilation, and a bleeding squad hits softer, so a losing side collapses on the field. Losing a battle now ends the run.
 
@@ -234,3 +236,26 @@ asks for. Act-3 fields run ~400 entities, which the sim does at 130× realtime.
 3. **Don't optimize before M0's perf probe.** 220 entities is a guess. Measure, then decide.
 4. **Art last.** Colored rectangles through M4. Readability comes from squad shape and color, which primitives can validate.
 5. **Guard the cuts.** Espers, Coolant, Survey, per-House sub-origins, and positioning are all V0.1 or later. Pulling any of them forward is the main risk to this schedule.
+
+
+## Post-M4 — the leak mechanic, cut
+
+A leading Prospect used to pass its own mutations to the whole squad it led,
+half level for an ordinary Prospect, full level for a Firstborn. Raised
+directly by the player: what physically explains one body's mutation reaching
+twenty others? Nothing did — it was a stat-scaling trick wearing a fiction it
+couldn't support.
+
+Removed. `resolveSquadStats` no longer applies a leading Prospect's mutations
+to the squad at all; only `resolveDiscipline` reads the leader now, and only
+for a discipline bonus (`LEADING_PROSPECT_DISCIPLINE_BONUS`, bigger for a
+Firstborn). Mutations stay exactly what they say they are: what happened to
+this one body. That body still fights as its own individual at full strength
+every battle, so the choice of who leads still matters — just not as a
+squad-wide multiplier.
+
+This was the single largest per-salvage value in the game (see
+`sim:leaders`), so its removal is a real rebalance, not a wash. Squad-wide
+buffs are deferred to V0.1 relics/perks, which can explain themselves —
+`carrying` a totem or a banner leaking effect to a formation has a mechanism
+a body's own biology does not.

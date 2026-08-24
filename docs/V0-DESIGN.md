@@ -118,7 +118,7 @@ Individual identity, hit zones, and permadeath cannot apply to 200 units — nob
 **Prospects** — mutants, ~1 per dozen bodies recruited
 - Mutants that came out of the vats with something useful. Individually named, individually simulated, individually killable — and permanently dead when killed.
 - Carry the mutations. Sturdier than the fodder they came from (×2.2 HP), because being noticed at all means having survived something.
-- **Can lead a squad of their own lineage.** Doing so leaks their mutations to the whole squad at half level (rounded up, min 1): a Horns 5 standout gives its squad Horns 3. This is what makes a Prospect worth more than one extra body — mutation stops being one fighter's stat line and becomes an army-wide multiplier.
+- **Can lead a squad of their own lineage.** Doing so steadies its discipline — more once they are a Firstborn — but does not pass their mutations to it. Mutations stay exactly what they say they are: what happened to this body. (Cut from an earlier build: a leading Prospect used to "leak" its mutations to the whole squad at half level. Nothing explained how one body's mutation reaches twenty others, and the game already has an honest mechanism for a leader steadying their squad — discipline — without inventing a biological one. Squad-wide buffs are V0.1's job, via relics and perks.)
 - Every battle survived is a step toward **Firstborn** (M2). Prospects *are* the Firstborn pipeline.
 
 **Fodder** — everything else
@@ -128,7 +128,7 @@ Individual identity, hit zones, and permadeath cannot apply to 200 units — nob
 
 ### One leader per squad, of either kind
 
-A squad has exactly one leader slot. Put an Officer there for a flat, reliable bonus. Put a Prospect there for the mutation leak — cheaper to acquire, higher variance, and it ties the squad's fate to a fighter who can die independently of it. **A Prospect cannot lead True Kin** — a mutant does not command that caste. The choice between the two is genuinely a build decision, not a strict upgrade in either direction.
+A squad has exactly one leader slot. Put an Officer there for a flat, reliable stat bonus. Put a Prospect there for a discipline bonus instead — cheaper to acquire, and it ties the squad's fate to a fighter who can die independently of it. **A Prospect cannot lead True Kin** — a mutant does not command that caste. The choice is asymmetric on purpose: an Officer changes what a squad CAN do, a Prospect changes how long it keeps doing it.
 
 ### Why mutations are individual, not squad-wide
 
@@ -614,7 +614,7 @@ The asymmetry is almost entirely **data** — starting roster, recruit price mod
 
 **Founding mutations.** Where the Scion picks a commander from three rolled Officers, the Freed Firstborn picks **up to 3 mutations** for themselves at run start. That's the mutant origin's character-creation step, and it's the right shape for it: the True Kin start is about *who leads you*, the mutant start is about *what you are*.
 
-It also seeds the whole run — those three mutations are the ones that leak to every squad you lead, so the opening choice sets the build you're pushing toward rather than just a stat bump. Picking fewer than 3 should be worth something (salvage, or a higher-level roll on the ones you do take), so "narrow and deep" is a real alternative to "wide and shallow."
+These are personal, not squad-wide — see the note above on the leak being cut. What they seed is the player's own body: the Freed Firstborn fights as an individual every battle, same as any other Prospect, so their opening choice decides what that individual can do for the whole run. Picking fewer than 3 should be worth something (a higher-level roll on the ones you do take), so "narrow and deep" is a real alternative to "wide and shallow."
 
 *Later: individual Houses as sub-origins with their own traditions and bonuses. V0.1.*
 

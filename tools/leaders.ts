@@ -128,33 +128,56 @@ console.log()
  * leader is worth N extra bodies", which is directly comparable to what those
  * bodies cost.
  */
-function equivalentBodies(led: Warband): number {
-  let lo = Math.round(baseCount * 0.6)
-  let hi = Math.round(baseCount * 3)
+console.log(`Leader value as EXTRA BODIES OF WORTH, for a squad of ${baseCount}.`)
+console.log('Two opponents, because armour is flat: a swarm that hits for 5 and a')
+console.log('heavy that hits for 14. A rank that only pays against one is not a rank.\n')
+
+/*
+ * Two opponents, because one was misleading.
+ *
+ * Measured against a Chaff mirror alone, the Warden's +2.5 armour read as six
+ * times better than any other rank — but a Chaff hits for 5, so flat armour
+ * halves its damage outright. That is a fact about the OPPONENT, not about the
+ * rank. The same armour against a Halberdier hitting for 14 is worth a sixth
+ * as much proportionally, and any balance conclusion drawn from the swarm case
+ * alone would have been an artifact of the test.
+ *
+ * Armour is flat reduction everywhere in this game, so every leader comparison
+ * has to be read against at least a light and a heavy attacker.
+ */
+const FOES: { name: string; typeId: number }[] = [
+  { name: 'vs swarm', typeId: CHAFF },
+  { name: 'vs heavy', typeId: 6 },
+]
+
+function equivalentVs(led: Warband, foeType: number): number {
+  let lo = Math.round(baseCount * 0.4)
+  let hi = Math.round(baseCount * 4)
   for (let i = 0; i < 10 && lo < hi; i++) {
     const mid = Math.round((lo + hi) / 2)
-    const w = winRate(led, warband([squad(CHAFF, mid)], [], []))
+    const foeSize = Math.max(1, Math.round((mid * chaffCost) / UNIT_TYPES[foeType].cost))
+    const w = winRate(led, warband([squad(foeType, foeSize)], [], []))
     if (w > 0.5) lo = mid + 1
     else hi = mid - 1
   }
   return lo
 }
 
-const evenAgainst = equivalentBodies(bare(baseCount))
-console.log(`An unled squad of ${baseCount} trades evenly with ${evenAgainst}.`)
-console.log('Everything below is measured against that, in extra bodies of worth.\n')
+const baselineVs = FOES.map((f) => equivalentVs(bare(baseCount), f.typeId))
 
-console.log('  option                          worth      as bodies   salvage   per body')
+console.log(
+  '  option                      ' +
+    FOES.map((f) => pad(f.name, 10)).join('') +
+    pad('salvage', 9) +
+    pad('buys', 9),
+)
 console.log('  ----------------------------------------------------------------------')
 
+
 function row(label: string, cost: number, led: Warband): void {
-  const equal = equivalentBodies(led)
-  const extra = equal - evenAgainst
   const bought = Math.floor(cost / chaffCost)
-  console.log(
-    `  ${label.padEnd(30)}${pad(equal, 5)}${pad(`+${extra}`, 11)}${pad(cost, 10)}` +
-      `${pad(bought, 10)}`,
-  )
+  const cells = FOES.map((f, i) => pad(`+${equivalentVs(led, f.typeId) - baselineVs[i]}`, 10)).join('')
+  console.log(`  ${label.padEnd(28)}${cells}${pad(cost, 9)}${pad(bought, 9)}`)
 }
 
 for (const rank of OFFICER_RANKS) {
@@ -194,20 +217,22 @@ console.log()
  * army-scale multiplier — if the gap here is small, the ten battles it takes
  * to earn the title are not buying anything.
  */
-console.log('  the leak: same body, half level vs full')
+console.log('  the leak: same body, half level vs full (vs swarm)')
 console.log('  ----------------------------------------------------------------------')
 for (const id of SHOWCASE) {
   if (!MUTATIONS.some((m) => m.id === id)) continue
   const half = prospect(CHAFF, id, 6)
   const full = { ...half, titled: true }
-  const a = equivalentBodies(
+  const a = equivalentVs(
     warband([squad(CHAFF, baseCount, { kind: 'prospect', id: 'pot' })], [], [half]),
+    CHAFF,
   )
-  const b = equivalentBodies(
+  const b = equivalentVs(
     warband([squad(CHAFF, baseCount, { kind: 'prospect', id: 'pot' })], [], [full]),
+    CHAFF,
   )
   console.log(
-    `  ${`${id} 6`.padEnd(30)}${pad(`+${a - evenAgainst}`, 5)}  ->${pad(`+${b - evenAgainst}`, 5)}` +
+    `  ${`${id} 6`.padEnd(30)}${pad(`+${a - baselineVs[0]}`, 5)}  ->${pad(`+${b - baselineVs[0]}`, 5)}` +
       `   (Firstborn)`,
   )
 }

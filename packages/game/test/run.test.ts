@@ -3,6 +3,7 @@ import { Battle, MAX_BODY_RADIUS, Rng, hashSeed } from '@salt/sim'
 import type { GroupResult, SimGroup } from '@salt/sim'
 import {
   ENCOUNTERS_PER_RUN,
+  MUTATIONS,
   assignLeader,
   buildBattle,
   buy,
@@ -90,7 +91,7 @@ import {
   TREAT_COST,
   WOUND_PENALTY,
 } from '@salt/game'
-import type { RunState, Warband, Wound } from '@salt/game'
+import type { Prospect, RunState, Warband, Wound } from '@salt/game'
 import { TEAM_A, TEAM_B } from '@salt/sim'
 
 function start(seed = 'test-seed'): RunState {
@@ -234,6 +235,59 @@ describe('leadership', () => {
     const squad = run.warband.squads[0]
     const led = assignLeader(run, squad.id, { kind: 'officer', id: officer.id })
     expect(assignLeader(led, squad.id, null).warband.squads[0].leader).toBeNull()
+  })
+
+  it("never applies a leading Prospect's mutations to its squad's stats", () => {
+    /*
+     * The removed "leak": a leading Prospect used to pass its own mutations
+     * to every body in the squad, half level for an ordinary Prospect, full
+     * level for a Firstborn. Cut because nothing explains how one body's
+     * mutation reaches another's — see docs/ROADMAP.md's post-M4 entry.
+     *
+     * A leading Prospect affects DISCIPLINE only now. This test exists so a
+     * future change that re-adds a stat effect to resolveSquadStats's leader
+     * path fails loudly here rather than being noticed by a player.
+     */
+    const run = start()
+    const mutant = run.warband.squads.find((sq) => unitType(sq.typeId).lineage === 'mutant')!
+    const prospect = run.warband.prospects.find(
+      (p) => p.mutations.length > 0 && unitType(p.typeId).lineage === 'mutant',
+    )
+
+    const bare = resolveSquadStats(mutant, null, null)
+    if (prospect) {
+      const led = resolveSquadStats(mutant, null, prospect)
+      expect(led).toEqual(bare)
+    }
+
+    // Directly, independent of what the opening roster happens to roll:
+    // a heavily mutated body leading a squad still leaves every stat field
+    // identical to unled.
+    // Below FIRSTBORN_AT_MUTATIONS, so isFirstborn is false on its own —
+    // the titled variant below is what makes it true, in isolation.
+    const heavy: Prospect = {
+      id: 'x',
+      typeId: mutant.typeId,
+      name: 'x',
+      mutations: MUTATIONS.slice(0, 2).map((m) => ({ id: m.id, level: 6 })),
+      battles: 0,
+      growth: 0,
+      capacity: 7,
+      appraised: true,
+      fielded: true,
+      wound: null,
+    }
+    expect(resolveSquadStats(mutant, null, heavy)).toEqual(bare)
+    expect(resolveSquadStats(mutant, null, { ...heavy, titled: true })).toEqual(bare)
+
+    // The only thing a leading Prospect moves is discipline, and Firstborn
+    // moves it further than an ordinary one.
+    expect(resolveDiscipline(mutant.typeId, null, heavy)).toBeGreaterThan(
+      resolveDiscipline(mutant.typeId, null, null),
+    )
+    expect(resolveDiscipline(mutant.typeId, null, { ...heavy, titled: true })).toBeGreaterThan(
+      resolveDiscipline(mutant.typeId, null, heavy),
+    )
   })
 })
 
@@ -743,7 +797,14 @@ describe('Firstborn promotion', () => {
     expect(prospectTitle(after, 'Chaff')).toContain('Firstborn')
   })
 
-  it('leaks at full level instead of half — the whole payoff', () => {
+  it("never passes a leading Prospect's mutations to its squad", () => {
+    /*
+     * The "leak" was cut. Nothing explains how one body's mutation reaches
+     * twenty others, and the game already has an honest mechanism for a
+     * leader steadying their squad — discipline — without inventing a
+     * biological one. This holds for an ordinary Prospect AND a Firstborn:
+     * neither changes the squad's STATS, only its discipline.
+     */
     const squad = { id: 's', typeId: 0, count: 20, leader: { kind: 'prospect' as const, id: 'x' } }
     const horns = (n: number) => ({
       ...withMutations(0),
@@ -754,9 +815,15 @@ describe('Firstborn promotion', () => {
     const led = resolveSquadStats(squad, null, horns(1))
     const legend = resolveSquadStats(squad, null, horns(FIRSTBORN_AT_MUTATIONS))
 
-    // Horns 6 leaks as 3 from a Prospect, as 6 from a Firstborn.
-    expect(led.damage).toBeCloseTo(bare.damage + 3 * 1.5, 5)
-    expect(legend.damage).toBeGreaterThan(led.damage)
+    expect(led.damage).toBe(bare.damage)
+    expect(legend.damage).toBe(bare.damage)
+
+    // Discipline is the whole effect, and it is bigger for the Firstborn.
+    const dBare = resolveDiscipline(squad.typeId, null, null)
+    const dLed = resolveDiscipline(squad.typeId, null, horns(1))
+    const dLegend = resolveDiscipline(squad.typeId, null, horns(FIRSTBORN_AT_MUTATIONS))
+    expect(dLed).toBeGreaterThan(dBare)
+    expect(dLegend).toBeGreaterThan(dLed)
   })
 
   it('makes a squad it leads hold together longer', () => {
@@ -1725,19 +1792,27 @@ describe('origins', () => {
     expect(isFirstborn(ordinary)).toBe(false)
   })
 
-  it('leaks your founding mutations to the squad at full strength', () => {
-    // This is why the opening choice seeds the whole run rather than being a
-    // stat bump: a Firstborn leaks at FULL level, not half.
+  it('makes founding mutations personal, not squad-wide', () => {
+    // The player fights as their own individual, same as any Prospect — the
+    // founding choice is what THAT body can do, not a squad-wide stat bump.
     const fb = firstborn(['horns'])
     const you = fb.warband.prospects[0]
     const squad = fb.warband.squads[0]
 
     const led = resolveSquadStats(squad, null, you)
     const bare = resolveSquadStats(squad, null, null)
-    expect(led.damage).toBeGreaterThan(bare.damage)
+    expect(led.damage).toBe(bare.damage)
 
+    // But the founder's OWN combat stats carry the mutation at full level.
+    const own = resolveProspectStats(you)
     const roll = you.mutations[0]
-    expect(led.damage - bare.damage).toBeCloseTo(roll.level * 1.5, 5)
+    expect(own.damage).toBeCloseTo(unitType(you.typeId).base.damage + roll.level * 1.5, 5)
+
+    // And the squad they lead holds better for it — a titled Firstborn from
+    // the moment the run starts.
+    expect(resolveDiscipline(squad.typeId, null, you)).toBeGreaterThan(
+      resolveDiscipline(squad.typeId, null, null),
+    )
   })
 
   it('trades width for depth, inside one currency', () => {

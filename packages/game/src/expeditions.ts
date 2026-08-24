@@ -21,8 +21,8 @@ import type { Machine } from './machines.js'
  * Prospects already have.
  *
  * Using Prospects also puts the decision where it hurts. A leading Prospect
- * leaks its mutations to twenty bodies, so the crew you most want in a ruin is
- * exactly the crew you most want on the field. That is the whole point: §9's
+ * steadies the squad it commands, so the crew you most want in a ruin is
+ * often the crew you most want on the field. That is the whole point: §9's
  * real cost is not the risk, it is that "the crew misses the next battle".
  */
 export type Verb = 'scavenge' | 'delve'

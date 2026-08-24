@@ -30,4 +30,16 @@ export default tseslint.config(
       'no-restricted-properties': ['error', ...nondeterministic],
     },
   },
+  {
+    /*
+     * A leading underscore is the standard signal for "deliberately unused" —
+     * a parameter kept for signature symmetry with a sibling function
+     * (resolveSquadStats keeps its `leader` argument so every call site
+     * still reads "who leads this" the same way resolveDiscipline's does,
+     * even on the branch where the leader has no effect on the stats).
+     */
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
 )

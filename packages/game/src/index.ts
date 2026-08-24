@@ -1,5 +1,5 @@
 export { UNIT_TYPES, MUTANT_TYPES, TRUEKIN_TYPES, MACHINE_TYPES, DISCIPLINE } from './units.js'
-export { MUTATIONS, MUTATIONS_BY_ID, describeRoll, leakLevel } from './mutations.js'
+export { MUTATIONS, MUTATIONS_BY_ID, describeRoll } from './mutations.js'
 export type { Mutation, MutationRoll } from './mutations.js'
 export {
   OFFICER_RANKS,
@@ -59,6 +59,7 @@ export {
   resolveMachineStats,
   machinePower,
   resolveDiscipline,
+  LEADING_PROSPECT_DISCIPLINE_BONUS,
   squadShape,
   statPower,
   squadPower,

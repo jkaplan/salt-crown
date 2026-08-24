@@ -158,7 +158,7 @@ export function LeaderSelect({
           .filter((p) => !taken.has(`prospect:${p.id}`))
           .map((p) => (
             <option key={p.id} value={`prospect:${p.id}`}>
-              {p.name} — leaks mutations
+              {p.name} — steadies the squad
             </option>
           ))}
     </select>

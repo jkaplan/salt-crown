@@ -251,10 +251,13 @@ describe('Stat resolution', () => {
     expect(standout.hp).toBeGreaterThan(fodder.hp)
   })
 
-  it('leaks a leading Prospect’s mutations to its squad at half level', () => {
-    // A Horns 5 standout should give its squad Horns 3 (ceil(5/2)), not the
-    // full 5 — that gap is what makes an Officer vs. a Prospect leader a
-    // real choice rather than a strictly dominant one.
+  it('never applies a leading Prospect’s mutations to its squad’s stats', () => {
+    /*
+     * This used to leak at half level (Horns 5 -> squad Horns 3). Cut:
+     * nothing explains how one body's mutation reaches twenty others, and a
+     * leading Prospect now affects discipline only — see
+     * docs/ROADMAP.md's post-M4 entry and roster.ts's resolveSquadStats.
+     */
     const leader = prospect([{ id: 'horns', level: 5 }])
     const bare = resolveSquadStats({ id: 'x', typeId: 0, count: 20, leader: null }, null)
     const led = resolveSquadStats(
@@ -262,7 +265,7 @@ describe('Stat resolution', () => {
       null,
       leader,
     )
-    expect(led.damage).toBeCloseTo(bare.damage + 3 * 1.5, 5)
+    expect(led).toEqual(bare)
   })
 
   it('lets an Officer override a Prospect leader on the same squad', () => {
@@ -273,7 +276,8 @@ describe('Stat resolution', () => {
       officer,
       leader,
     )
-    // The officer bonus applies; the mutation leak does not also stack in.
+    // The officer bonus applies; a Prospect leader has no stat effect to
+    // stack in even when passed (it never overrides an Officer's stats).
     const officerOnly = resolveSquadStats({ id: 'x', typeId: 0, count: 20, leader: null }, officer)
     expect(s).toEqual(officerOnly)
   })

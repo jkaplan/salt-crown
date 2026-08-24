@@ -21,7 +21,7 @@ import type { ResolvedStats } from '@salt/sim'
  * bionics install into Officers and an Officer is always True Kin.
  *
  * Installing into the OFFICER rather than the squad mirrors the mutant path
- * exactly. A Prospect leads and leaks its mutations to the squad; an Officer
+ * exactly. A Prospect leads and steadies its squad's discipline; an Officer
  * leads and grants its rank bonus plus its implants. One leader slot, two
  * lineages, two completely different ways of filling it.
  *

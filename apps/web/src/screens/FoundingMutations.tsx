@@ -6,15 +6,15 @@ import { MAX_FOUNDING_MUTATIONS, MUTATIONS, foundingLevel } from '@salt/game'
  *
  * "The True Kin start is about who leads you, the mutant start is about what
  * you are." So this screen is the counterpart to picking a commander, and it
- * matters far more than a stat bump: a Firstborn leaks at FULL level, so
- * whatever is chosen here is what every squad you lead will carry for the
- * whole run.
+ * matters more than a stat bump: this is what YOUR body can do, every single
+ * battle, for the whole run — Prospects fight as their own individual, not
+ * just as a squad-wide modifier.
  *
  * The trade is inside one currency. Taking fewer means taking them deeper —
- * one mutation at 6 leaking across a squad is a genuinely different opening
- * from three at 2, and the level updates live as the player adds and removes,
- * because that trade is the entire decision and describing it in prose would
- * make it a puzzle instead.
+ * a level 6 Horns on the body doing the fighting is a genuinely different
+ * opening from three mutations at 2, and the level updates live as the
+ * player adds and removes, because that trade is the entire decision and
+ * describing it in prose would make it a puzzle instead.
  */
 export default function FoundingMutations({
   onBack,
