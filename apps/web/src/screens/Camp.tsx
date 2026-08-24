@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import {
   ENCOUNTERS_PER_RUN,
-  FIRSTBORN_AT_MUTATIONS,
   canBecomeFirstborn,
   capacityGrade,
   isMaxed,
