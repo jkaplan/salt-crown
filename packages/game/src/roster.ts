@@ -184,7 +184,9 @@ export function resolveMachineStats(m: Machine): ResolvedStats {
 }
 
 export function machinePower(m: Machine): number {
-  return statPower(resolveMachineStats(m), 1)
+  // Machines never degrade — that is the balance for them being far above
+  // everything else.
+  return statPower(resolveMachineStats(m), 1, 1)
 }
 
 export function resolveDiscipline(
@@ -202,23 +204,44 @@ export function resolveDiscipline(
   return Math.min(0.95, base + bonus)
 }
 
-/** A rough strength score. Used only to budget enemy warbands and the bot. */
-export function statPower(s: ResolvedStats, count: number): number {
+/**
+ * A rough strength score. A BOT HEURISTIC — never shown to a player, and not
+ * what the encounter generator budgets against (that works in salvage).
+ *
+ * Discipline belongs in it and was missing.
+ *
+ * Morale is a damage multiplier, so a group's real output over a battle is
+ * closer to its stats times an average effectiveness somewhere between its
+ * discipline floor and 1. Leaving it out scored a mutant squad and a True Kin
+ * squad with identical stat lines as equally strong, when the mutants collapse
+ * to 35% output and the True Kin barely notice — so the buying bot
+ * systematically overrated exactly the thing the game is built to punish.
+ */
+export function statPower(s: ResolvedStats, count: number, discipline = 1): number {
   const dps = (s.damage / s.attackInterval) * s.accuracy
   const tough = s.hp + s.armor * 8
-  return Math.sqrt(dps * tough) * count
+  // Mean effectiveness across a grind from full strength to nothing.
+  const hold = (1 + discipline) / 2
+  return Math.sqrt(dps * hold * tough) * count
 }
 
 export function squadPower(
   squad: Squad,
   officer: Officer | null = null,
   leader: Prospect | null = null,
+  morale = 0,
 ): number {
-  return statPower(resolveSquadStats(squad, officer, leader), squad.count)
+  return statPower(
+    resolveSquadStats(squad, officer, leader),
+    squad.count,
+    resolveDiscipline(squad.typeId, officer, leader, morale),
+  )
 }
 
 export function prospectPower(p: Prospect): number {
-  return statPower(resolveProspectStats(p), 1)
+  // A single body has nothing to lose but itself; morale scaling on a group
+  // of one is noise, which is why toSimGroups gives them discipline 1 too.
+  return statPower(resolveProspectStats(p), 1, 1)
 }
 
 /** Fodder only. Prospects are counted separately because they're people. */

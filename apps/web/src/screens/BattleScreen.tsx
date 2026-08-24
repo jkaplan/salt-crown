@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { BattleEventType, TEAM_A, type BattleConfig, type BattleEvent, type GroupResult, type Winner } from '@salt/sim'
 import { BattleView } from '../BattleView'
-import type { ViewStats } from '../BattleView'
+import type { CombatantSnapshot, ViewStats } from '../BattleView'
 
 const SPEEDS = [1, 2, 4, 8]
 /** Recent notable events kept on screen; older ones just scroll off. */
@@ -141,34 +141,77 @@ export default function BattleScreen({ config, title, playerColor = '#7fc7bb', o
     setPaused(viewRef.current.paused)
   }
 
-  const playerPower = stats
-    ? stats.combatants.filter((combatant) => combatant.team === TEAM_A).reduce((sum, combatant) => sum + combatant.currentHp, 0)
-    : 0
-  const enemyPower = stats
-    ? stats.combatants.filter((combatant) => combatant.team !== TEAM_A).reduce((sum, combatant) => sum + combatant.currentHp, 0)
-    : 0
-  const totalPower = playerPower + enemyPower
-  const momentum = totalPower > 0 ? playerPower / totalPower : 0.5
+/*
+ * Two readings of the same battle, because they disagree and the disagreement
+ * IS the thing worth showing.
+ *
+ * The bar used to be labelled "Power" and was total remaining hit points —
+ * which is exactly the number that misleads. Morale here is a damage
+ * multiplier, so a side can hold more bodies and more HP than the enemy while
+ * hitting far softer with all of it, and the meter would have shown it
+ * comfortably ahead the whole way down.
+ *
+ * Effectiveness is not carried on the snapshot because it does not need to
+ * be: the sim's own formula is discipline plus what is left of the group, and
+ * both are already there.
+ */
+function effectivenessOf(c: { discipline: number; alive: number; started: number }): number {
+  if (c.started === 0) return 0
+  return c.discipline + (1 - c.discipline) * (c.alive / c.started)
+}
+
+function sideStats(combatants: CombatantSnapshot[], ours: boolean) {
+  const rows = combatants.filter((c) => (c.team === TEAM_A) === ours)
+  let bodies = 0
+  let hp = 0
+  let strength = 0
+  let weighted = 0
+  for (const c of rows) {
+    const eff = effectivenessOf(c)
+    bodies += c.alive
+    hp += c.currentHp
+    // What the remaining bodies are actually worth: durability times how hard
+    // they are still swinging.
+    strength += c.currentHp * eff
+    weighted += eff * c.alive
+  }
+  return { bodies, hp, strength, morale: bodies > 0 ? weighted / bodies : 0 }
+}
   // Stable array order (each named individual is its own group all battle),
   // so this doesn't reshuffle as HP changes — just caps how many show.
   const namedFighters = stats ? stats.combatants.filter((c) => c.named).slice(0, ROSTER_CAPACITY) : []
   const enemyColor = '#d98552'
-  const winning = momentum >= 0.5
-  const sideColor = winning ? playerColor : enemyColor
+
+  const us = stats ? sideStats(stats.combatants, true) : { bodies: 0, hp: 0, strength: 0, morale: 0 }
+  const them = stats ? sideStats(stats.combatants, false) : { bodies: 0, hp: 0, strength: 0, morale: 0 }
+
+  const bodyTotal = us.bodies + them.bodies
+  const bodyRatio = bodyTotal > 0 ? us.bodies / bodyTotal : 0.5
+  const strengthTotal = us.strength + them.strength
+  const momentum = strengthTotal > 0 ? us.strength / strengthTotal : 0.5
+
+  /*
+   * The case worth calling out by name: ahead on bodies, behind on what those
+   * bodies are worth. That is the shape of "I had more fighters and lost".
+   */
+  const diverging = bodyRatio > 0.55 && momentum < 0.5
 
   /*
    * Fills outward from the centre in the leading side's colour, so a won
    * battle ends with the bar completely full of that colour. Half the width
    * per side means 0.5 is empty and 1.0 (or 0.0) is a full bar.
    */
-  const fillPct = Math.min(100, Math.abs(momentum - 0.5) * 200)
-  const fillStyle = {
-    width: `${fillPct / 2}%`,
-    background: sideColor,
-    boxShadow: `0 0 14px ${sideColor}`,
-    // Grow from the centre line toward this side's end of the track.
-    [winning ? 'left' : 'right']: '50%',
-  } as React.CSSProperties
+  const bandStyle = (ratio: number, glow: boolean) => {
+    const ahead = ratio >= 0.5
+    const colour = ahead ? playerColor : enemyColor
+    return {
+      width: `${Math.min(100, Math.abs(ratio - 0.5) * 200) / 2}%`,
+      background: colour,
+      boxShadow: glow ? `0 0 14px ${colour}` : 'none',
+      // Grow from the centre line toward that side's end of the track.
+      [ahead ? 'left' : 'right']: '50%',
+    } as React.CSSProperties
+  }
 
   return (
     <div className="battle">
@@ -176,17 +219,41 @@ export default function BattleScreen({ config, title, playerColor = '#7fc7bb', o
         <div className="stage" ref={hostRef} />
         {stats && (
           <div className="battle-hud">
+            {/*
+              Bodies on top, strength underneath. When they lean opposite ways
+              you are losing a fight you appear to be winning, and that is the
+              single most useful thing this HUD can tell you.
+            */}
             <div className="battle-momentum compact">
               <div className="battle-momentum-label">
-                <span>Power</span>
+                <span>Bodies</span>
                 <span>
-                  {playerPower.toFixed(0)} / {enemyPower.toFixed(0)}
+                  {us.bodies} / {them.bodies}
                 </span>
               </div>
               <div className="battle-momentum-track">
-                <div className="battle-momentum-fill" style={fillStyle} />
+                <div className="battle-momentum-fill" style={bandStyle(bodyRatio, false)} />
                 <div className="battle-momentum-center" />
               </div>
+
+              <div className="battle-momentum-label">
+                <span>Strength</span>
+                <span>
+                  {Math.round(us.morale * 100)}% / {Math.round(them.morale * 100)}%
+                </span>
+              </div>
+              <div className="battle-momentum-track">
+                <div className="battle-momentum-fill" style={bandStyle(momentum, true)} />
+                <div className="battle-momentum-center" />
+              </div>
+
+              {/* Only when it matters. A warning that is always on is decor. */}
+              {diverging && (
+                <p className="battle-momentum-warn">
+                  More bodies, less fight — your line is swinging at{' '}
+                  {Math.round(us.morale * 100)}%.
+                </p>
+              )}
             </div>
             {namedFighters.length > 0 && (
               <ul className="battle-roster">

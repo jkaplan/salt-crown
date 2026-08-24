@@ -1619,3 +1619,26 @@ button.install .price {
 .why-morale { border-left-color: var(--danger); }
 .why-accuracy { border-left-color: #d8b46a; }
 .why-numbers { border-left-color: var(--a); }
+
+/* Two bands, same geometry, so the eye compares them without being told to.
+   Bodies is the flattering number; strength is the true one. */
+.battle-momentum { flex-direction: column; align-items: stretch; gap: 3px; }
+.battle-momentum .battle-momentum-label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+.battle-momentum-track + .battle-momentum-label { margin-top: var(--s1); }
+
+/* The bodies band is deliberately quieter — it is the number that lies. */
+.battle-momentum-track:first-of-type { height: 4px; opacity: 0.75; }
+
+.battle-momentum-warn {
+  margin: var(--s1) 0 0;
+  font-size: var(--t-label);
+  color: var(--danger);
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: var(--radius);
+  padding: 2px var(--s2);
+  align-self: flex-start;
+}
