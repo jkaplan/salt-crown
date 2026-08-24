@@ -456,8 +456,16 @@ export class BattleView {
     this.playerLayer.removeChildren()
     this.enemyLayer.removeChildren()
     this.haloLayer.removeChildren()
-    for (const s of this.sprites) s.destroy()
+    // A sprite does not own its filters — destroying the sprite alone left a
+    // GlowFilter's internal render texture referenced by a shader that no
+    // longer existed, which crashed the SECOND battle in a run (the first
+    // battle's leader filters were never freed before the next start()).
+    for (const s of this.sprites) {
+      for (const f of s.filters ?? []) (f as { destroy?: () => void }).destroy?.()
+      s.destroy()
+    }
     for (const b of this.banners) {
+      for (const f of b.ring.filters ?? []) (f as { destroy?: () => void }).destroy?.()
       b.ring.destroy()
       b.label.destroy()
     }

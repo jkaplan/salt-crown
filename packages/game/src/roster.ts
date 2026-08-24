@@ -7,6 +7,7 @@ import type { Officer } from './officers.js'
 import { POTENTIAL_HP_MULT, potentialTitle } from './potentials.js'
 import type { Potential } from './potentials.js'
 import { DISCIPLINE, UNIT_TYPES } from './units.js'
+import { applyWoundPenalty, officerBonusMultiplier } from './wounds.js'
 
 /**
  * Three tiers, in descending order of how much the player should care:
@@ -102,7 +103,7 @@ export function resolveSquadStats(
 ): ResolvedStats {
   const s = baseStats(squad.typeId)
   if (officer) {
-    OFFICER_RANKS_BY_ID.get(officer.rankId)?.apply(s)
+    OFFICER_RANKS_BY_ID.get(officer.rankId)?.apply(s, officerBonusMultiplier(officer.wound))
   } else if (leader) {
     for (const roll of leader.mutations) {
       MUTATIONS_BY_ID.get(roll.id)?.apply(s, leakLevel(roll.level))
@@ -122,6 +123,7 @@ export function resolvePotentialStats(p: Potential): ResolvedStats {
   for (const roll of p.mutations) {
     MUTATIONS_BY_ID.get(roll.id)?.apply(s, roll.level)
   }
+  applyWoundPenalty(s, p.wound)
   return clamp(s)
 }
 

@@ -16,6 +16,9 @@ import {
   totalBodies,
   totalFodder,
   unitType,
+  TREAT_COST,
+  WOUND_RUNG_NAMES,
+  WOUND_ZONE_NAMES,
 } from '@salt/game'
 import type {
   GrowthOffer,
@@ -55,6 +58,7 @@ interface Props {
   onAssign: (squadId: string, leader: SquadLeader | null) => void
   onChooseMutation: (potentialId: string, choiceIndex: number) => void
   onAppraise: (potentialId: string) => void
+  onTreatWound: (potentialId: string) => void
   onMoveSquad: (squadId: string, dir: -1 | 1) => void
   onPlaceSquad: (squadId: string, toIndex: number) => void
   onMarch: () => void
@@ -255,16 +259,19 @@ function PotentialRow({
   warband,
   salvage,
   onAppraise,
+  onTreatWound,
 }: {
   potential: Potential
   warband: Warband
   salvage: number
   onAppraise: Props['onAppraise']
+  onTreatWound: Props['onTreatWound']
 }) {
   const stats = resolvePotentialStats(potential)
   const leading = warband.squads.find(
     (sq) => sq.leader?.kind === 'potential' && sq.leader.id === potential.id,
   )
+  const wound = potential.wound
 
   return (
     <li className="row">
@@ -276,6 +283,11 @@ function PotentialRow({
             <UnitName typeId={potential.typeId} resolved={stats} />
           </span>
         </span>
+        {wound && (
+          <span className="wound" title={`${WOUND_ZONE_NAMES[wound.zone]} — costs ${TREAT_COST} salvage per rung to treat`}>
+            {WOUND_RUNG_NAMES[wound.rung]} · {WOUND_ZONE_NAMES[wound.zone]}
+          </span>
+        )}
         <Capacity potential={potential} />
       </div>
       <div className="tags">
@@ -295,6 +307,15 @@ function PotentialRow({
           onClick={() => onAppraise(potential.id)}
         >
           Have an Assayer read it <span className="price">{APPRAISAL_COST}</span>
+        </button>
+      )}
+      {wound && (
+        <button
+          className="btn-quiet treat"
+          disabled={salvage < TREAT_COST}
+          onClick={() => onTreatWound(potential.id)}
+        >
+          Treat — {WOUND_RUNG_NAMES[wound.rung]} heals one rung <span className="price">{TREAT_COST}</span>
         </button>
       )}
     </li>
@@ -446,6 +467,7 @@ export default function Camp({
   onAssign,
   onChooseMutation,
   onAppraise,
+  onTreatWound,
   onMoveSquad,
   onPlaceSquad,
   onMarch,
@@ -617,6 +639,7 @@ export default function Camp({
                 warband={warband}
                 salvage={warband.salvage}
                 onAppraise={onAppraise}
+                onTreatWound={onTreatWound}
               />
               ))}
             </ul>

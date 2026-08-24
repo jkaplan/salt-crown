@@ -1,5 +1,6 @@
 import type { ResolvedStats } from '@salt/sim'
 import type { Rng } from '@salt/sim'
+import type { Wound } from './wounds.js'
 
 /**
  * Officers are the named tier: True Kin, recruited individually, each leading
@@ -15,8 +16,13 @@ export interface OfficerRank {
   rank: string
   blurb: string
   cost: number
-  /** Applied to the led squad's resolved stats. */
-  apply: (s: ResolvedStats) => void
+  /**
+   * Applied to the led squad's resolved stats. `mult` (0..1) scales the
+   * bonus down — an Officer's wound penalty, since an Officer has no body of
+   * its own for a wound zone to target; see wounds.ts's officerBonusMultiplier.
+   * Defaults to 1 (unwounded) so every existing call site stays valid.
+   */
+  apply: (s: ResolvedStats, mult?: number) => void
   /** Reduces the squad's rout threshold penalty — higher holds longer. */
   moraleBonus: number
   effect: string
@@ -28,7 +34,7 @@ export const OFFICER_RANKS: readonly OfficerRank[] = [
     rank: 'Serjeant',
     blurb: 'Shouts until it works.',
     cost: 85,
-    apply: (s) => { s.damage *= 1.18 },
+    apply: (s, mult = 1) => { s.damage *= 1 + 0.18 * mult },
     moraleBonus: 0.05,
     effect: '+18% squad damage',
   },
@@ -37,7 +43,7 @@ export const OFFICER_RANKS: readonly OfficerRank[] = [
     rank: 'Warden',
     blurb: 'Keeps the line where it was put.',
     cost: 90,
-    apply: (s) => { s.armor += 2.5 },
+    apply: (s, mult = 1) => { s.armor += 2.5 * mult },
     moraleBonus: 0.12,
     effect: '+2.5 squad armour, holds much longer',
   },
@@ -46,7 +52,7 @@ export const OFFICER_RANKS: readonly OfficerRank[] = [
     rank: 'Marshal',
     blurb: 'Reads a field like a ledger.',
     cost: 110,
-    apply: (s) => { s.accuracy += 0.09; s.damage *= 1.06 },
+    apply: (s, mult = 1) => { s.accuracy += 0.09 * mult; s.damage *= 1 + 0.06 * mult },
     moraleBonus: 0.08,
     effect: '+9% accuracy, +6% damage',
   },
@@ -55,7 +61,7 @@ export const OFFICER_RANKS: readonly OfficerRank[] = [
     rank: 'Outrider',
     blurb: 'Arrives before the order does.',
     cost: 80,
-    apply: (s) => { s.moveSpeed *= 1.25; s.evade += 0.05 },
+    apply: (s, mult = 1) => { s.moveSpeed *= 1 + 0.25 * mult; s.evade += 0.05 * mult },
     moraleBonus: 0.04,
     effect: '+25% move speed, +5% evade',
   },
@@ -80,6 +86,8 @@ export interface Officer {
   rankId: string
   name: string
   house: string
+  /** Wound ladder state — docs/V0-DESIGN.md §7. null = Healthy. */
+  wound: Wound | null
 }
 
 export function rollOfficer(rng: Rng, id: string): Officer {
@@ -89,6 +97,7 @@ export function rollOfficer(rng: Rng, id: string): Officer {
     rankId: rank.id,
     name: GIVEN[rng.int(GIVEN.length)],
     house: HOUSES[rng.int(HOUSES.length)],
+    wound: null,
   }
 }
 

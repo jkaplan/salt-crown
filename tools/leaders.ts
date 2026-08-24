@@ -40,11 +40,11 @@ function squad(typeId: number, count: number, leader: Squad['leader'] = null): S
 }
 
 function officer(rankId: string): Officer {
-  return { id: 'off', rankId, name: 'Test', house: 'Vantry' }
+  return { id: 'off', rankId, name: 'Test', house: 'Vantry', wound: null }
 }
 
 function potential(typeId: number, mutationId: string, level: number): Potential {
-  return { id: 'pot', typeId, name: 'Test', mutations: [{ id: mutationId, level }], battles: 0, growth: 0, capacity: 6, appraised: true }
+  return { id: 'pot', typeId, name: 'Test', mutations: [{ id: mutationId, level }], battles: 0, growth: 0, capacity: 6, appraised: true, wound: null }
 }
 
 function warband(squads: Squad[], officers: Officer[], potentials: Potential[]): Warband {

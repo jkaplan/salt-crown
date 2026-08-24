@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Rng, hashSeed } from '@salt/sim'
+import { Battle, Rng, hashSeed } from '@salt/sim'
 import {
   ENCOUNTERS_PER_RUN,
   assignLeader,
@@ -28,9 +28,18 @@ import {
   totalBodies,
   totalFodder,
   unitType,
+  resolveBattle,
+  resolvePotentialStats,
+  resolveSquadStats,
+  treatWound,
+  escalateWound,
+  recoverWound,
+  officerBonusMultiplier,
+  TREAT_COST,
+  WOUND_PENALTY,
 } from '@salt/game'
-import type { RunState } from '@salt/game'
-import { TEAM_A } from '@salt/sim'
+import type { RunState, Wound } from '@salt/game'
+import { TEAM_A, TEAM_B } from '@salt/sim'
 
 function start(seed = 'test-seed'): RunState {
   const leader = rollOfficer(new Rng(hashSeed(seed)), 'leader-0')
@@ -449,5 +458,150 @@ describe('capacity', () => {
     const base = start().warband.potentials[0]
     expect(canBecomeFirstborn({ ...base, capacity: FIRSTBORN_AT_MUTATIONS })).toBe(true)
     expect(canBecomeFirstborn({ ...base, capacity: FIRSTBORN_AT_MUTATIONS - 1 })).toBe(false)
+  })
+})
+
+describe('wound ladder', () => {
+  // docs/V0-DESIGN.md §7: Healthy -> Strained -> Injured -> Crippled -> Dead,
+  // named tier only, individually.
+
+  it('escalates from Healthy into a rolled zone at Strained', () => {
+    const rng = new Rng(1)
+    const wound = escalateWound(null, rng)
+    expect(wound.rung).toBe(1)
+    expect(['head', 'core', 'arms', 'legs']).toContain(wound.zone)
+  })
+
+  it('escalates an existing wound one rung in the same zone, capped at Crippled', () => {
+    const rng = new Rng(1)
+    const strained: Wound = { zone: 'arms', rung: 1 }
+    const injured = escalateWound(strained, rng)
+    expect(injured).toEqual({ zone: 'arms', rung: 2 })
+
+    const crippled = escalateWound(injured, rng)
+    expect(crippled).toEqual({ zone: 'arms', rung: 3 })
+
+    // Already Crippled — one more hit does not fall off the ladder.
+    expect(escalateWound(crippled, rng)).toEqual({ zone: 'arms', rung: 3 })
+  })
+
+  it('recovers rungs toward Healthy and floors at null, never negative', () => {
+    const crippled: Wound = { zone: 'legs', rung: 3 }
+    expect(recoverWound(crippled, 1)).toEqual({ zone: 'legs', rung: 2 })
+    expect(recoverWound(crippled, 2)).toEqual({ zone: 'legs', rung: 1 })
+    expect(recoverWound(crippled, 3)).toBeNull()
+    expect(recoverWound(crippled, 99)).toBeNull()
+    expect(recoverWound(null, 2)).toBeNull()
+  })
+
+  it('applies a wound penalty to exactly the stat(s) its zone owns', () => {
+    const base = resolvePotentialStats(start().warband.potentials[0])
+
+    const withWound = (zone: Wound['zone']) => {
+      const p = { ...start().warband.potentials[0], wound: { zone, rung: 1 as const } }
+      return resolvePotentialStats(p)
+    }
+
+    const head = withWound('head')
+    expect(head.accuracy).toBeLessThan(base.accuracy)
+    expect(head.hp).toBeCloseTo(base.hp, 5)
+    expect(head.damage).toBeCloseTo(base.damage, 5)
+
+    const core = withWound('core')
+    expect(core.hp).toBeLessThan(base.hp)
+    expect(core.accuracy).toBeCloseTo(base.accuracy, 5)
+
+    const arms = withWound('arms')
+    expect(arms.damage).toBeLessThan(base.damage)
+    expect(arms.hp).toBeCloseTo(base.hp, 5)
+
+    const legs = withWound('legs')
+    expect(legs.moveSpeed).toBeLessThan(base.moveSpeed)
+    expect(legs.evade).toBeLessThanOrEqual(base.evade)
+  })
+
+  it('scales an Officer’s ENTIRE squad bonus by wound severity, any zone', () => {
+    expect(officerBonusMultiplier(null)).toBe(1)
+    expect(officerBonusMultiplier({ zone: 'head', rung: 1 })).toBeCloseTo(1 - WOUND_PENALTY[1], 5)
+    expect(officerBonusMultiplier({ zone: 'legs', rung: 3 })).toBeCloseTo(1 - WOUND_PENALTY[3], 5)
+
+    const officer = rollOfficer(new Rng(1), 'o')
+    const squad = { id: 'x', typeId: 0, count: 20, leader: null }
+    const healthy = resolveSquadStats(squad, officer)
+    const crippled = resolveSquadStats(squad, { ...officer, wound: { zone: 'core', rung: 3 } })
+    expect(JSON.stringify(crippled)).not.toBe(JSON.stringify(healthy))
+  })
+
+  it('wounds a Potential who survives a battle while taking damage', () => {
+    // A small, badly outmatched player force almost certainly takes damage
+    // on its way to losing — real end-to-end wiring through resolveBattle,
+    // not just the pure functions above.
+    let run = start('wound-integration')
+    // Recruit until there's a second squad, so the fight isn't over instantly.
+    for (let i = 0; i < 5 && run.offers.some((o) => o.cost <= run.warband.salvage); i++) {
+      const offer = run.offers.find((o) => o.kind === 'squad' && o.cost <= run.warband.salvage)
+      if (offer) run = buy(run, offer.id)
+    }
+
+    const setup = buildBattle(run)
+    // Stack the enemy heavily so the player side takes real damage.
+    const config = {
+      ...setup.config,
+      groups: setup.config.groups.map((g) =>
+        g.team === TEAM_B ? { ...g, count: g.count * 6 } : g,
+      ),
+    }
+    const battle = new Battle(config)
+    battle.run()
+
+    const resolved = resolveBattle(run, battle.results(), battle.winner, battle.tick, setup.playerSources)
+    const anyWounded = resolved.warband.potentials.some((p) => p.wound !== null)
+    const anyDied = resolved.warband.potentials.length < run.warband.potentials.length
+    // Overwhelmed 6x, at least one Potential should be marked up in some way
+    // — wounded if it survived, gone if it didn't. Both are the wound ladder
+    // and permadeath doing their job.
+    expect(anyWounded || anyDied || resolved.warband.potentials.length === 0).toBe(true)
+  })
+
+  it('treats a wound for salvage, one rung per payment', () => {
+    const run = start()
+    const wounded = {
+      ...run,
+      warband: {
+        ...run.warband,
+        salvage: TREAT_COST * 2,
+        potentials: run.warband.potentials.map((p, i) =>
+          i === 0 ? { ...p, wound: { zone: 'core' as const, rung: 2 as const } } : p,
+        ),
+      },
+    }
+    const target = wounded.warband.potentials[0]
+
+    const once = treatWound(wounded, target.id)
+    expect(once.warband.salvage).toBe(TREAT_COST)
+    expect(once.warband.potentials[0].wound).toEqual({ zone: 'core', rung: 1 })
+
+    const twice = treatWound(once, target.id)
+    expect(twice.warband.salvage).toBe(0)
+    expect(twice.warband.potentials[0].wound).toBeNull()
+
+    // Fully healed — no further charge.
+    expect(treatWound(twice, target.id)).toBe(twice)
+
+    // Cannot afford it.
+    const broke = { ...run, warband: { ...run.warband, salvage: 0 } }
+    const brokeTarget = broke.warband.potentials.find((p) => p.wound === null)
+    if (brokeTarget) {
+      const stillWounded = {
+        ...broke,
+        warband: {
+          ...broke.warband,
+          potentials: broke.warband.potentials.map((p) =>
+            p.id === brokeTarget.id ? { ...p, wound: { zone: 'legs' as const, rung: 1 as const } } : p,
+          ),
+        },
+      }
+      expect(treatWound(stillWounded, brokeTarget.id)).toBe(stillWounded)
+    }
   })
 })

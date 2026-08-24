@@ -32,6 +32,21 @@ export {
 } from './potentials.js'
 export type { Potential } from './potentials.js'
 export {
+  WOUND_ZONES,
+  WOUND_RUNG_NAMES,
+  WOUND_ZONE_NAMES,
+  WOUND_PENALTY,
+  TREAT_COST,
+  FREE_RECOVERY_MUTANT,
+  FREE_RECOVERY_TRUEKIN,
+  OFFICER_WOUND_CHANCE_ON_COLLAPSE,
+  escalateWound,
+  recoverWound,
+  applyWoundPenalty,
+  officerBonusMultiplier,
+} from './wounds.js'
+export type { Wound, WoundZone, WoundRung } from './wounds.js'
+export {
   unitType,
   squadLabel,
   squadCost,
@@ -62,6 +77,7 @@ export {
   assignLeader,
   chooseMutation,
   appraise,
+  treatWound,
   moveSquad,
   placeSquad,
   buildBattle,

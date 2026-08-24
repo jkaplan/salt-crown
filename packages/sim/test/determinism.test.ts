@@ -229,6 +229,7 @@ describe('Battle events', () => {
 describe('Stat resolution', () => {
   const potential = (mutations: { id: string; level: number }[]) => ({
     id: 'x', typeId: 0, name: 'Test', mutations, battles: 0, growth: 0, capacity: 6, appraised: true,
+    wound: null,
   })
 
   it('leaves fodder unmutated', () => {
@@ -265,7 +266,7 @@ describe('Stat resolution', () => {
 
   it('lets an Officer override a Potential leader on the same squad', () => {
     const leader = potential([{ id: 'horns', level: 5 }])
-    const officer = { id: 'o', name: 'Test', house: 'Test', rankId: OFFICER_RANKS[0].id }
+    const officer = { id: 'o', name: 'Test', house: 'Test', rankId: OFFICER_RANKS[0].id, wound: null }
     const s = resolveSquadStats(
       { id: 'x', typeId: 0, count: 20, leader: { kind: 'officer', id: 'o' } },
       officer,

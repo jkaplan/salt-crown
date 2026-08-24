@@ -392,6 +392,11 @@ finishing the HUD/log UI above and ahead of Water. The event buffer built in
 item 4 is a direct dependency — a rival leader's history is exactly the kind
 of thing it exists to record.
 
+**Wound ladder: ✅ built** (see §7's own subsection for the full account,
+including a real freeze bug it surfaced and fixed in the canvas work from
+earlier the same session). **Persistent rival leaders is next** — it was
+explicitly blocked on this, and now isn't.
+
 Also decided: gear stays Officers-only (bionics, M3, unbuilt) for now.
 Potentials do not get a second itemization layer alongside mutations —
 mutations already are their build, and mutations/bionics exclusivity per
@@ -470,6 +475,47 @@ Attrition is still what kills you — it's the reason you arrive at an encounter
 Zones: **Head** → accuracy and leader-bonus loss · **Core** → max HP · **Arms** → damage · **Legs** → move and evade.
 
 Free recovery between battles is one rung, Strained → Healthy only. Worse costs resources. Mutants recover an extra rung free. Machines recover nothing without Salvage. True Kin recover normally.
+
+**✅ Built** (`packages/game/src/wounds.ts`, wired into `run.ts`, `roster.ts`,
+`officers.ts`, and the Camp screen). One escalating wound per individual, not
+several independent ones: the first hit taken while surviving rolls a zone and
+starts at Strained; a later hit while already wounded moves the *same* zone up
+one rung, capped at Crippled. `TREAT_COST` (40 Salvage, placeholder) buys one
+rung of paid recovery — a "Treat" button next to the wound on the Potentials
+roster row. `WOUND_PENALTY` (10% / 22% / 38% by rung, placeholder) is the
+fraction knocked off the zone's stat(s); all four numbers are exactly the kind
+this doc's own rule (§14) says to tune with the batch-sim harness, not argue
+about in advance.
+
+**One real gap in "Named tier only, individually":** Officers have no body in
+the sim — they're a pure stat modifier (§4) — so they can't use the direct
+"took a hit" trigger a Potential uses. Proxy instead: if the squad an Officer
+led ended a battle COLLAPSING (§7's own effectiveness threshold), they had a
+`OFFICER_WOUND_CHANCE_ON_COLLAPSE` (35%, placeholder) chance of a wound too.
+And since an Officer has no HP/damage/speed stat for a zone to individually
+target, **any** zone on a wounded Officer scales their entire squad bonus down
+by the same fraction — a simplification the original zone table didn't fully
+specify for a bodyless leader, made explicit here rather than left implicit.
+
+**Also not done: Officer wounds have no UI.** They're tracked and mechanically
+applied — a Crippled Warden really does grant less armour — but there's
+nowhere to see or treat one, because Officers have no roster view at all yet
+(only `ParametersPanel`'s `Details` debug dump lists them). That's the
+"Roster screen showing the whole warband at a glance" ROADMAP already
+scopes for M2 — Officer wound surfacing belongs there, not bolted onto Camp
+ahead of it.
+
+**A real bug found and fixed while building this:** the canvas leader marker
+work earlier in this session gave each leader body an individual `GlowFilter`,
+created fresh on every `start()` (every march). Nothing destroyed the
+*previous* battle's filters before their sprites were destroyed, which stayed
+invisible for exactly one battle and then froze the second one solid — sim
+tick count stopped advancing, 0.00 ms/tick, no thrown exception, just a dead
+frame with PixiJS warning that a texture was destroyed while still bound to a
+shader. Confirmed via headless Chrome over CDP: frozen on battle #2 before the
+fix, six consecutive real battles clean after it. Caught before it reached
+you only because "does a second battle in the same run even work" turned out
+to be exactly the kind of thing generic single-battle testing doesn't cover.
 
 ## 8. Economy
 

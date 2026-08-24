@@ -1,6 +1,7 @@
 import { Rng } from '@salt/sim'
 import { MUTATIONS } from './mutations.js'
 import type { MutationRoll } from './mutations.js'
+import type { Wound } from './wounds.js'
 
 /**
  * A Potential: a mutant that came out of the vats with something useful.
@@ -45,6 +46,8 @@ export interface Potential {
    * shopping. Paying an Assayer converts variance into certainty, at a price.
    */
   appraised: boolean
+  /** Wound ladder state — docs/V0-DESIGN.md §7. null = Healthy. */
+  wound: Wound | null
 }
 
 /**
@@ -181,6 +184,7 @@ export function rollPotential(rng: Rng, typeId: number, encounterIndex: number):
     growth: 0,
     capacity,
     appraised: false,
+    wound: null,
   }
 }
 

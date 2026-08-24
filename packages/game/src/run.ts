@@ -1,4 +1,4 @@
-import { Rng, TEAM_A, TEAM_B, hashSeed } from '@salt/sim'
+import { COLLAPSE_THRESHOLD, Rng, TEAM_A, TEAM_B, hashSeed } from '@salt/sim'
 import type { BattleConfig, GroupResult, SimGroup, Winner } from '@salt/sim'
 import { ENCOUNTERS_PER_RUN, generateEncounter } from './encounters.js'
 import type { Encounter } from './encounters.js'
@@ -18,6 +18,14 @@ import type { MutationRoll } from './mutations.js'
 import { MUTANT_TYPES } from './units.js'
 import { rollOfficer } from './officers.js'
 import type { Officer } from './officers.js'
+import {
+  escalateWound,
+  FREE_RECOVERY_MUTANT,
+  FREE_RECOVERY_TRUEKIN,
+  OFFICER_WOUND_CHANCE_ON_COLLAPSE,
+  recoverWound,
+  TREAT_COST,
+} from './wounds.js'
 
 export type Phase = 'camp' | 'battle' | 'report' | 'over'
 
@@ -162,6 +170,29 @@ export function appraise(state: RunState, potentialId: string): RunState {
       salvage: state.warband.salvage - APPRAISAL_COST,
       potentials: state.warband.potentials.map((p) =>
         p.id === potentialId ? { ...p, appraised: true } : p,
+      ),
+    },
+  }
+}
+
+/**
+ * Pay to advance one rung of recovery — docs/V0-DESIGN.md §7's "spend to
+ * heal, or send them in hurt and risk the next rung." One rung per payment,
+ * same step size as free recovery, so a badly wounded Potential is a choice
+ * of how many times to pay rather than one lump sum.
+ */
+export function treatWound(state: RunState, potentialId: string): RunState {
+  const target = state.warband.potentials.find((p) => p.id === potentialId)
+  if (!target || !target.wound) return state
+  if (state.warband.salvage < TREAT_COST) return state
+
+  return {
+    ...state,
+    warband: {
+      ...state.warband,
+      salvage: state.warband.salvage - TREAT_COST,
+      potentials: state.warband.potentials.map((p) =>
+        p.id === potentialId ? { ...p, wound: recoverWound(p.wound, 1) } : p,
       ),
     },
   }
@@ -348,13 +379,44 @@ export function resolveBattle(
         died,
         battles: p.battles + (died ? 0 : 1),
       })
-      return died ? null : { ...p, battles: p.battles + 1 }
+      if (died) return null
+      // Wound ladder — docs/V0-DESIGN.md §7. A Potential always fights as its
+      // own body (see the doc comment above), so the trigger is direct: it
+      // survived and still took damage. Free recovery (Mutant: 2 rungs) is
+      // applied in the same pass, so a fresh wound already has a chance to
+      // shrink before the player sees the report.
+      let wound = r && r.damageTaken > 0 ? escalateWound(p.wound, state.rng) : p.wound
+      wound = recoverWound(wound, FREE_RECOVERY_MUTANT)
+      return { ...p, battles: p.battles + 1, wound }
     })
     .filter((p): p is NonNullable<typeof p> => p !== null)
 
+  // Officers have no body of their own (§4 — a pure stat modifier), so they
+  // can't use the direct hit trigger above. Proxy: if the squad they led
+  // ended the battle COLLAPSING, they were in the thick of a losing fight and
+  // have a chance of a wound too. Free recovery (True Kin: 1 rung) applies
+  // to every Officer regardless, same as Potentials above.
+  const officerSquadResult = new Map<string, GroupResult>()
+  for (const sq of state.warband.squads) {
+    if (sq.leader?.kind === 'officer') {
+      const r = squadResult.get(sq.id)
+      if (r) officerSquadResult.set(sq.leader.id, r)
+    }
+  }
+  const officers = state.warband.officers.map((o) => {
+    const r = officerSquadResult.get(o.id)
+    const collapsed = r ? r.endEffectiveness < COLLAPSE_THRESHOLD : false
+    let wound =
+      collapsed && state.rng.float() < OFFICER_WOUND_CHANCE_ON_COLLAPSE
+        ? escalateWound(o.wound, state.rng)
+        : o.wound
+    wound = recoverWound(wound, FREE_RECOVERY_TRUEKIN)
+    return { ...o, wound }
+  })
+
   // A leader who died no longer leads anyone.
   const livingPotentials = new Set(potentials.map((p) => p.id))
-  const livingOfficers = new Set(state.warband.officers.map((o) => o.id))
+  const livingOfficers = new Set(officers.map((o) => o.id))
   const survivingSquads = squads.map((sq) => {
     if (!sq.leader) return sq
     const alive =
@@ -373,6 +435,7 @@ export function resolveBattle(
       ...state.warband,
       squads: survivingSquads,
       potentials,
+      officers,
       salvage: state.warband.salvage + salvageEarned,
     },
     report: {
