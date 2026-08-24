@@ -40,7 +40,7 @@ function squad(typeId: number, count: number, leader: Squad['leader'] = null): S
 }
 
 function officer(rankId: string): Officer {
-  return { id: 'off', rankId, name: 'Test', house: 'Vantry', wound: null }
+  return { id: 'off', rankId, name: 'Test', house: 'Vantry', wound: null, bionics: [] }
 }
 
 function prospect(typeId: number, mutationId: string, level: number): Prospect {
@@ -48,7 +48,7 @@ function prospect(typeId: number, mutationId: string, level: number): Prospect {
 }
 
 function warband(squads: Squad[], officers: Officer[], prospects: Prospect[]): Warband {
-  return { squads, officers, prospects, salvage: 0, water: 0, morale: 0 }
+  return { squads, officers, prospects, salvage: 0, water: 0, bionics: [], morale: 0 }
 }
 
 /** Win rate of `player` against `foe` over `seeds` deterministic battles. */

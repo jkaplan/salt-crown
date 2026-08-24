@@ -88,6 +88,12 @@ export interface Officer {
   house: string
   /** Wound ladder state — docs/V0-DESIGN.md §7. null = Healthy. */
   wound: Wound | null
+  /**
+   * Installed bionic ids, capped at BIONIC_SLOTS. The True Kin upgrade path —
+   * see bionics.ts. Mutants can never carry these, which the type system gets
+   * for free: implants install into Officers, and Officers are always True Kin.
+   */
+  bionics: string[]
 }
 
 export function rollOfficer(rng: Rng, id: string): Officer {
@@ -98,6 +104,7 @@ export function rollOfficer(rng: Rng, id: string): Officer {
     name: GIVEN[rng.int(GIVEN.length)],
     house: HOUSES[rng.int(HOUSES.length)],
     wound: null,
+    bionics: [],
   }
 }
 

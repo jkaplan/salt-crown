@@ -231,8 +231,7 @@ describe('Battle events', () => {
 describe('Stat resolution', () => {
   const prospect = (mutations: { id: string; level: number }[]) => ({
     id: 'x', typeId: 0, name: 'Test', mutations, battles: 0, growth: 0, capacity: 6, appraised: true, fielded: true,
-    wound: null,
-  })
+    wound: null, bionics: [] })
 
   it('leaves fodder unmutated', () => {
     // Mutation is individual and rare. Squads are bodies, nothing more.
@@ -268,7 +267,7 @@ describe('Stat resolution', () => {
 
   it('lets an Officer override a Prospect leader on the same squad', () => {
     const leader = prospect([{ id: 'horns', level: 5 }])
-    const officer = { id: 'o', name: 'Test', house: 'Test', rankId: OFFICER_RANKS[0].id, wound: null }
+    const officer = { id: 'o', name: 'Test', house: 'Test', rankId: OFFICER_RANKS[0].id, wound: null, bionics: [] }
     const s = resolveSquadStats(
       { id: 'x', typeId: 0, count: 20, leader: { kind: 'officer', id: 'o' } },
       officer,

@@ -10,6 +10,8 @@ import {
   sellValue,
   MAX_FIELDED_PROSPECTS,
   moraleWord,
+  BIONICS_BY_ID,
+  BIONIC_SLOTS,
   payWater,
   waterUpkeep,
   waterState,
@@ -74,6 +76,7 @@ interface Props {
   onAppraise: (prospectId: string) => void
   onTreatWound: (prospectId: string) => void
   onTreatOfficer: (officerId: string) => void
+  onInstall: (officerId: string, bionicId: string) => void
   onSetFielded: (prospectId: string, fielded: boolean) => void
   onSell: (prospectId: string) => void
   onSendExpedition: (verb: Verb, crew: string[]) => void
@@ -308,11 +311,13 @@ function OfficerRow({
   warband,
   salvage,
   onTreatOfficer,
+  onInstall,
 }: {
   officer: Officer
   warband: Warband
   salvage: number
   onTreatOfficer: Props['onTreatOfficer']
+  onInstall: Props['onInstall']
 }) {
   const rank = OFFICER_RANKS_BY_ID.get(officer.rankId)
   const leading = warband.squads.find(
@@ -323,6 +328,8 @@ function OfficerRow({
   // hitting a zone. Say so as a percentage — "Injured · Arms" alone does not
   // explain why the squad got worse.
   const kept = Math.round(officerBonusMultiplier(wound) * 100)
+  // One entry per distinct implant in stock that this officer does not carry.
+  const stock = [...new Set(warband.bionics)].filter((id) => !officer.bionics.includes(id))
 
   return (
     <li className="row">
@@ -348,6 +355,46 @@ function OfficerRow({
           'Leading nobody — assign from the battle line'
         )}
       </div>
+      {/*
+        The build, as slots. Bionics are the True Kin answer to a Prospect's
+        mutation list, so they read the same way — what this leader is
+        carrying, at a glance, in the row that leader lives in.
+      */}
+      <div className="slots">
+        {Array.from({ length: BIONIC_SLOTS }, (_, i) => {
+          const b = officer.bionics[i] ? BIONICS_BY_ID.get(officer.bionics[i]) : null
+          return b ? (
+            <span key={i} className="bionic" title={b.blurb}>
+              {b.name} <i>{b.effect}</i>
+            </span>
+          ) : (
+            <span key={i} className="bionic empty">
+              empty socket
+            </span>
+          )
+        })}
+      </div>
+
+      {/* Only what is actually in stock, so the list is never a wishlist. */}
+      {officer.bionics.length < BIONIC_SLOTS && stock.length > 0 && (
+        <div className="row-actions">
+          {stock.map((id) => {
+            const b = BIONICS_BY_ID.get(id)!
+            return (
+              <button
+                key={id}
+                className="btn-quiet install"
+                disabled={salvage < b.cost}
+                title={`${b.effect}. ${b.blurb}`}
+                onClick={() => onInstall(officer.id, id)}
+              >
+                Fit {b.name} <span className="price">{b.cost}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {wound && (
         <button
           className="btn-quiet treat"
@@ -627,6 +674,7 @@ export default function Camp({
   onAppraise,
   onTreatWound,
   onTreatOfficer,
+  onInstall,
   onSetFielded,
   onSell,
   onSendExpedition,
@@ -952,6 +1000,7 @@ export default function Camp({
                   warband={warband}
                   salvage={warband.salvage}
                   onTreatOfficer={onTreatOfficer}
+                  onInstall={onInstall}
                 />
               ))}
             </ul>
@@ -959,6 +1008,30 @@ export default function Camp({
               <p className="empty">None. True Kin are hired, never bred — and never cheap.</p>
             )}
           </Section>
+
+          {warband.bionics.length > 0 && (
+            <Section title="Salvaged implants" meta={warband.bionics.length}>
+              <ul className="rows tight">
+                {warband.bionics.map((id, i) => {
+                  const b = BIONICS_BY_ID.get(id)!
+                  return (
+                    <li key={`${id}-${i}`} className="row inline">
+                      <span className="row-name">
+                        <b className="truekin">{b.name}</b>
+                        <span className="dim">{b.effect}</span>
+                      </span>
+                      <span className="row-pos">{b.cost}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+              <p className="note">
+                {warband.officers.length === 0
+                  ? 'Nothing to fit them to. A mutant body cannot carry an implant.'
+                  : 'Fit them from an Officer above.'}
+              </p>
+            </Section>
+          )}
 
           <Section title="Prospects" meta={warband.prospects.length || undefined}>
             <ul className="rows">

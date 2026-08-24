@@ -1436,3 +1436,32 @@ button.treat .price { color: var(--gold); margin-left: var(--s1); font-variant-n
 .exp-haul { margin: 0; font-size: var(--t-meta); font-variant-numeric: tabular-nums; }
 .exp-cost { margin: 0; font-size: var(--t-meta); color: var(--dim); }
 .expedition.out .row-note { color: var(--dim); }
+
+/* ------------------------------------------------------------- bionics -- */
+
+/* The True Kin answer to a Prospect's mutation list, so it reads like one:
+   what this leader is carrying, in the leader's own row. Empty sockets are
+   shown rather than hidden — the scarcity of slots is the design. */
+.slots { display: flex; flex-wrap: wrap; gap: var(--s1); }
+.bionic {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s1);
+  font-size: var(--t-label);
+  padding: 2px var(--s2);
+  border-radius: var(--radius);
+  background: rgba(140, 160, 200, 0.1);
+  color: var(--truekin);
+}
+.bionic i { font-style: normal; color: var(--dim); }
+.bionic.empty {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--hair);
+  color: var(--faint);
+}
+button.install { color: var(--truekin); }
+button.install .price {
+  color: var(--gold);
+  margin-left: var(--s1);
+  font-variant-numeric: tabular-nums;
+}

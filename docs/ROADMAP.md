@@ -81,7 +81,7 @@ The mutants were then rebuilt to differ by *kind* rather than degree (three kind
 
 - ~~Water, superlinear upkeep, desertion on shortfall~~ ✅ built
 - ~~Scavenge / Delve; crews miss the next battle~~ ✅ built
-- **Bionics**: found in ruins, installed into True Kin for Salvage
+- ~~**Bionics**: found in ruins, installed into True Kin for Salvage~~ ✅ built
 - **Machines**: 5 types, found in ruins and rare events only, degrade permanently, cost Salvage per battle to run
 - Tinkerer event — the rare exception that can restore a machine
 - Ruin flavor and outcome text; first hints of what's below
@@ -128,6 +128,27 @@ and **Scavenge buys water with it**. Delve stakes salvage for more salvage,
 high variance, plus ruin finds. Both remain a modest positive at best, which
 is right for an optional action whose real cost is that the crew misses the
 next battle.
+
+**Bionic result:** measured head-to-head, a 20-body True Kin squad against the
+same squad under a bare officer:
+
+| Implants | Salvage | Wins vs bare officer |
+|---|---|---|
+| 1 | 70 | 80.0% |
+| 2 | 155 | 97.5% |
+| 3 | 235 | 100.0% |
+
+That salvage would buy ~117 Chaff, which would crush 20 True Kin outright —
+except Water caps the roster near 50 bodies, so it cannot be spent that way.
+**Water is what makes the bionic path viable at all.** This is §6b's stated
+counterweight arriving on schedule: quality multipliers grow until raw body
+count stops being the dominant term.
+
+In `sim:campaign` the greedy bot gains nothing from bionics (20.8% → 21.6%),
+which is the *expected* result, not a failure: §13 says bionics are "taxed,
+not locked" and that mutation stacking is the path of least resistance. A bot
+that buys the cheapest power per salvage will always take the mutant path. The
+thrifty bot, which cannot overbuy bodies, gains materially (17.6% → 20.8%).
 
 ---
 

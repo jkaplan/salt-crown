@@ -37,6 +37,10 @@ import {
   resolveExpedition,
   expeditionCost,
   expectedHaul,
+  installBionic,
+  BIONICS,
+  BIONICS_BY_ID,
+  BIONIC_SLOTS,
   sellValue,
   fieldedCount,
   MAX_FIELDED_PROSPECTS,
@@ -77,6 +81,7 @@ const ids = (run: RunState) => run.warband.squads.map((s) => s.id)
 
 /** Stand-in for the ruin-find roller resolveExpedition takes. */
 const rollProspect0 = (rng: Rng, index: number) => rollProspect(rng, 0, index)
+const rollBionic0 = (rng: Rng) => BIONICS[rng.int(BIONICS.length)].id
 
 describe('run setup', () => {
   it('starts with a warband, salvage, offers and an encounter', () => {
@@ -955,6 +960,7 @@ describe('water and upkeep', () => {
     officers: [],
     salvage: 0,
     water: 0,
+    bionics: [],
     morale: 0,
   })
 
@@ -1148,7 +1154,7 @@ describe('expeditions', () => {
     for (let i = 0; i < runs; i++) {
       const rng = new Rng(hashSeed(`scav-${i}`))
       const crew = [rollProspect(rng, 0, 3), rollProspect(rng, 0, 3)]
-      const { result } = resolveExpedition(rng, 'scavenge', crew, 3, rollProspect0)
+      const { result } = resolveExpedition(rng, 'scavenge', crew, 3, rollProspect0, rollBionic0)
       expect(result.salvage).toBe(0)
       expect(result.lost).toHaveLength(0)
       expect(result.found).toHaveLength(0)
@@ -1184,7 +1190,7 @@ describe('expeditions', () => {
     for (let i = 0; i < runs; i++) {
       const rng = new Rng(hashSeed(`delve-${i}`))
       const crew = [rollProspect(rng, 0, 3), rollProspect(rng, 0, 3)]
-      const { result } = resolveExpedition(rng, 'delve', crew, 3, rollProspect0)
+      const { result } = resolveExpedition(rng, 'delve', crew, 3, rollProspect0, rollBionic0)
       hauls.push(result.salvage)
       lost += result.lost.length
       found += result.found.length
@@ -1224,5 +1230,125 @@ describe('expeditions', () => {
     for (const p of camp.warband.prospects) {
       if (p.id.startsWith('crew-')) expect(p.fielded).toBe(true)
     }
+  })
+})
+
+describe('bionics', () => {
+  const rich = (bionics: string[]) => {
+    const run = start()
+    return {
+      ...run,
+      warband: { ...run.warband, salvage: 5000, bionics },
+    }
+  }
+
+  it('installs a found implant into an Officer for salvage', () => {
+    const b = BIONICS[0]
+    const run = rich([b.id])
+    const officer = run.warband.officers[0]
+
+    const after = installBionic(run, officer.id, b.id)
+    expect(after.warband.officers[0].bionics).toEqual([b.id])
+    expect(after.warband.salvage).toBe(5000 - b.cost)
+    // Finding it is free; fitting it consumes the part.
+    expect(after.warband.bionics).toEqual([])
+  })
+
+  it('refuses what it cannot fit', () => {
+    const b = BIONICS[0]
+    const officer = start().warband.officers[0]
+
+    // Nothing in stock.
+    const empty = rich([])
+    expect(installBionic(empty, officer.id, b.id)).toBe(empty)
+
+    // Cannot afford the fitting.
+    const broke = { ...rich([b.id]), warband: { ...rich([b.id]).warband, salvage: 0 } }
+    expect(installBionic(broke, officer.id, b.id)).toBe(broke)
+
+    // No such officer, no such implant.
+    const run = rich([b.id])
+    expect(installBionic(run, 'nobody', b.id)).toBe(run)
+    expect(installBionic(run, officer.id, 'no-such-implant')).toBe(run)
+  })
+
+  it('keeps slots scarce, and one of each', () => {
+    // Three is enough for a build to have a shape and not enough to install
+    // everything you find — which is what makes a fourth find a decision.
+    const ids = BIONICS.slice(0, BIONIC_SLOTS + 1).map((b) => b.id)
+    let run = rich([...ids])
+    const officer = run.warband.officers[0]
+
+    for (const id of ids) run = installBionic(run, officer.id, id)
+    expect(run.warband.officers[0].bionics).toHaveLength(BIONIC_SLOTS)
+    // The one that did not fit is still in stock.
+    expect(run.warband.bionics).toHaveLength(1)
+
+    // Two of the same implant on one body is an inventory exploit, not a build.
+    const dupe = rich([BIONICS[0].id, BIONICS[0].id])
+    const once = installBionic(dupe, officer.id, BIONICS[0].id)
+    expect(installBionic(once, officer.id, BIONICS[0].id)).toBe(once)
+    expect(once.warband.bionics).toHaveLength(1)
+  })
+
+  it('passes the implant through to the squad the Officer leads', () => {
+    const b = BIONICS_BY_ID.get('carbide-edge')!
+    const run = rich([b.id])
+    const officer = run.warband.officers[0]
+    const squad = run.warband.squads.find(
+      (sq) => sq.leader?.kind === 'officer' && sq.leader.id === officer.id,
+    )!
+
+    const before = resolveSquadStats(squad, officer)
+    const after = installBionic(run, officer.id, b.id)
+    const boosted = resolveSquadStats(squad, after.warband.officers[0])
+
+    expect(boosted.damage).toBeGreaterThan(before.damage)
+  })
+
+  it('does not let a wound degrade hardware', () => {
+    /*
+     * A wound scales an Officer's RANK bonus down (officerBonusMultiplier),
+     * because that is what a person can still do. It must not scale implants:
+     * hardware bolted to a skeleton does not care that the skeleton is hurt.
+     * That is the whole reason a bionic build is worth the slower, more
+     * expensive path — it is a hedge against the attrition that erodes an
+     * unmodified officer.
+     */
+    const b = BIONICS_BY_ID.get('bracing-struts')!
+    const run = rich([b.id])
+    const officer = run.warband.officers[0]
+    const squad = run.warband.squads.find(
+      (sq) => sq.leader?.kind === 'officer' && sq.leader.id === officer.id,
+    )!
+
+    const installed = installBionic(run, officer.id, b.id).warband.officers[0]
+    const healthy = resolveSquadStats(squad, installed)
+    const crippled = resolveSquadStats(squad, {
+      ...installed,
+      wound: { zone: 'core', rung: 3 },
+    })
+
+    // The implant's flat armour survives intact even at the worst rung.
+    const bare = resolveSquadStats(squad, { ...officer, wound: { zone: 'core', rung: 3 } })
+    expect(crippled.armor - bare.armor).toBeCloseTo(healthy.armor - resolveSquadStats(squad, officer).armor, 5)
+  })
+
+  it('is the only way bionics enter a run', () => {
+    // V0-DESIGN §9: delving is not an optional side-game, it is how two of
+    // three lineages get stronger. A run that never delves must never see one.
+    expect(start().warband.bionics).toEqual([])
+
+    let salvaged = 0
+    for (let i = 0; i < 300; i++) {
+      const rng = new Rng(hashSeed(`bio-${i}`))
+      const crew = [rollProspect(rng, 0, 2)]
+      const scav = resolveExpedition(rng, 'scavenge', crew, 2, rollProspect0, rollBionic0)
+      expect(scav.result.salvaged).toEqual([])
+
+      const delve = resolveExpedition(rng, 'delve', crew, 2, rollProspect0, rollBionic0)
+      salvaged += delve.result.salvaged.length
+    }
+    expect(salvaged).toBeGreaterThan(50)
   })
 })

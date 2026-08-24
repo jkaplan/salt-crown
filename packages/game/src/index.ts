@@ -97,6 +97,14 @@ export {
   expeditionRisk,
 } from './expeditions.js'
 export type { Expedition, ExpeditionResult, Verb } from './expeditions.js'
+export {
+  BIONICS,
+  BIONICS_BY_ID,
+  BIONIC_SLOTS,
+  applyBionics,
+  bionicValue,
+} from './bionics.js'
+export type { Bionic } from './bionics.js'
 export { rollOffers } from './shop.js'
 export type { Offer, SquadOffer, OfficerOffer } from './shop.js'
 export { ENCOUNTERS_PER_RUN, generateEncounter } from './encounters.js'
@@ -112,6 +120,7 @@ export {
   sellProspect,
   treatWound,
   treatOfficer,
+  installBionic,
   sendExpedition,
   recallExpedition,
   moveSquad,

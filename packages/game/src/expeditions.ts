@@ -43,6 +43,8 @@ export interface ExpeditionResult {
   water: number
   /** Bodies found in the ruin. Delve only. */
   found: Prospect[]
+  /** Bionic ids pulled out of the ruin. Delve only — see bionics.ts. */
+  salvaged: string[]
   /** Crew who came back hurt, by name. */
   injured: string[]
   /** Crew who did not come back at all. Delve only. */
@@ -114,6 +116,17 @@ const DELVE_DEATH = 0.05
 /** Chance a delve turns up a body somebody else left behind. */
 const DELVE_PROSPECT_CHANCE = 0.3
 
+/**
+ * Chance a delve turns up an implant.
+ *
+ * This is the ONLY source of bionics, which is what V0-DESIGN §9 means by
+ * "delving is not an optional economy side-game — it is how two of three
+ * lineages get stronger". A True Kin warband that never delves has no upgrade
+ * path at all, the same way a mutant warband that never fights has no
+ * Firstborn.
+ */
+const DELVE_BIONIC_CHANCE = 0.34
+
 const SCAVENGE_FLAVOUR = [
   'A collapsed depot, picked over twice already. They found the third layer.',
   'Rail ties, cable, and a cistern that had not cracked. Unglamorous.',
@@ -158,6 +171,7 @@ export function resolveExpedition(
   crew: Prospect[],
   encounterIndex: number,
   rollFound: (rng: Rng, index: number) => Prospect,
+  rollBionic: (rng: Rng) => string,
 ): { result: ExpeditionResult; crew: Prospect[] } {
   const isDelve = verb === 'delve'
   const mult = isDelve ? delveMultiplier(rng) : 0.9 + rng.float() * 0.2
@@ -190,8 +204,10 @@ export function resolveExpedition(
   }
 
   const found: Prospect[] = []
-  if (isDelve && crew.length > 0 && rng.float() < DELVE_PROSPECT_CHANCE) {
-    found.push(rollFound(rng, encounterIndex))
+  const salvaged: string[] = []
+  if (isDelve && crew.length > 0) {
+    if (rng.float() < DELVE_PROSPECT_CHANCE) found.push(rollFound(rng, encounterIndex))
+    if (rng.float() < DELVE_BIONIC_CHANCE) salvaged.push(rollBionic(rng))
   }
 
   return {
@@ -201,6 +217,7 @@ export function resolveExpedition(
       salvage,
       water,
       found,
+      salvaged,
       injured,
       lost,
       flavour: flavourPool[rng.int(flavourPool.length)],

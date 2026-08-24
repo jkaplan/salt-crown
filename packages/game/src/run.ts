@@ -22,6 +22,7 @@ import type { MutationRoll } from './mutations.js'
 import type { Prospect } from './prospects.js'
 import { clampMorale, rollEvent } from './events.js'
 import { MORALE_PER_DESERTER, payWater } from './water.js'
+import { BIONICS, BIONICS_BY_ID, BIONIC_SLOTS } from './bionics.js'
 import { MAX_CREW, expeditionCost, resolveExpedition } from './expeditions.js'
 import type { Expedition, ExpeditionResult, Verb } from './expeditions.js'
 import type { GameEvent } from './events.js'
@@ -130,6 +131,7 @@ function startingWarband(rng: Rng, selectedOfficer?: Officer): Warband {
     // Enough for the first two marches at the opening roster. The squeeze is
     // meant to arrive as the warband grows, not on turn one.
     water: 220,
+    bionics: [],
     morale: 0,
   }
 }
@@ -433,6 +435,7 @@ function returnExpedition(state: RunState): RunState {
     crew,
     state.encounterIndex,
     (rng, index) => rollProspect(rng, MUTANT_TYPES[rng.int(MUTANT_TYPES.length)].id, index),
+    (rng) => BIONICS[rng.int(BIONICS.length)].id,
   )
 
   const byId = new Map(returned.map((p) => [p.id, p]))
@@ -457,6 +460,47 @@ function returnExpedition(state: RunState): RunState {
       prospects,
       salvage: state.warband.salvage + result.salvage,
       water: state.warband.water + result.water,
+      bionics: [...state.warband.bionics, ...result.salvaged],
+    },
+  }
+}
+
+/**
+ * Fit a found implant to an Officer — §6's "Install" lever.
+ *
+ * Finding it is free; fitting it is not. That gap is why a True Kin build is
+ * described as taxed rather than locked (§13): the parts come out of ruins you
+ * delved instead of reinforcing, and then you pay again to use them.
+ *
+ * Slots are scarce on purpose. Three is enough for a build to have a shape and
+ * not enough to install everything you find, so a fourth find is a decision
+ * rather than an inventory update.
+ */
+export function installBionic(state: RunState, officerId: string, bionicId: string): RunState {
+  const officer = state.warband.officers.find((o) => o.id === officerId)
+  const bionic = BIONICS_BY_ID.get(bionicId)
+  if (!officer || !bionic) return state
+  if (!state.warband.bionics.includes(bionicId)) return state
+  if (officer.bionics.length >= BIONIC_SLOTS) return state
+  // One of each. Two Carbide Edges on one body is an inventory exploit, not
+  // a build.
+  if (officer.bionics.includes(bionicId)) return state
+  if (state.warband.salvage < bionic.cost) return state
+
+  // Remove exactly one copy — the warband can hold duplicates from separate
+  // delves, and they should be installable into separate officers.
+  const stock = [...state.warband.bionics]
+  stock.splice(stock.indexOf(bionicId), 1)
+
+  return {
+    ...state,
+    warband: {
+      ...state.warband,
+      salvage: state.warband.salvage - bionic.cost,
+      bionics: stock,
+      officers: state.warband.officers.map((o) =>
+        o.id === officerId ? { ...o, bionics: [...o.bionics, bionicId] } : o,
+      ),
     },
   }
 }

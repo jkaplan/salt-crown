@@ -2,6 +2,7 @@ import { TEAM_A, TEAM_B } from '@salt/sim'
 import type { ResolvedStats, SimGroup, UnitType } from '@salt/sim'
 import { MUTATIONS_BY_ID, leakLevel } from './mutations.js'
 import type { MutationRoll } from './mutations.js'
+import { applyBionics } from './bionics.js'
 import { OFFICER_RANKS_BY_ID, officerTitle } from './officers.js'
 import type { Officer } from './officers.js'
 import {
@@ -60,6 +61,11 @@ export interface Warband {
    * see water.ts. Salvage rewards a good decision; Water punishes a big one.
    */
   water: number
+  /**
+   * Bionics found and not yet installed. Ruin-only — this is the mechanical
+   * reason delving exists for a True Kin warband (V0-DESIGN §3).
+   */
+  bionics: string[]
 }
 
 const BODY_SHAPE_COUNT = 8
@@ -121,6 +127,9 @@ export function resolveSquadStats(
   const s = baseStats(squad.typeId)
   if (officer) {
     OFFICER_RANKS_BY_ID.get(officer.rankId)?.apply(s, officerBonusMultiplier(officer.wound))
+    // Implants are not scaled by the wound. A wound degrades what a person
+    // can do; it does not degrade hardware bolted to their skeleton.
+    applyBionics(s, officer.bionics)
   } else if (leader) {
     /*
      * A Prospect leaks at half level. A FIRSTBORN leaks at full.

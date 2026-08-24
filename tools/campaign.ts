@@ -43,6 +43,8 @@ import {
   unitType,
   waterUpkeep,
   sendExpedition,
+  installBionic,
+  BIONICS_BY_ID,
   MAX_CREW,
 } from '@salt/game'
 import type { Offer, RunState } from '@salt/game'
@@ -111,6 +113,24 @@ function shop(state: RunState, thrifty: boolean): RunState {
     const before = s.warband.salvage
     s = buy(s, scored[0].id)
     if (s.warband.salvage === before) break
+  }
+
+  /*
+   * Fit whatever came out of the ruins, cheapest first, into the officers
+   * leading the most bodies. Crude, but it is the only way to measure whether
+   * bionics matter at all — an unfitted implant is worth exactly nothing.
+   */
+  for (let guard = 0; guard < 12 && s.warband.bionics.length > 0; guard++) {
+    const stock = [...new Set(s.warband.bionics)].sort(
+      (a, b) => (BIONICS_BY_ID.get(a)?.cost ?? 0) - (BIONICS_BY_ID.get(b)?.cost ?? 0),
+    )
+    const before = s.warband.bionics.length
+    for (const o of s.warband.officers) {
+      for (const id of stock) {
+        s = installBionic(s, o.id, id)
+      }
+    }
+    if (s.warband.bionics.length === before) break
   }
 
   // Officers onto the biggest squads first.

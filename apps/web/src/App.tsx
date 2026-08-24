@@ -12,6 +12,7 @@ import {
   recallExpedition,
   treatWound,
   treatOfficer,
+  installBionic,
   chooseMutation,
   march,
   moveSquad,
@@ -149,6 +150,7 @@ export default function App() {
                   onAppraise={(pid) => setRun(appraise(run, pid))}
                   onTreatWound={(pid) => setRun(treatWound(run, pid))}
                   onTreatOfficer={(oid) => setRun(treatOfficer(run, oid))}
+                  onInstall={(oid, bid) => setRun(installBionic(run, oid, bid))}
                   onSetFielded={(pid, f) => setRun(setFielded(run, pid, f))}
                   onSell={(pid) => setRun(sellProspect(run, pid))}
                   onSendExpedition={(verb, crew) => setRun(sendExpedition(run, verb, crew))}

@@ -7,6 +7,7 @@ import {
   isFirstborn,
   unitType,
 } from '@salt/game'
+import { BIONICS_BY_ID } from '@salt/game'
 import type { Expedition, ExpeditionResult, Prospect, Verb } from '@salt/game'
 
 /**
@@ -125,6 +126,15 @@ export default function ExpeditionCard({
                   {result.found.map((p) => p.name).join(', ')}
                 </b>{' '}
                 came back with them
+              </>
+            )}
+            {result.salvaged.length > 0 && (
+              <>
+                {' · '}
+                <b className="truekin">
+                  {result.salvaged.map((id) => BIONICS_BY_ID.get(id)?.name).join(', ')}
+                </b>{' '}
+                pulled out of the wall
               </>
             )}
           </p>
