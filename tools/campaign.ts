@@ -21,6 +21,12 @@
  *
  * If greedy and thrifty complete at the same rate, Water is not doing
  * anything. If thrifty cannot finish either, the curve is too steep.
+ *
+ * --scavenge / --delve send a crew every camp on top of whichever bot is
+ * running. The comparison that matters is against the same bot with no
+ * expedition: if sending three Prospects into a ruin every single camp is
+ * strictly better than keeping them on the field, the cost side of V0-DESIGN
+ * §9 is not being paid.
  */
 import { Battle } from '@salt/sim'
 import {
@@ -36,6 +42,8 @@ import {
   totalBodies,
   unitType,
   waterUpkeep,
+  sendExpedition,
+  MAX_CREW,
 } from '@salt/game'
 import type { Offer, RunState } from '@salt/game'
 
@@ -124,7 +132,7 @@ function shop(state: RunState, thrifty: boolean): RunState {
   return s
 }
 
-function playRun(seedText: string, thrifty: boolean) {
+function playRun(seedText: string, thrifty: boolean, verb: 'scavenge' | 'delve' | null) {
   let state = newRun(seedText)
   let reached = 0
   let deserted = 0
@@ -133,6 +141,15 @@ function playRun(seedText: string, thrifty: boolean) {
   while (state.phase !== 'over') {
     if (state.phase === 'camp') {
       state = shop(state, thrifty)
+      if (verb) {
+        // Bluntly greedy: always send the maximum crew. This is the upper
+        // bound on how much expeditions can be exploited, not a good player.
+        const crew = state.warband.prospects
+          .filter((p) => p.fielded)
+          .slice(0, MAX_CREW)
+          .map((p) => p.id)
+        if (crew.length > 0) state = sendExpedition(state, verb, crew)
+      }
       const marched = march(state)
       const setup = marched.setup
       state = marched.state
@@ -164,6 +181,11 @@ function playRun(seedText: string, thrifty: boolean) {
 
 const runs = arg('runs', 200)
 const thrifty = process.argv.includes('--thrifty')
+const verb = process.argv.includes('--delve')
+  ? ('delve' as const)
+  : process.argv.includes('--scavenge')
+    ? ('scavenge' as const)
+    : null
 console.log('Salt Crown — campaign harness')
 console.log(
   `${runs} runs, ${thrifty ? 'thrifty' : 'greedy'} buyer, ${ENCOUNTERS_PER_RUN} encounters each\n`,
@@ -178,7 +200,7 @@ const finalBodies: number[] = []
 
 const started = Date.now()
 for (let i = 1; i <= runs; i++) {
-  const r = playRun(`seed-${i}`, thrifty)
+  const r = playRun(`seed-${i}`, thrifty, verb)
   deserted += r.deserted
   shortMarches += r.shortMarches
   marches += r.reached + 1

@@ -89,6 +89,14 @@ export {
   waterState,
 } from './water.js'
 export type { DesertionResult } from './water.js'
+export {
+  MAX_CREW,
+  resolveExpedition,
+  expectedHaul,
+  expeditionCost,
+  expeditionRisk,
+} from './expeditions.js'
+export type { Expedition, ExpeditionResult, Verb } from './expeditions.js'
 export { rollOffers } from './shop.js'
 export type { Offer, SquadOffer, OfficerOffer } from './shop.js'
 export { ENCOUNTERS_PER_RUN, generateEncounter } from './encounters.js'
@@ -104,6 +112,8 @@ export {
   sellProspect,
   treatWound,
   treatOfficer,
+  sendExpedition,
+  recallExpedition,
   moveSquad,
   placeSquad,
   buildBattle,

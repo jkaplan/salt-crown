@@ -8,6 +8,7 @@ import {
   buy,
   moveSquad,
   newRun,
+  advance,
   march,
   placeSquad,
   BATTLES_PER_MUTATION,
@@ -31,6 +32,11 @@ import {
   DISCIPLINE,
   setFielded,
   sellProspect,
+  sendExpedition,
+  recallExpedition,
+  resolveExpedition,
+  expeditionCost,
+  expectedHaul,
   sellValue,
   fieldedCount,
   MAX_FIELDED_PROSPECTS,
@@ -68,6 +74,9 @@ function start(seed = 'test-seed'): RunState {
 }
 
 const ids = (run: RunState) => run.warband.squads.map((s) => s.id)
+
+/** Stand-in for the ruin-find roller resolveExpedition takes. */
+const rollProspect0 = (rng: Rng, index: number) => rollProspect(rng, 0, index)
 
 describe('run setup', () => {
   it('starts with a warband, salvage, offers and an encounter', () => {
@@ -1041,5 +1050,179 @@ describe('water and upkeep', () => {
     const run = start()
     const thirsty = { ...run, warband: { ...run.warband, water: 0, morale: 0 } }
     expect(march(thirsty).state.warband.morale).toBeLessThan(0)
+  })
+})
+
+describe('expeditions', () => {
+  const withCrew = (n: number) => {
+    const run = start()
+    const extra = Array.from({ length: n }, (_, i) =>
+      rollProspect(new Rng(hashSeed(`crew-${i}`)), 0, 0),
+    ).map((p, i) => ({ ...p, id: `crew-${i}` }))
+    // Enough salvage to outfit anything these tests send.
+    return {
+      ...run,
+      warband: { ...run.warband, salvage: 5000, prospects: [...run.warband.prospects, ...extra] },
+    }
+  }
+
+  it('takes the crew off the field without removing them from the warband', () => {
+    // "The crew misses the next battle" is the real cost in V0-DESIGN §9.
+    // Being away reuses the reserve mechanism, so they cannot deploy, cannot
+    // die, and cannot accrue battles towards Firstborn.
+    const run = withCrew(2)
+    const crew = ['crew-0', 'crew-1']
+    const sent = sendExpedition(run, 'delve', crew)
+
+    expect(sent.expedition).toEqual({
+      verb: 'delve',
+      crew,
+      staked: expeditionCost('delve', crew.length, run.encounterIndex),
+    })
+    expect(sent.warband.prospects).toHaveLength(run.warband.prospects.length)
+    for (const id of crew) {
+      expect(sent.warband.prospects.find((p) => p.id === id)!.fielded).toBe(false)
+    }
+
+    const fielded = march(sent).setup.playerSources.filter((s) => s.kind === 'prospect')
+    expect(fielded.map((s) => s.id)).not.toContain('crew-0')
+  })
+
+  it('pulls a leading Prospect off its squad, so the leak stops too', () => {
+    // Otherwise a squad keeps twenty bodies worth of mutations from someone
+    // who is two days away down a stairwell.
+    const run = withCrew(1)
+    const mutantSquad = run.warband.squads.find(
+      (sq) => unitType(sq.typeId).lineage === 'mutant',
+    )!
+    const led = assignLeader(run, mutantSquad.id, { kind: 'prospect', id: 'crew-0' })
+    expect(led.warband.squads.find((sq) => sq.id === mutantSquad.id)!.leader).not.toBeNull()
+
+    const sent = sendExpedition(led, 'scavenge', ['crew-0'])
+    expect(sent.warband.squads.find((sq) => sq.id === mutantSquad.id)!.leader).toBeNull()
+  })
+
+  it('refuses a crew it cannot outfit', () => {
+    const run = withCrew(2)
+    const broke = { ...run, warband: { ...run.warband, salvage: 0 } }
+    expect(sendExpedition(broke, 'delve', ['crew-0'])).toBe(broke)
+
+    // And the stake comes straight off, then straight back on a recall.
+    const rich = { ...run, warband: { ...run.warband, salvage: 5000 } }
+    const sent = sendExpedition(rich, 'delve', ['crew-0'])
+    expect(sent.warband.salvage).toBe(5000 - expeditionCost('delve', 1, rich.encounterIndex))
+    expect(recallExpedition(sent).warband.salvage).toBe(5000)
+  })
+
+  it('refuses a bad crew rather than silently fixing it', () => {
+    const run = { ...withCrew(4), warband: { ...withCrew(4).warband, salvage: 5000 } }
+    expect(sendExpedition(run, 'delve', [])).toBe(run)
+    expect(sendExpedition(run, 'delve', ['crew-0', 'crew-0'])).toBe(run)
+    expect(sendExpedition(run, 'delve', ['nobody'])).toBe(run)
+    expect(sendExpedition(run, 'delve', ['crew-0', 'crew-1', 'crew-2', 'crew-3'])).toBe(run)
+
+    const sent = sendExpedition(run, 'delve', ['crew-0'])
+    // One expedition at a time.
+    expect(sendExpedition(sent, 'scavenge', ['crew-1'])).toBe(sent)
+  })
+
+  it('recalls a crew back to the field, leaving nothing behind', () => {
+    const run = withCrew(2)
+    const back = recallExpedition(sendExpedition(run, 'delve', ['crew-0', 'crew-1']))
+    expect(back.expedition).toBeNull()
+    expect(back.warband.prospects.filter((p) => p.fielded).length).toBe(
+      run.warband.prospects.filter((p) => p.fielded).length,
+    )
+  })
+
+  it('buys water with salvage, reliably, and rarely hurts anyone', () => {
+    /*
+     * Scavenging exists because Water caps how many bodies a warband can
+     * carry, so a run ends up with salvage it cannot spend. It converts the
+     * abundant resource into the scarce one — it must never do the reverse,
+     * and it must never pay salvage at all.
+     */
+    const waters: number[] = []
+    let injured = 0
+    const runs = 400
+    for (let i = 0; i < runs; i++) {
+      const rng = new Rng(hashSeed(`scav-${i}`))
+      const crew = [rollProspect(rng, 0, 3), rollProspect(rng, 0, 3)]
+      const { result } = resolveExpedition(rng, 'scavenge', crew, 3, rollProspect0)
+      expect(result.salvage).toBe(0)
+      expect(result.lost).toHaveLength(0)
+      expect(result.found).toHaveLength(0)
+      waters.push(result.water)
+      injured += result.injured.length
+    }
+
+    // Stable: a wage, not a gamble. Every haul within a hand's width of the mean.
+    const mean = waters.reduce((a, b) => a + b, 0) / runs
+    expect(Math.min(...waters)).toBeGreaterThan(mean * 0.85)
+    expect(Math.max(...waters)).toBeLessThan(mean * 1.15)
+    expect(injured / (runs * 2)).toBeLessThan(0.08)
+  })
+
+  it('never lets scavenging beat winning the fight, per water', () => {
+    // Encounters pay ~1.9 salvage per water. An expedition that beat that
+    // rate would just be a better battle with no enemy in it.
+    for (const index of [0, 3, 7]) {
+      const staked = expeditionCost('scavenge', 3, index)
+      const { water } = expectedHaul('scavenge', 3, index)
+      expect(staked / water).toBeGreaterThan(1)
+    }
+  })
+
+  it('makes delving a long tail, not a better wage', () => {
+    // §9 wants ~220% EV with high variance. A bell curve around 2.2x would be
+    // scavenging with extra steps — the point is that most delves disappoint
+    // and a few make the run.
+    const hauls: number[] = []
+    let lost = 0
+    let found = 0
+    const runs = 600
+    for (let i = 0; i < runs; i++) {
+      const rng = new Rng(hashSeed(`delve-${i}`))
+      const crew = [rollProspect(rng, 0, 3), rollProspect(rng, 0, 3)]
+      const { result } = resolveExpedition(rng, 'delve', crew, 3, rollProspect0)
+      hauls.push(result.salvage)
+      lost += result.lost.length
+      found += result.found.length
+    }
+
+    const mean = hauls.reduce((a, b) => a + b, 0) / runs
+    hauls.sort((a, b) => a - b)
+    const median = hauls[Math.floor(runs / 2)]
+
+    // Mean above median is the signature of a long right tail.
+    expect(mean).toBeGreaterThan(median)
+    expect(hauls[runs - 1]).toBeGreaterThan(median * 3)
+    // And it pays back more than it cost.
+    expect(mean / expeditionCost('delve', 2, 3)).toBeGreaterThan(1.2)
+
+    expect(lost / (runs * 2)).toBeGreaterThan(0.02)
+    expect(lost / (runs * 2)).toBeLessThan(0.09)
+    expect(found).toBeGreaterThan(0)
+  })
+
+  it('brings the crew home at the next camp, with what they found', () => {
+    const run = withCrew(2)
+    const sent = sendExpedition(run, 'delve', ['crew-0', 'crew-1'])
+    const marched = march(sent)
+    const won = {
+      ...marched.state,
+      phase: 'report' as const,
+      report: { won: true } as never,
+    }
+    const camp = advance(won)
+
+    expect(camp.expedition).toBeNull()
+    expect(camp.expeditionResult).not.toBeNull()
+    // Salvage arrives where it can be spent — at the shop, not mid-battle.
+    expect(camp.warband.salvage).toBeGreaterThanOrEqual(marched.state.warband.salvage)
+    // Anyone who came back is on the field again.
+    for (const p of camp.warband.prospects) {
+      if (p.id.startsWith('crew-')) expect(p.fielded).toBe(true)
+    }
   })
 })

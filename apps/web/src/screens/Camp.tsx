@@ -37,9 +37,11 @@ import type {
   RunState,
   Squad,
   SquadLeader,
+  Verb,
   Warband,
   Wound,
 } from '@salt/game'
+import ExpeditionCard from '../components/ExpeditionCard'
 import MutationTag from '../components/MutationTag'
 import UnitName from '../components/UnitName'
 import UnitShape from '../components/UnitShape'
@@ -74,6 +76,8 @@ interface Props {
   onTreatOfficer: (officerId: string) => void
   onSetFielded: (prospectId: string, fielded: boolean) => void
   onSell: (prospectId: string) => void
+  onSendExpedition: (verb: Verb, crew: string[]) => void
+  onRecallExpedition: () => void
   onMoveSquad: (squadId: string, dir: -1 | 1) => void
   onPlaceSquad: (squadId: string, toIndex: number) => void
   onMarch: () => void
@@ -591,6 +595,7 @@ const TABS = [
   { id: 'line', label: 'Line' },
   { id: 'roster', label: 'Roster' },
   { id: 'recruit', label: 'Recruit' },
+  { id: 'ruins', label: 'Ruins' },
 ] as const
 
 function Section({
@@ -624,6 +629,8 @@ export default function Camp({
   onTreatOfficer,
   onSetFielded,
   onSell,
+  onSendExpedition,
+  onRecallExpedition,
   onMoveSquad,
   onPlaceSquad,
   onMarch,
@@ -641,7 +648,7 @@ export default function Camp({
    * Officers, because those two are one question — the named tier — and they
    * were split across a tab and a dropdown.
    */
-  const [tab, setTab] = useState<'line' | 'roster' | 'recruit'>('line')
+  const [tab, setTab] = useState<'line' | 'roster' | 'recruit' | 'ruins'>('line')
   const [openInfantry, setOpenInfantry] = useState(false)
   const [dragId, setDragId] = useState<string | null>(null)
   const [dropAt, setDropAt] = useState<number | null>(null)
@@ -707,6 +714,12 @@ export default function Camp({
    * quietly costs you the whole battle it shows up in — so the tab carries a
    * mark rather than waiting to be discovered.
    */
+  const leadingIds = new Set(
+    warband.squads
+      .filter((sq) => sq.leader?.kind === 'prospect')
+      .map((sq) => sq.leader!.id),
+  )
+
   const hurt =
     warband.officers.filter((o) => o.wound).length +
     warband.prospects.filter((p) => p.wound).length
@@ -715,6 +728,7 @@ export default function Camp({
     line: warband.squads.length,
     roster: warband.officers.length + warband.prospects.length,
     recruit: run.offers.length,
+    ruins: run.expedition ? run.expedition.crew.length : 0,
   }
 
   return (
@@ -987,6 +1001,21 @@ export default function Camp({
                 ))}
               </ul>
             )}
+          </Section>
+        </div>
+
+        <div className="camp-col" hidden={tab !== 'ruins'}>
+          <Section title="Ruins" meta="the crew misses the next battle">
+            <ExpeditionCard
+              prospects={warband.prospects}
+              salvage={warband.salvage}
+              encounterIndex={run.encounterIndex}
+              expedition={run.expedition}
+              result={run.expeditionResult}
+              leadingIds={leadingIds}
+              onSend={onSendExpedition}
+              onRecall={onRecallExpedition}
+            />
           </Section>
         </div>
 

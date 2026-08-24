@@ -19,8 +19,11 @@ import {
   sellValue,
 } from './prospects.js'
 import type { MutationRoll } from './mutations.js'
+import type { Prospect } from './prospects.js'
 import { clampMorale, rollEvent } from './events.js'
 import { MORALE_PER_DESERTER, payWater } from './water.js'
+import { MAX_CREW, expeditionCost, resolveExpedition } from './expeditions.js'
+import type { Expedition, ExpeditionResult, Verb } from './expeditions.js'
 import type { GameEvent } from './events.js'
 import { MUTANT_TYPES } from './units.js'
 import { rollOfficer } from './officers.js'
@@ -99,6 +102,15 @@ export interface RunState {
    * player to notice a smaller warband.
    */
   lastUpkeep: { spent: number; deserted: number } | null
+  /**
+   * The crew that is out. Sent at camp, resolved when the NEXT camp opens —
+   * so the battle in between is fought without them and without knowing
+   * whether it paid off. That gap is the gamble; resolving on send would make
+   * it a purchase.
+   */
+  expedition: Expedition | null
+  /** What the last crew brought back. Shown at camp, then cleared. */
+  expeditionResult: ExpeditionResult | null
   outcome: 'won' | 'lost' | null
 }
 
@@ -139,6 +151,8 @@ export function newRun(seedText: string, selectedOfficer?: Officer): RunState {
     event: null,
     seenEvents: [],
     lastUpkeep: null,
+    expedition: null,
+    expeditionResult: null,
     outcome: null,
   }
 }
@@ -346,6 +360,103 @@ export function resolveEvent(state: RunState, choiceIndex: number): RunState {
       ...state.warband,
       salvage: state.warband.salvage + (choice.salvage ?? 0),
       morale: clampMorale(state.warband.morale + (choice.morale ?? 0)),
+    },
+  }
+}
+
+/**
+ * Send a crew into a ruin.
+ *
+ * The crew stops being fielded, which is the existing mechanism for "does not
+ * deploy, does not accrue battles towards Firstborn, cannot die in the
+ * battle" — exactly what being somewhere else means. setFielded also drops
+ * their squad leadership, so a squad does not keep leaking mutations from a
+ * Prospect who is two days away down a stairwell.
+ */
+export function sendExpedition(state: RunState, verb: Verb, crew: string[]): RunState {
+  if (state.expedition) return state
+  if (crew.length === 0 || crew.length > MAX_CREW) return state
+
+  const unique = [...new Set(crew)]
+  if (unique.length !== crew.length) return state
+  if (!unique.every((id) => state.warband.prospects.some((p) => p.id === id))) return state
+
+  /*
+   * Outfitting the crew is paid in SALVAGE, and staked whether or not they
+   * find anything. Without a cost, expeditions were free and delving every
+   * camp took the greedy bot from 20.8% to 66.0%. Charging WATER over-
+   * corrected it to 0.0% — water is the binding constraint, so trading it
+   * away is never right. Salvage is what a warband ends up unable to spend,
+   * which is exactly what should be at risk here.
+   */
+  const cost = expeditionCost(verb, unique.length, state.encounterIndex)
+  if (cost > state.warband.salvage) return state
+
+  let next = state
+  for (const id of unique) next = setFielded(next, id, false)
+
+  return {
+    ...next,
+    warband: { ...next.warband, salvage: next.warband.salvage - cost },
+    expedition: { verb, crew: unique, staked: cost },
+  }
+}
+
+/** Call the crew back before they leave. Free — nothing has happened yet. */
+export function recallExpedition(state: RunState): RunState {
+  if (!state.expedition) return state
+  // Full refund. They have not left camp, and a partial refund would only
+  // punish the player for changing their mind inside the same screen.
+  let next: RunState = {
+    ...state,
+    expedition: null,
+    warband: { ...state.warband, salvage: state.warband.salvage + state.expedition.staked },
+  }
+  for (const id of state.expedition.crew) next = setFielded(next, id, true)
+  return next
+}
+
+/**
+ * Bring the crew home. Called when the next camp opens.
+ *
+ * Anyone lost is removed the same way a battle death removes them — this is
+ * the permadeath tier, and a ruin is allowed to keep people.
+ */
+function returnExpedition(state: RunState): RunState {
+  const out = state.expedition
+  if (!out) return { ...state, expeditionResult: null }
+
+  const crew = state.warband.prospects.filter((p) => out.crew.includes(p.id))
+  const { result, crew: returned } = resolveExpedition(
+    state.rng,
+    out.verb,
+    crew,
+    state.encounterIndex,
+    (rng, index) => rollProspect(rng, MUTANT_TYPES[rng.int(MUTANT_TYPES.length)].id, index),
+  )
+
+  const byId = new Map(returned.map((p) => [p.id, p]))
+  const prospects = state.warband.prospects
+    .map((p) => (out.crew.includes(p.id) ? (byId.get(p.id) ?? null) : p))
+    .filter((p): p is Prospect => p !== null)
+  prospects.push(...result.found)
+
+  // A crew member who did not come back cannot still be leading a squad.
+  const alive = new Set(prospects.map((p) => p.id))
+  const squads = state.warband.squads.map((sq) =>
+    sq.leader?.kind === 'prospect' && !alive.has(sq.leader.id) ? { ...sq, leader: null } : sq,
+  )
+
+  return {
+    ...state,
+    expedition: null,
+    expeditionResult: result,
+    warband: {
+      ...state.warband,
+      squads,
+      prospects,
+      salvage: state.warband.salvage + result.salvage,
+      water: state.warband.water + result.water,
     },
   }
 }
@@ -655,14 +766,16 @@ export function advance(state: RunState): RunState {
     return { ...state, phase: 'over', outcome: 'won' }
   }
 
+  const home = returnExpedition(state)
+
   return {
-    ...state,
+    ...home,
     phase: 'camp',
     encounterIndex: next,
     offers: rollOffers(state.rng, next),
     encounter: generateEncounter(state.rng, next),
     report: null,
-    growth: rollGrowth(state.rng, state.warband, next),
+    growth: rollGrowth(state.rng, home.warband, next),
     promoted: [],
     event: rollEvent(state.rng, state.seenEvents),
     // The report has already said what the last march cost. Carrying it into

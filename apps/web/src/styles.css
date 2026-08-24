@@ -1369,3 +1369,70 @@ button.treat .price { color: var(--gold); margin-left: var(--s1); font-variant-n
   .event-choices { flex-direction: row; }
   .event-choice { flex: 1; }
 }
+
+/* ---------------------------------------------------------- expeditions -- */
+
+/* The card's job is one sentence — these people will not be at the battle —
+   so every other number on it is quieter than the crew list. */
+.expedition { display: flex; flex-direction: column; gap: var(--s3); }
+.exp-head { display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap; }
+.exp-head h3 { margin: 0; font-size: var(--t-title); }
+.exp-head .dim { font-size: var(--t-meta); }
+
+.exp-verbs { display: flex; flex-direction: column; gap: var(--s2); }
+.exp-verb {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  background: transparent;
+  padding: var(--s2) var(--s3);
+  box-shadow: inset 0 0 0 1px var(--hair);
+  border-radius: var(--radius);
+}
+.exp-verb.on { box-shadow: inset 0 0 0 1px var(--a); background: transparent; }
+.exp-verb .ec-label { color: var(--ink); }
+
+.exp-crew { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.exp-crew > li + li { border-top: 1px solid var(--hair); }
+.exp-pick {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  background: transparent;
+  padding: var(--s2) 0;
+  min-height: 44px;
+  text-align: left;
+}
+.exp-pick.on { box-shadow: inset 3px 0 0 var(--a); padding-left: var(--s2); }
+.exp-pick:disabled { opacity: 0.35; }
+
+/* Not decoration. A leading Prospect leaks its mutations to twenty bodies,
+   so this is by far the largest cost on the screen. */
+.exp-leading {
+  margin-left: auto;
+  flex: none;
+  font-size: var(--t-meta);
+  color: var(--danger);
+  white-space: nowrap;
+}
+.exp-pick .wound { margin-left: 0; }
+
+.exp-odds { margin: 0; font-size: var(--t-meta); color: var(--dim); }
+.exp-warn { margin: 0; font-size: var(--t-meta); color: var(--danger); }
+.exp-send { align-self: flex-start; }
+
+.exp-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s3);
+  border-left: 3px solid var(--a);
+  background: linear-gradient(90deg, rgba(127, 199, 187, 0.07), transparent 70%);
+}
+.exp-flavour { margin: 0; font-size: var(--t-body); color: var(--dim); }
+.exp-haul { margin: 0; font-size: var(--t-meta); font-variant-numeric: tabular-nums; }
+.exp-cost { margin: 0; font-size: var(--t-meta); color: var(--dim); }
+.expedition.out .row-note { color: var(--dim); }

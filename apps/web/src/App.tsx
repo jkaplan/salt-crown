@@ -8,6 +8,8 @@ import {
   setFielded,
   resolveEvent,
   sellProspect,
+  sendExpedition,
+  recallExpedition,
   treatWound,
   treatOfficer,
   chooseMutation,
@@ -149,6 +151,8 @@ export default function App() {
                   onTreatOfficer={(oid) => setRun(treatOfficer(run, oid))}
                   onSetFielded={(pid, f) => setRun(setFielded(run, pid, f))}
                   onSell={(pid) => setRun(sellProspect(run, pid))}
+                  onSendExpedition={(verb, crew) => setRun(sendExpedition(run, verb, crew))}
+                  onRecallExpedition={() => setRun(recallExpedition(run))}
                   onMoveSquad={(sq, dir) => setRun(moveSquad(run, sq, dir))}
                   onPlaceSquad={(sq, to) => setRun(placeSquad(run, sq, to))}
                   onMarch={onMarch}

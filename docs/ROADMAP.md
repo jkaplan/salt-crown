@@ -80,7 +80,7 @@ The mutants were then rebuilt to differ by *kind* rather than degree (three kind
 ## M3 — Ruins, machines, economy (weeks 6–7)
 
 - ~~Water, superlinear upkeep, desertion on shortfall~~ ✅ built
-- Scavenge / Delve; crews miss the next battle
+- ~~Scavenge / Delve; crews miss the next battle~~ ✅ built
 - **Bionics**: found in ruins, installed into True Kin for Salvage
 - **Machines**: 5 types, found in ruins and rare events only, degrade permanently, cost Salvage per battle to run
 - Tinkerer event — the rare exception that can restore a machine
@@ -106,6 +106,28 @@ rather than ending the run. That is §8's "a squeeze, never an execution".
 The thrifty bot completing *lower* is a limitation of the bot, not the curve —
 it can buy but never sell, so it has no way to shrink a roster it has outgrown.
 A player can sell a Prospect or let a squad go.
+
+**Expedition result:** took three versions, each corrected by measurement
+rather than argument. `sim:campaign --scavenge` / `--delve` send a maximum
+crew every camp, which is the upper bound on exploitation, not good play.
+
+| Cost model | greedy none | greedy scavenge | greedy delve |
+|---|---|---|---|
+| no cost | 20.8% | 45.2% | **66.0%** — strictly dominant |
+| staked in Water | 20.8% | **0.0%** — a trap | 9.2% |
+| staked in Salvage | 20.8% | 20.8% | 24.8% |
+
+Benching three Prospects out of a fifty-body warband is not a cost, whatever
+the flavour text says. But staking Water over-corrected: Water is the binding
+constraint, so *any* trade of water for salvage is strictly bad and the verb
+became unplayable.
+
+That second failure is what defined the system. A warband capped by Water ends
+up holding salvage it cannot spend — so crews are outfitted with **salvage**,
+and **Scavenge buys water with it**. Delve stakes salvage for more salvage,
+high variance, plus ruin finds. Both remain a modest positive at best, which
+is right for an optional action whose real cost is that the crew misses the
+next battle.
 
 ---
 
