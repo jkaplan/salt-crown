@@ -58,6 +58,8 @@ import {
   rollGrowthChoices,
   rollOfficer,
   rollOffers,
+  ORIGINS_BY_ID,
+  foundingLevel,
   generateEncounter,
   ENCOUNTERS_PER_ACT,
   ACTS,
@@ -91,7 +93,7 @@ import { TEAM_A, TEAM_B } from '@salt/sim'
 
 function start(seed = 'test-seed'): RunState {
   const leader = rollOfficer(new Rng(hashSeed(seed)), 'leader-0')
-  return newRun(seed, leader)
+  return newRun(seed, { origin: 'scion', officer: leader })
 }
 
 const ids = (run: RunState) => run.warband.squads.map((s) => s.id)
@@ -839,8 +841,15 @@ describe('reserve and market', () => {
   })
 
   it('drops a leadership when the leader is benched or sold', () => {
-    const base = start()
-    const p = base.warband.prospects[0]
+    // The Scion start fills both leader slots with Officers, so the Prospect
+    // it comes with leads nobody until told to. Set it up rather than relying
+    // on the opening roster to happen to be arranged this way.
+    const run = start()
+    const p = run.warband.prospects[0]
+    const mutantSquad = run.warband.squads.find(
+      (sq) => unitType(sq.typeId).lineage === 'mutant',
+    )!
+    const base = assignLeader(run, mutantSquad.id, { kind: 'prospect', id: p.id })
     const squad = base.warband.squads.find((s) => s.leader?.kind === 'prospect')
     expect(squad).toBeDefined()
 
@@ -1674,5 +1683,115 @@ describe('run structure', () => {
       expect(e.reward).toBeGreaterThan(encounterBudget(i) * 0.4)
       expect(e.waterReward).toBeGreaterThan(0)
     }
+  })
+})
+
+
+describe('origins', () => {
+  const firstborn = (ids: string[], seed = 'fb') =>
+    newRun(seed, { origin: 'firstborn', mutationIds: ids, name: 'Rust' })
+
+  it('gives each origin the roster §13 describes', () => {
+    const scion = start()
+    expect(scion.origin).toBe('scion')
+    expect(scion.warband.officers).toHaveLength(2)
+    expect(totalFodder(scion.warband)).toBeGreaterThanOrEqual(12)
+
+    const fb = firstborn(['horns'])
+    expect(fb.origin).toBe('firstborn')
+    expect(fb.warband.officers).toHaveLength(0)
+    // You, and one other. Both leader slots filled — see the note in
+    // origins.ts on why the second one is the origin, not a handout.
+    expect(fb.warband.prospects).toHaveLength(2)
+    expect(fb.warband.prospects[0].id).toBe('you')
+    expect(totalFodder(fb.warband)).toBeGreaterThanOrEqual(16)
+  })
+
+  it('makes you a Firstborn by proclamation, not by achievement', () => {
+    /*
+     * The Houses coined the word as a joke — a ceremonial elevation of a
+     * favoured slave. So the origin sets the title rather than handing over
+     * the five mutations that earn it, and the earned path stays exactly as
+     * hard as it was for everybody else.
+     */
+    const you = firstborn(['horns']).warband.prospects[0]
+    expect(isFirstborn(you)).toBe(true)
+    expect(you.mutations.length).toBeLessThan(FIRSTBORN_AT_MUTATIONS)
+
+    // Nobody else gets it for free.
+    const ordinary = rollProspect(new Rng(hashSeed('ord')), 0, 0)
+    expect(isFirstborn(ordinary)).toBe(false)
+  })
+
+  it('leaks your founding mutations to the squad at full strength', () => {
+    // This is why the opening choice seeds the whole run rather than being a
+    // stat bump: a Firstborn leaks at FULL level, not half.
+    const fb = firstborn(['horns'])
+    const you = fb.warband.prospects[0]
+    const squad = fb.warband.squads[0]
+
+    const led = resolveSquadStats(squad, null, you)
+    const bare = resolveSquadStats(squad, null, null)
+    expect(led.damage).toBeGreaterThan(bare.damage)
+
+    const roll = you.mutations[0]
+    expect(led.damage - bare.damage).toBeCloseTo(roll.level * 1.5, 5)
+  })
+
+  it('trades width for depth, inside one currency', () => {
+    // §13 wants "narrow and deep" to be a real alternative to "wide and
+    // shallow". Paying in salvage instead would be a different decision that
+    // happens to share a screen.
+    const one = firstborn(['horns']).warband.prospects[0]
+    const three = firstborn(['horns', 'carapace', 'bulging-sacs']).warband.prospects[0]
+
+    expect(one.mutations).toHaveLength(1)
+    expect(three.mutations).toHaveLength(3)
+    expect(one.mutations[0].level).toBeGreaterThan(three.mutations[0].level)
+    expect(foundingLevel(1)).toBeGreaterThan(foundingLevel(3))
+  })
+
+  it('taxes True Kin under a mutant without locking them out', () => {
+    /*
+     * The defining constraint of the origin, and the reason it is a tax:
+     * an origin that removes a whole system is a smaller game, not a
+     * different one. Bionics stay reachable, just slower and dearer.
+     */
+    const premium = ORIGINS_BY_ID.get('firstborn')!.truekinPremium
+    expect(premium).toBeGreaterThan(1)
+
+    let taxed = 0
+    let plain = 0
+    let truekinOffers = 0
+    for (let i = 0; i < 60; i++) {
+      const a = new Rng(hashSeed(`shop-${i}`))
+      const b = new Rng(hashSeed(`shop-${i}`))
+      const cheap = rollOffers(a, 3, 1)
+      const dear = rollOffers(b, 3, premium)
+
+      cheap.forEach((o, k) => {
+        const isTrueKin =
+          o.kind === 'officer' || unitType((o as { typeId: number }).typeId).lineage === 'truekin'
+        if (!isTrueKin) {
+          // A mutant crate costs a mutant the same as it costs anybody.
+          expect(dear[k].cost).toBe(o.cost)
+          return
+        }
+        truekinOffers++
+        plain += o.cost
+        taxed += dear[k].cost
+      })
+    }
+    expect(truekinOffers).toBeGreaterThan(0)
+    expect(taxed / plain).toBeCloseTo(premium, 1)
+  })
+
+  it('is reproducible, and different, per origin', () => {
+    expect(totalFodder(firstborn(['horns'], 'same').warband)).toBe(
+      totalFodder(firstborn(['horns'], 'same').warband),
+    )
+    expect(firstborn(['horns'], 'same').warband.officers.length).not.toBe(
+      start('same').warband.officers.length,
+    )
   })
 })

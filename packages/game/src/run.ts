@@ -5,7 +5,7 @@ import type { Encounter } from './encounters.js'
 import { rollOffers } from './shop.js'
 import type { Offer } from './shop.js'
 import { toSimGroups, totalBodies, unitType } from './roster.js'
-import type { GroupSource, Squad, SquadLeader, Warband } from './roster.js'
+import type { GroupSource, SquadLeader, Warband } from './roster.js'
 import {
   APPRAISAL_COST,
   MAX_FIELDED_PROSPECTS,
@@ -35,8 +35,8 @@ import { MAX_CREW, expeditionCost, resolveExpedition } from './expeditions.js'
 import type { Expedition, ExpeditionResult, Verb } from './expeditions.js'
 import type { GameEvent } from './events.js'
 import { MUTANT_TYPES } from './units.js'
-import { rollOfficer } from './officers.js'
-import type { Officer } from './officers.js'
+import { ORIGINS, ORIGINS_BY_ID, startingWarband } from './origins.js'
+import type { OriginId, StartChoice } from './origins.js'
 import {
   escalateWound,
   FREE_RECOVERY_MUTANT,
@@ -98,6 +98,8 @@ export interface GrowthOffer {
 
 export interface RunState {
   seedText: string
+  /** Who you are. Decides the starting roster and what True Kin charge you. */
+  origin: OriginId
   rng: Rng
   phase: Phase
   encounterIndex: number
@@ -132,38 +134,19 @@ export interface RunState {
   outcome: 'won' | 'lost' | null
 }
 
-/** One officer, a pile of fodder, and a single Prospect to care about. */
-function startingWarband(rng: Rng, selectedOfficer?: Officer): Warband {
-  const officer = selectedOfficer || rollOfficer(rng, 'off-start')
-  const prospect = rollProspect(rng, MUTANT_TYPES[2].id, 0)
-  const squads: Squad[] = [
-    { id: 'sq-start-1', typeId: MUTANT_TYPES[0].id, count: 18, leader: { kind: 'officer', id: officer.id } },
-    { id: 'sq-start-2', typeId: MUTANT_TYPES[2].id, count: 8, leader: { kind: 'prospect', id: prospect.id } },
-  ]
-  return {
-    squads,
-    prospects: [prospect],
-    officers: [officer],
-    salvage: 120,
-    // Enough for the first two marches at the opening roster. The squeeze is
-    // meant to arrive as the warband grows, not on turn one.
-    water: 220,
-    bionics: [],
-    machines: [],
-    morale: 0,
-  }
-}
-
-export function newRun(seedText: string, selectedOfficer?: Officer): RunState {
+export function newRun(seedText: string, choice: StartChoice = { origin: 'scion' }): RunState {
   const rng = new Rng(hashSeed(seedText))
-  const warband = startingWarband(rng, selectedOfficer)
+  const warband = startingWarband(rng, choice)
+  const origin = ORIGINS_BY_ID.get(choice.origin) ?? ORIGINS[0]
+
   return {
     seedText,
+    origin: origin.id,
     rng,
     phase: 'camp',
     encounterIndex: 0,
     warband,
-    offers: rollOffers(rng, 0),
+    offers: rollOffers(rng, 0, origin.truekinPremium),
     encounter: generateEncounter(rng, 0),
     report: null,
     growth: [],
@@ -924,7 +907,7 @@ export function advance(state: RunState): RunState {
     ...home,
     phase: 'camp',
     encounterIndex: next,
-    offers: rollOffers(state.rng, next),
+    offers: rollOffers(state.rng, next, ORIGINS_BY_ID.get(state.origin)?.truekinPremium ?? 1),
     encounter: generateEncounter(state.rng, next),
     report: null,
     growth: rollGrowth(state.rng, home.warband, next),

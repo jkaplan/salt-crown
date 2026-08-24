@@ -119,6 +119,16 @@ export {
 } from './machines.js'
 export type { Machine } from './machines.js'
 export { FAUNA_TYPES, BOSS_TYPES } from './wasteland.js'
+export {
+  ORIGINS,
+  ORIGINS_BY_ID,
+  MAX_FOUNDING_MUTATIONS,
+  FOUNDING_LEVELS,
+  foundingLevel,
+  foundingFirstborn,
+  startingWarband,
+} from './origins.js'
+export type { Origin, OriginId, StartChoice } from './origins.js'
 export { rollOffers } from './shop.js'
 export type { Offer, SquadOffer, OfficerOffer } from './shop.js'
 export {

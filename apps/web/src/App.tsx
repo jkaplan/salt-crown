@@ -21,7 +21,7 @@ import {
   resolveBattle,
   totalBodies,
 } from '@salt/game'
-import type { BattleSetup, Officer, RunState } from '@salt/game'
+import type { BattleSetup, Officer, OriginId, RunState } from '@salt/game'
 import type { GroupResult, Winner } from '@salt/sim'
 import Camp from './screens/Camp'
 import BattleScreen from './screens/BattleScreen'
@@ -29,12 +29,19 @@ import Report from './screens/Report'
 import Skirmish from './screens/Skirmish'
 import StartScreen from './screens/StartScreen'
 import LeaderSelect from './screens/LeaderSelect'
+import OriginSelect from './screens/OriginSelect'
+import FoundingMutations from './screens/FoundingMutations'
 import MutationLedger from './screens/MutationLedger'
 import ParametersPanel from './components/ParametersPanel'
 import type { ViewStats } from './BattleView'
 
 type Mode = 'campaign' | 'skirmish' | 'mutations'
-type Setup = 'start' | 'leader'
+/*
+ * Setup is a three-step path whose middle step depends on the origin: a Scion
+ * picks a commander, a Freed Firstborn picks what they are. §13 — "the True
+ * Kin start is about who leads you, the mutant start is about what you are."
+ */
+type Setup = 'start' | 'origin' | 'leader' | 'founding'
 
 export default function App() {
   const [mode, setMode] = useState<Mode>('campaign')
@@ -42,6 +49,7 @@ export default function App() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [seedText, setSeedText] = useState('salt-crown')
   const [setupPhase, setSetupPhase] = useState<Setup>('start')
+  const [origin, setOrigin] = useState<OriginId>('scion')
   const [playerColor, setPlayerColor] = useState('#7fc7bb')
   // Null until a commander is chosen. There is no warband before then, and
   // inventing one just to satisfy useState put a phantom roster on screen.
@@ -71,7 +79,13 @@ export default function App() {
   )
 
   const startCampaign = (leader: Officer) => {
-    setRun(newRun(seedText, leader))
+    setRun(newRun(seedText, { origin: 'scion', officer: leader }))
+    setSetup(null)
+    setLiveStats(null)
+  }
+
+  const startAsFirstborn = (mutationIds: string[], name: string) => {
+    setRun(newRun(seedText, { origin: 'firstborn', mutationIds, name }))
     setSetup(null)
     setLiveStats(null)
   }
@@ -81,27 +95,52 @@ export default function App() {
     setSetup(null)
     setLiveStats(null)
     setSetupPhase('start')
+    setOrigin('scion')
   }
 
-  const shellStyle: CSSProperties = { ['--a' as string]: playerColor }
+  const shellStyle: CSSProperties = {
+    ['--a' as string]: playerColor,
+    // Mutant starts run warmer, True Kin colder — a small tell that this is
+    // a different run before anything else on screen says so.
+    ['--origin-tint' as string]: origin === 'firstborn' ? '#c9a56b' : '#8ca0c8',
+  }
 
   /* Setup runs bare — no nav, no docked panel, nothing to inspect yet. */
   if (mode === 'campaign' && !run) {
     return (
       <div className="app setup" style={shellStyle}>
-        {setupPhase === 'start' ? (
+        {setupPhase === 'start' && (
           <StartScreen
             seedText={seedText}
             playerColor={playerColor}
             onSeedChange={setSeedText}
             onPlayerColorChange={setPlayerColor}
-            onStart={() => setSetupPhase('leader')}
+            onStart={() => setSetupPhase('origin')}
           />
-        ) : (
+        )}
+
+        {setupPhase === 'origin' && (
+          <OriginSelect
+            onBack={() => setSetupPhase('start')}
+            onSelect={(id) => {
+              setOrigin(id)
+              setSetupPhase(id === 'firstborn' ? 'founding' : 'leader')
+            }}
+          />
+        )}
+
+        {setupPhase === 'leader' && (
           <LeaderSelect
             seed={seedText}
-            onBack={() => setSetupPhase('start')}
+            onBack={() => setSetupPhase('origin')}
             onSelect={startCampaign}
+          />
+        )}
+
+        {setupPhase === 'founding' && (
+          <FoundingMutations
+            onBack={() => setSetupPhase('origin')}
+            onConfirm={startAsFirstborn}
           />
         )}
       </div>

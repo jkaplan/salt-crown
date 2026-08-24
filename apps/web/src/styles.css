@@ -1516,3 +1516,84 @@ button.install .price {
 .march-card.kind-wasteland {
   border-left: 3px solid #6f8455;
 }
+
+/* --------------------------------------------------------------- origins -- */
+
+.origin-select,
+.founding {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s4) var(--s3) calc(var(--s4) + var(--s3));
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+.setup-head h1 { margin: 0 0 var(--s2); font-size: var(--t-display); }
+.setup-head p { margin: 0; font-size: var(--t-meta); }
+.setup-actions { display: flex; gap: var(--s3); align-items: center; }
+
+/* Each card leads with the plain consequence and keeps the fiction underneath,
+   because this is the first decision of a run and the player does not yet know
+   what any of the words mean. */
+.origin-cards { display: flex; flex-direction: column; gap: var(--s3); }
+.origin-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s2);
+  text-align: left;
+  background: var(--surface);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1px var(--hair);
+}
+.origin-card:hover:not(:disabled) {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--a);
+}
+.origin-card h2 { margin: 0; font-size: var(--t-title); }
+.origin-lineage {
+  font-size: var(--t-label);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.origin-blurb { margin: 0; color: var(--dim); font-size: var(--t-body); }
+.origin-detail { margin: 0; color: var(--faint); font-size: var(--t-meta); line-height: 1.5; }
+.origin-facts { font-size: var(--t-meta); }
+
+/* The level updates live as picks change, because that trade is the whole
+   decision and putting it in prose would make it a puzzle. */
+.founding-meter {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
+}
+.founding-meter > b { font-size: var(--t-title); color: var(--gold); }
+.founding-meter > i { font-style: normal; color: var(--faint); }
+.founding-level { margin-left: auto; font-size: var(--t-meta); color: var(--dim); }
+.founding-level b { color: var(--gold); }
+
+.founding-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.founding-list > li + li { border-top: 1px solid var(--hair); }
+.founding-pick {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  background: transparent;
+  padding: var(--s2) 0;
+  min-height: 48px;
+  text-align: left;
+}
+.founding-pick.on { box-shadow: inset 3px 0 0 var(--gold); padding-left: var(--s2); }
+.founding-pick:disabled { opacity: 0.35; }
+.founding-pick .gc-effect { margin-left: auto; }
+
+.name-row { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.name-row .name-input { min-width: 160px; }

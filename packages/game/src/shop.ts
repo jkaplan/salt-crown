@@ -39,7 +39,7 @@ function newId(rng: Rng, prefix: string): string {
   return `${prefix}${rng.next().toString(36)}`
 }
 
-function rollSquadOffer(rng: Rng, encounterIndex: number): SquadOffer {
+function rollSquadOffer(rng: Rng, encounterIndex: number, truekinPremium: number): SquadOffer {
   // True Kin get commoner later, when you can actually afford them.
   const truekinChance = 0.2 + encounterIndex * 0.05
   const isTrueKin = rng.float() < truekinChance
@@ -64,6 +64,16 @@ function rollSquadOffer(rng: Rng, encounterIndex: number): SquadOffer {
   let cost = squadCost(type.id, count)
   // A standout is priced on what it can become, not just what it is.
   for (const p of prospects) cost += prospectCost(p, type.cost)
+  /*
+   * True Kin will not readily serve under a mutant, and price accordingly.
+   *
+   * Applied to the TOTAL rather than to the bodies, and only to True Kin
+   * batches — a mutant crate costs a mutant the same as it costs anybody. This
+   * one multiplier is the entire mechanical difference the Freed Firstborn
+   * origin makes to the market, which is what §13 means by the asymmetry
+   * being data rather than a system.
+   */
+  if (isTrueKin) cost *= truekinPremium
 
   return {
     kind: 'squad',
@@ -75,10 +85,15 @@ function rollSquadOffer(rng: Rng, encounterIndex: number): SquadOffer {
   }
 }
 
-/** Four batches and one officer, rerolled at every camp. */
-export function rollOffers(rng: Rng, encounterIndex: number): Offer[] {
+/**
+ * Four batches and one officer, rerolled at every camp.
+ *
+ * `truekinPremium` defaults to 1 so every existing call site — the harnesses,
+ * the tests, Skirmish — stays valid and keeps meaning "the going rate".
+ */
+export function rollOffers(rng: Rng, encounterIndex: number, truekinPremium = 1): Offer[] {
   const offers: Offer[] = []
-  for (let i = 0; i < 4; i++) offers.push(rollSquadOffer(rng, encounterIndex))
+  for (let i = 0; i < 4; i++) offers.push(rollSquadOffer(rng, encounterIndex, truekinPremium))
 
   const officer = rollOfficer(rng, newId(rng, 'off'))
   const rank = OFFICER_RANKS_BY_ID.get(officer.rankId)
@@ -86,7 +101,9 @@ export function rollOffers(rng: Rng, encounterIndex: number): Offer[] {
     kind: 'officer',
     id: newId(rng, 'o'),
     officer,
-    cost: rank?.cost ?? 100,
+    // An Officer IS a True Kin, and the most direct case of one being asked
+    // to take orders from a mutant.
+    cost: Math.round((rank?.cost ?? 100) * truekinPremium),
   })
 
   return offers

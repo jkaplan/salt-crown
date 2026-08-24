@@ -22,6 +22,11 @@
  * If greedy and thrifty complete at the same rate, Water is not doing
  * anything. If thrifty cannot finish either, the curve is too steep.
  *
+ * --firstborn plays the mutant origin instead of the Scion. The two should
+ * NOT complete at the same rate — they are different games — but neither
+ * should be unplayable, and the shape of where runs end matters more than the
+ * headline number.
+ *
  * --scavenge / --delve send a crew every camp on top of whichever bot is
  * running. The comparison that matters is against the same bot with no
  * expedition: if sending three Prospects into a ruin every single camp is
@@ -40,6 +45,10 @@ import {
   prospectPower,
   squadPower,
   totalBodies,
+  isFirstborn,
+  chooseMutation,
+  setFielded,
+  canBecomeFirstborn,
   unitType,
   waterUpkeep,
   sendExpedition,
@@ -133,6 +142,46 @@ function shop(state: RunState, thrifty: boolean): RunState {
     if (s.warband.bionics.length === before) break
   }
 
+  /*
+   * Claim every growth pick on offer.
+   *
+   * rollGrowth only OFFERS a mutation; chooseMutation is what takes it. The
+   * bot did neither for a long time, so its Prospects accrued battles and
+   * never a single mutation — which is why the harness reported zero
+   * Firstborn across 400 runs and made it look like a tuning problem. It was
+   * a harness that had never played the mutation game at all.
+   *
+   * Picks the highest level offered. A player would weigh the effect; this at
+   * least measures the pipeline instead of ignoring it.
+   */
+  for (const offer of s.growth) {
+    let best = 0
+    for (let i = 1; i < offer.choices.length; i++) {
+      if (offer.choices[i].level > offer.choices[best].level) best = i
+    }
+    s = chooseMutation(s, offer.prospectId, best)
+  }
+
+  /*
+   * Bench anyone hurt who could still become a Firstborn.
+   *
+   * Not sophistication for its own sake — without it the bot fielded every
+   * Prospect every battle and produced ZERO Firstborn across 400 runs, which
+   * makes the whole promotion pipeline unmeasurable rather than balanced. A
+   * player has this button and uses it; a bot that never does is measuring a
+   * game nobody plays.
+   *
+   * Only the wounded, and only bodies deep enough to get there. Benching a
+   * healthy one costs a fighter for nothing.
+   */
+  for (const pr of s.warband.prospects) {
+    if (pr.fielded && pr.wound && canBecomeFirstborn(pr)) {
+      s = setFielded(s, pr.id, false)
+    } else if (!pr.fielded && !pr.wound) {
+      s = setFielded(s, pr.id, true)
+    }
+  }
+
   // Officers onto the biggest squads first.
   const biggest = [...s.warband.squads].sort((a, b) => b.count - a.count)
   s.warband.officers.forEach((o, i) => {
@@ -152,15 +201,36 @@ function shop(state: RunState, thrifty: boolean): RunState {
   return s
 }
 
-function playRun(seedText: string, thrifty: boolean, verb: 'scavenge' | 'delve' | null) {
-  let state = newRun(seedText)
+function playRun(
+  seedText: string,
+  thrifty: boolean,
+  verb: 'scavenge' | 'delve' | null,
+  origin: 'scion' | 'firstborn',
+) {
+  // A bot cannot make a character-creation decision, so the mutant origin gets
+  // the widest opening: three mutations at the shallow level. A player choosing
+  // one at level 6 is a different run this harness does not measure.
+  let state =
+    origin === 'firstborn'
+      ? newRun(seedText, {
+          origin,
+          mutationIds: ['horns', 'carapace', 'bulging-sacs'],
+          name: 'Bot',
+        })
+      : newRun(seedText, { origin: 'scion' })
   let reached = 0
   let deserted = 0
   let shortMarches = 0
   let ticks = 0
+  // Counted at every camp, not at the end: a lost run ends in annihilation,
+  // so an end-of-run census of the named tier just measures how runs end.
+  let peakFirstborn = 0
+  let peakProspects = 0
 
   while (state.phase !== 'over') {
     if (state.phase === 'camp') {
+      peakFirstborn = Math.max(peakFirstborn, state.warband.prospects.filter(isFirstborn).length)
+      peakProspects = Math.max(peakProspects, state.warband.prospects.length)
       state = shop(state, thrifty)
       if (verb) {
         // Bluntly greedy: always send the maximum crew. This is the upper
@@ -195,6 +265,8 @@ function playRun(seedText: string, thrifty: boolean, verb: 'scavenge' | 'delve' 
     bodies: totalBodies(state.warband),
     salvage: state.warband.salvage,
     water: state.warband.water,
+    firstborn: peakFirstborn,
+    prospects: peakProspects,
     deserted,
     shortMarches,
     ticks,
@@ -203,6 +275,9 @@ function playRun(seedText: string, thrifty: boolean, verb: 'scavenge' | 'delve' 
 
 const runs = arg('runs', 200)
 const thrifty = process.argv.includes('--thrifty')
+const origin = process.argv.includes('--firstborn')
+  ? ('firstborn' as const)
+  : ('scion' as const)
 const verb = process.argv.includes('--delve')
   ? ('delve' as const)
   : process.argv.includes('--scavenge')
@@ -217,16 +292,20 @@ let won = 0
 let deserted = 0
 let shortMarches = 0
 let marches = 0
+let firstborn = 0
+let prospects = 0
 const runTicks: number[] = []
 const reachedHist = new Array(ENCOUNTERS_PER_RUN + 1).fill(0)
 const finalBodies: number[] = []
 
 const started = Date.now()
 for (let i = 1; i <= runs; i++) {
-  const r = playRun(`seed-${i}`, thrifty, verb)
+  const r = playRun(`seed-${i}`, thrifty, verb, origin)
   deserted += r.deserted
   shortMarches += r.shortMarches
   if (r.outcome === 'won') runTicks.push(r.ticks)
+  firstborn += r.firstborn
+  prospects += r.prospects
   marches += r.reached + 1
   if (r.outcome === 'won') {
     won++
@@ -240,6 +319,10 @@ console.log(`runs won   ${pad(won, 5)}  ${((won / runs) * 100).toFixed(1)}%`)
 console.log(
   `water      ${pad(deserted, 5)} deserters over ${marches} marches, ` +
     `${((shortMarches / marches) * 100).toFixed(1)}% of marches short\n`,
+)
+console.log(
+  `named tier  peak ${(prospects / runs).toFixed(1)} Prospects per run, ${(firstborn / runs).toFixed(2)} Firstborn
+`,
 )
 console.log('  encounters won    runs')
 console.log('  ----------------------')

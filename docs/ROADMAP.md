@@ -182,7 +182,7 @@ the run that does memorable.
 - ~~**Three bosses** — horrors from below, visibly not playing the same game~~ ✅ built
 - ~~Act 3 mass battles at 90–200+~~ ✅ built
 - The three break-run seeds from V0-DESIGN §11
-- **Two origins**: Scion of a House, and the Freed Firstborn (mutant start, True Kin at a premium)
+- ~~**Two origins**: Scion of a House, and the Freed Firstborn (mutant start, True Kin at a premium)~~ ✅ built
 
 **Exit:** you complete full runs. At least one breaks.
 

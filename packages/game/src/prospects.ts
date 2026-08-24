@@ -56,6 +56,18 @@ export interface Prospect {
   fielded: boolean
   /** Wound ladder state — docs/V0-DESIGN.md §7. null = Healthy. */
   wound: Wound | null
+  /**
+   * Carries the title without having earned it.
+   *
+   * Exactly one body in a run can: the Freed Firstborn origin's player
+   * character, elevated by their owner as a House affectation. That IS the
+   * joke the Houses were making when they coined the word — a ceremonial
+   * promotion of a favoured slave, mocking their own succession rites.
+   *
+   * Set rather than handing over five mutations, so the earned path stays
+   * exactly as hard as it was.
+   */
+  titled?: boolean
 }
 
 /**
@@ -139,11 +151,11 @@ export function isMaxed(p: Prospect): boolean {
  * legends. That scarcity is the point.
  */
 export function isFirstborn(p: Prospect): boolean {
-  return p.mutations.length >= FIRSTBORN_AT_MUTATIONS
+  return p.titled === true || p.mutations.length >= FIRSTBORN_AT_MUTATIONS
 }
 
 export function canBecomeFirstborn(p: Prospect): boolean {
-  return p.capacity >= FIRSTBORN_AT_MUTATIONS
+  return p.titled === true || p.capacity >= FIRSTBORN_AT_MUTATIONS
 }
 
 /**
