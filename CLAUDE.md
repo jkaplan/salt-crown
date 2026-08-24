@@ -10,6 +10,7 @@ Structural model is *How Many Dudes?* (roguelike autobattler, no positioning, de
 - [docs/TECH.md](docs/TECH.md) — stack decision and architecture rules.
 - [docs/V0-DESIGN.md](docs/V0-DESIGN.md) — what V0 actually is. **Read before proposing design changes.**
 - [docs/ROADMAP.md](docs/ROADMAP.md) — milestones M0–M5.
+- [docs/UX.md](docs/UX.md) — the interface system. **Follow it instead of improvising per-screen.**
 
 ## Stack
 

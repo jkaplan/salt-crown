@@ -181,6 +181,50 @@ Everything interesting happens between battles. Five levers:
 
 There is deliberately **no pre-battle order, posture, or withdrawal setting.** Composition is the pre-battle decision. Anything else is a slider players set once and ignore.
 
+## 5b. Scale — how comparable games limit forces
+
+*Research, not yet a decision. Informs the open question of how many Prospects
+a warband should hold.*
+
+Every comparable game limits something, but **almost none of them limit the
+total**. They limit the *rate of addition* or the *number fielded*:
+
+| Game | What is capped | What is not |
+|---|---|---|
+| **Battle Brothers** | 12 fielded in a battle | roster of ~20 hired |
+| **Mechabellum** | 2 unit deployments per round, plus a supply budget | total army size |
+| **Slay the Spire** | 1 card reward per fight | deck size |
+
+Two things fall out of that:
+
+**A reserve is a feature, not overflow.** Battle Brothers explicitly keeps the
+roster bigger than the battle limit so the wounded and exhausted can sit out.
+The gap between *owned* and *fielded* is where injury, recovery and rotation
+become decisions instead of bookkeeping.
+
+**Difficulty scales off the fielded force, not the roster.** Battle Brothers
+caps its AI scaling at your twelve strongest, so hoarding never taxes you.
+Salt Crown doesn't scale difficulty at all (§7), which achieves the same end
+more bluntly — but the principle matters if scaling is ever added: never make
+the reserve a punishment.
+
+**Salt Crown currently caps nothing.** Squads and Prospects are limited only
+by salvage, which is why a run drifts toward a dozen-plus Prospects — too many
+to care about individually, too few to trade as a commodity.
+
+The direction this points: **hold many, field few.** Own any number of
+Prospects, but cap how many can *lead* (~6). The rest are stock — appraised,
+sold, or waiting for a slot. That makes the trade mechanical rather than
+flavour and creates constant triage instead of pure accumulation. Pair it with
+upkeep on held stock (M3's Water economy) and hoarding gets a price, which is
+what makes a market a market.
+
+Naming note: **"Potential" should become "Prospect."** Assayers assay
+prospects; the mining register is already established, and the word means both
+"someone who might become something" and "a claim that might yield". It keeps
+the condescension too — calling a person a prospect treats them as a site to
+be worked.
+
 ## 6b. Numbers vs composition — a settled decision
 
 **Combat follows Lanchester's square law, and that is deliberate. Do not try to flatten it.**
