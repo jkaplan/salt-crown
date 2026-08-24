@@ -567,27 +567,27 @@ export class BattleView {
       const textureIndex = (group.shape % BODY_SHAPE_COUNT) * BODY_VARIANTS + variant
       const sprite = new Sprite(this.bodyTextures[textureIndex])
       sprite.anchor.set(0.5)
-      
+
       // Apply power-based scale to size
       const powerScale = this.getPowerScale(group.stats)
       this.durabilityScale[i] = powerScale
       sprite.width = group.stats.radius * 2 * powerScale
       sprite.height = group.stats.radius * 2 * powerScale
-      
+
       sprite.blendMode = 'normal'
       sprite.x = b.x[i]
       sprite.y = b.y[i]
       this.displayHealth[i] = 1
       this.invMaxHp[i] = 1 / Math.max(1, group.stats.hp)
       this.unitIsPlayer[i] = group.team === TEAM_A ? 1 : 0
-      
+
       const isLeader = group.named ?? false
       this.isLeader.push(isLeader)
-      
+
       if (isLeader) {
         this.leaderScale[i] = LEADER_SCALE
       }
-      
+
       this.sprites.push(sprite)
       this.spriteGroupIndex.push(b.group[i])
       // Add hover tooltip listeners
@@ -747,12 +747,12 @@ export class BattleView {
       sprite.visible = true
       const step = (curve * TINT_STEPS) | 0
       let baseTint = isPlayer[i] === 1 ? playerTints[step] : enemyTints[step]
-      
+
       // Leaders are brighter/more saturated to stand out
       if (this.isLeader[i]) {
         baseTint = mixHex(baseTint, 0xffffff, 0.25)
       }
-      
+
       sprite.tint = baseTint
       sprite.alpha = 0.03 + curve * 0.97
 
@@ -942,14 +942,14 @@ export class BattleView {
     const currentHp = Math.round(hp * stats.hp)
 
     const lineageEmoji = group.color === 0x5a7fa3 ? '⬡' : '✦'
-    
+
     // Enhanced layout for leaders
     let headerHtml = `
       <div style="font-weight: bold; color: #e0e0e0; margin-bottom: 6px; font-size: 12px;">
         ${lineageEmoji} ${group.label}${group.leaderLabel ? ` — <span style="color: #ffd77a;">${group.leaderLabel}</span>` : ''}
       </div>
     `
-    
+
     if (isLeader) {
       headerHtml = `
         <div style="font-weight: bold; color: #ffd77a; margin-bottom: 4px; font-size: 13px;">
