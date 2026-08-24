@@ -104,7 +104,7 @@ export function generateEncounter(rng: Rng, index: number): Encounter {
   }
 
   // Enemy bands never march a campaign, so their cistern is inert.
-  const enemy: Warband = { squads, prospects, officers, salvage: 0, water: 0, bionics: [], morale: 0 }
+  const enemy: Warband = { squads, prospects, officers, salvage: 0, water: 0, bionics: [], machines: [], morale: 0 }
   const bodies = squads.reduce((n, s) => n + s.count, 0) + prospects.length
 
   return {

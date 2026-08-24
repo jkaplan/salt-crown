@@ -82,8 +82,8 @@ The mutants were then rebuilt to differ by *kind* rather than degree (three kind
 - ~~Water, superlinear upkeep, desertion on shortfall~~ ✅ built
 - ~~Scavenge / Delve; crews miss the next battle~~ ✅ built
 - ~~**Bionics**: found in ruins, installed into True Kin for Salvage~~ ✅ built
-- **Machines**: 5 types, found in ruins and rare events only, degrade permanently, cost Salvage per battle to run
-- Tinkerer event — the rare exception that can restore a machine
+- ~~**Machines**: 5 types, found in ruins and rare events only, degrade permanently, cost Salvage per battle to run~~ ✅ built
+- ~~Tinkerer event — the rare exception that can restore a machine~~ ✅ built
 - Ruin flavor and outcome text; first hints of what's below
 
 **Exit:** you delve instead of reinforcing, lose the next battle for it, and feel that it was your call.
@@ -149,6 +149,29 @@ which is the *expected* result, not a failure: §13 says bionics are "taxed,
 not locked" and that mutation stacking is the path of least resistance. A bot
 that buys the cheapest power per salvage will always take the mutant path. The
 thrifty bot, which cannot overbuy bodies, gains materially (17.6% → 20.8%).
+
+**Machine result:** first pass got both halves wrong, and the probe said so.
+
+*Decay was a cliff.* Condition scaled every stat at once, which compounds — at
+condition 4 a Chrome Warden held 0.82 of hp AND damage AND armour AND accuracy
+AND speed, about 0.55 of its effective power. It went 78% → 56% → 5% wins in
+two battles. Six condition has to mean roughly six battles, so condition now
+touches **hp, damage and cycle time only**, floor 0.6. Against 80 Chaff:
+
+| Condition | 6 | 5 | 4 | 3 | 2 | 1 |
+|---|---|---|---|---|---|---|
+| Wins | 96% | 96% | 96% | 86% | 24% | 0% |
+
+Strong for four battles, wobbling at three, visibly finished at one.
+
+*And they were not "far above everything".* One machine beat ~30 Chaff — 60
+salvage of bodies, against 55 salvage **per battle** to run. Stats roughly
+tripled; a machine now beats 60–80 Chaff, and Water per machine went 3 → 12
+because the superlinear term is driven by headcount and a machine is one head:
+against a 40-body warband, three machines took the bill from 80 to 158.
+
+Delve finds one at 7%, so most runs never see a machine — which is what makes
+the run that does memorable.
 
 ---
 

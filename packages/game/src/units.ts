@@ -15,6 +15,7 @@ import type { UnitType } from '@salt/sim'
 
 const MUTANT = 'mutant' as const
 const TRUEKIN = 'truekin' as const
+const MACHINE = 'machine' as const
 
 /**
  * The five mutants are differentiated by *kind*, not degree. Because armour is
@@ -29,7 +30,7 @@ const TRUEKIN = 'truekin' as const
  *
  * Fielding only one kind is a real mistake. That is the point.
  */
-export const UNIT_TYPES: readonly UnitType[] = [
+const RECRUITABLE: readonly UnitType[] = [
   {
     id: 0,
     name: 'Chaff',
@@ -174,6 +175,104 @@ export const UNIT_TYPES: readonly UnitType[] = [
   },
 ]
 
+/**
+ * The five machines. Lost technology — nobody can build them, and nobody
+ * fully understands them either.
+ *
+ * They are STRICTLY BETTER than anything in the other two pools, and that is
+ * deliberate: §3 self-balances it by making them finite, decaying, and
+ * expensive to merely own. A machine cannot be bought at any price, arrives at
+ * full power, loses condition every battle it fights, and is gone forever when
+ * destroyed.
+ *
+ * `cost` is a notional worth, never a price. It is used for power scoring and
+ * the matchup harness; nothing offers a machine for sale, because the shop
+ * builds its stock from MUTANT_TYPES and TRUEKIN_TYPES only.
+ *
+ * PLACEHOLDER NUMBERS.
+ */
+export const MACHINE_TYPES: readonly UnitType[] = [
+  {
+    id: 10,
+    name: 'Chrome Warden',
+    lineage: MACHINE,
+    cost: 260,
+    color: 0xb8c4cc,
+    blurb: 'Still holding a door that is no longer there.',
+    description:
+      'A House security frame, left standing when the House stopped. It has been executing the same standing order for four generations and has never once been relieved. Enormously armoured, slow, and completely indifferent to being shot.',
+    base: {
+      hp: 1100, armor: 15, damage: 62, attackInterval: 13,
+      range: 26, moveSpeed: 2.8, accuracy: 0.86, evade: 0.02, radius: 12,
+    },
+  },
+  {
+    id: 11,
+    name: 'Ordnance Frame',
+    lineage: MACHINE,
+    cost: 300,
+    color: 0xc9a56b,
+    blurb: 'Fires once. That is usually sufficient.',
+    description:
+      'A siege platform on three legs, built to break fortifications that no longer exist. Its ranging optics still work. Its armour never did — it was meant to be escorted, and it has not been escorted in a very long time.',
+    base: {
+      hp: 380, armor: 3, damage: 240, attackInterval: 34,
+      range: 340, moveSpeed: 2.2, accuracy: 0.92, evade: 0.03, radius: 11,
+    },
+  },
+  {
+    id: 12,
+    name: 'Sweeper',
+    lineage: MACHINE,
+    cost: 230,
+    color: 0x9fb8a0,
+    blurb: 'Sanitation. Of a kind.',
+    description:
+      'A maintenance unit that classifies anything moving in a restricted corridor as debris. It is very fast, it is not very strong, and it has never been told the corridor is gone.',
+    base: {
+      hp: 400, armor: 5, damage: 34, attackInterval: 5,
+      range: 24, moveSpeed: 8.5, accuracy: 0.9, evade: 0.16, radius: 8,
+    },
+  },
+  {
+    id: 13,
+    name: 'Hauler-Nine',
+    lineage: MACHINE,
+    cost: 240,
+    color: 0x8a8f7a,
+    blurb: 'Carries. Will not stop carrying.',
+    description:
+      'A cargo walker with nothing left to deliver. It is barely a weapon and very nearly unkillable, and a line that forms up behind one tends to survive the opening exchange.',
+    base: {
+      hp: 2200, armor: 10, damage: 40, attackInterval: 20,
+      range: 24, moveSpeed: 3.0, accuracy: 0.74, evade: 0.01, radius: 12,
+    },
+  },
+  {
+    id: 14,
+    name: 'Arc Caster',
+    lineage: MACHINE,
+    cost: 285,
+    color: 0x8fd0e0,
+    blurb: 'The air goes strange a half-second before.',
+    description:
+      'Nobody agrees on what it was for. It throws current a long way with unsettling precision, and the wasteland has learned to read the smell that comes before it discharges.',
+    base: {
+      hp: 460, armor: 6, damage: 105, attackInterval: 16,
+      range: 260, moveSpeed: 3.4, accuracy: 0.95, evade: 0.05, radius: 10,
+    },
+  },
+]
+
+/**
+ * Indexed by id — unitType(typeId) is UNIT_TYPES[typeId], so order matters and
+ * machines have to live in here. They are deliberately NOT in either
+ * purchasable pool: the shop and the encounter generator both build from
+ * MUTANT_TYPES and TRUEKIN_TYPES, so a machine can never be offered for sale
+ * or fielded by a rival band.
+ */
+export const UNIT_TYPES: readonly UnitType[] = [...RECRUITABLE, ...MACHINE_TYPES]
+
 export const MUTANT_TYPES = UNIT_TYPES.filter((u) => u.lineage === MUTANT)
 export const TRUEKIN_TYPES = UNIT_TYPES.filter((u) => u.lineage === TRUEKIN)
 
@@ -191,7 +290,5 @@ export const DISCIPLINE: Record<UnitType['lineage'], number> = {
   truekin: 0.78,
   // Machines never notice their own losses. That is the balance for them
   // being far above everything else in a fight — see CLAUDE.md's invariants.
-  // No machine unit types exist yet (M3); the rate does, so nothing has to
-  // remember to add it later.
   machine: 1,
 }

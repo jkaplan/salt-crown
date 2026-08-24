@@ -20,9 +20,17 @@ import {
 } from './prospects.js'
 import type { MutationRoll } from './mutations.js'
 import type { Prospect } from './prospects.js'
+import type { Machine } from './machines.js'
 import { clampMorale, rollEvent } from './events.js'
 import { MORALE_PER_DESERTER, payWater } from './water.js'
 import { BIONICS, BIONICS_BY_ID, BIONIC_SLOTS } from './bionics.js'
+import {
+  MACHINE_CONDITION_MAX,
+  MACHINE_RUN_COST,
+  isScrap,
+  machineTitle,
+  rollMachine,
+} from './machines.js'
 import { MAX_CREW, expeditionCost, resolveExpedition } from './expeditions.js'
 import type { Expedition, ExpeditionResult, Verb } from './expeditions.js'
 import type { GameEvent } from './events.js'
@@ -53,6 +61,14 @@ export interface SquadLoss {
   damageTaken: number
 }
 
+export interface MachineLoss {
+  name: string
+  label: string
+  destroyed: boolean
+  /** Condition left after the battle wore it down. */
+  condition: number
+}
+
 export interface ProspectLoss {
   name: string
   label: string
@@ -66,9 +82,10 @@ export interface BattleReport {
   salvageEarned: number
   waterEarned: number
   /** What getting here cost, and who walked rather than march thirsty. */
-  upkeep: { spent: number; deserted: number } | null
+  upkeep: { spent: number; deserted: number; cold: number } | null
   squads: SquadLoss[]
   prospects: ProspectLoss[]
+  machines: MachineLoss[]
   enemy: GroupResult[]
   ticks: number
 }
@@ -102,7 +119,7 @@ export interface RunState {
    * report and the next camp can say what happened rather than leaving the
    * player to notice a smaller warband.
    */
-  lastUpkeep: { spent: number; deserted: number } | null
+  lastUpkeep: { spent: number; deserted: number; cold: number } | null
   /**
    * The crew that is out. Sent at camp, resolved when the NEXT camp opens —
    * so the battle in between is fought without them and without knowing
@@ -132,6 +149,7 @@ function startingWarband(rng: Rng, selectedOfficer?: Officer): Warband {
     // meant to arrive as the warband grows, not on turn one.
     water: 220,
     bionics: [],
+    machines: [],
     morale: 0,
   }
 }
@@ -354,12 +372,36 @@ export function resolveEvent(state: RunState, choiceIndex: number): RunState {
   if (!state.event || !choice) return state
   if (choice.requires !== undefined && state.warband.salvage < choice.requires) return state
 
+  /*
+   * The Tinkerer — §3's "exception that proves the rule". The only thing in
+   * the game that puts condition back, and it arrives as an event rather than
+   * a service because a shop that sells repairs turns a decaying asset into an
+   * ordinary one.
+   *
+   * Applied to the MOST WORN machine, which is what somebody would actually
+   * work on, and which means the player never has to pick a target inside an
+   * event choice.
+   */
+  let machines = state.warband.machines
+  if (choice.restoreMachine && machines.length > 0) {
+    let worst = 0
+    for (let i = 1; i < machines.length; i++) {
+      if (machines[i].condition < machines[worst].condition) worst = i
+    }
+    machines = machines.map((m, i) =>
+      i === worst
+        ? { ...m, condition: Math.min(MACHINE_CONDITION_MAX, m.condition + choice.restoreMachine!) }
+        : m,
+    )
+  }
+
   return {
     ...state,
     event: null,
     seenEvents: [...state.seenEvents, state.event.id],
     warband: {
       ...state.warband,
+      machines,
       salvage: state.warband.salvage + (choice.salvage ?? 0),
       morale: clampMorale(state.warband.morale + (choice.morale ?? 0)),
     },
@@ -436,6 +478,7 @@ function returnExpedition(state: RunState): RunState {
     state.encounterIndex,
     (rng, index) => rollProspect(rng, MUTANT_TYPES[rng.int(MUTANT_TYPES.length)].id, index),
     (rng) => BIONICS[rng.int(BIONICS.length)].id,
+    rollMachine,
   )
 
   const byId = new Map(returned.map((p) => [p.id, p]))
@@ -461,6 +504,7 @@ function returnExpedition(state: RunState): RunState {
       salvage: state.warband.salvage + result.salvage,
       water: state.warband.water + result.water,
       bionics: [...state.warband.bionics, ...result.salvaged],
+      machines: [...state.warband.machines, ...result.machines],
     },
   }
 }
@@ -642,19 +686,51 @@ export function buildBattle(state: RunState): BattleSetup {
 export function march(state: RunState): { state: RunState; setup: BattleSetup } {
   const { squads, deserted, spent, remaining } = payWater(state.warband)
 
+  /*
+   * Machines cost salvage per battle just to run — §3's "expensive to merely
+   * own". Anything the warband cannot pay for stays cold and does not march:
+   * a visible consequence, rather than a hidden extra step of degradation
+   * that the player would only notice as a machine dying early.
+   *
+   * Cheapest possible rule, deliberately: they come off the end of the list,
+   * so the player controls which ones by ordering them, the same way the
+   * battle line works.
+   */
+  let salvage = state.warband.salvage
+  const running: Machine[] = []
+  const cold: Machine[] = []
+  for (const m of state.warband.machines) {
+    if (salvage >= MACHINE_RUN_COST) {
+      salvage -= MACHINE_RUN_COST
+      running.push(m)
+    } else {
+      cold.push(m)
+    }
+  }
+
   const marched: RunState = {
     ...state,
     phase: 'battle',
     warband: {
       ...state.warband,
       squads,
+      salvage,
       water: remaining,
+      // Only the machines that are running take the field. The cold ones are
+      // still owned, still drink, and are back on the list next camp.
+      machines: running,
       morale: clampMorale(state.warband.morale - deserted * MORALE_PER_DESERTER),
     },
-    lastUpkeep: { spent, deserted },
+    lastUpkeep: { spent, deserted, cold: cold.length },
   }
 
-  return { state: marched, setup: buildBattle(marched) }
+  const setup = buildBattle(marched)
+  // Put the cold ones back before handing the state on, so they are not
+  // quietly lost between the march and the report.
+  return {
+    state: { ...marched, warband: { ...marched.warband, machines: [...running, ...cold] } },
+    setup,
+  }
 }
 
 /**
@@ -681,8 +757,10 @@ export function resolveBattle(
 
   const squadResult = new Map<string, GroupResult>()
   const prospectResult = new Map<string, GroupResult>()
+  const machineResult = new Map<string, GroupResult>()
   playerSources.forEach((src, i) => {
     if (src.kind === 'squad') squadResult.set(src.id, playerResults[i])
+    else if (src.kind === 'machine') machineResult.set(src.id, playerResults[i])
     else prospectResult.set(src.id, playerResults[i])
   })
 
@@ -762,6 +840,34 @@ export function resolveBattle(
     return alive ? sq : { ...sq, leader: null }
   })
 
+  /*
+   * Machines only degrade — §3. One step of condition per battle FOUGHT, so a
+   * machine left cold at the march keeps what it has; that is the only lever
+   * the player has over the clock, and it is why the running cost is a
+   * decision rather than a tax.
+   *
+   * Destroyed is permanent and total. There is no wound ladder here: a body
+   * can be Strained and recover, a machine that stops is scrap. Nobody can
+   * build another one.
+   */
+  const machineLosses: MachineLoss[] = []
+  const machines = state.warband.machines
+    .map((m) => {
+      const r = machineResult.get(m.id)
+      if (!r) return m // stayed cold; no wear, no risk
+      const destroyed = r.survived === 0
+      const worn = { ...m, condition: m.condition - 1 }
+      machineLosses.push({
+        name: m.name,
+        label: machineTitle(m, unitType(m.typeId).name),
+        destroyed,
+        condition: Math.max(0, worn.condition),
+      })
+      if (destroyed || isScrap(worn)) return null
+      return worn
+    })
+    .filter((m): m is NonNullable<typeof m> => m !== null)
+
   const salvageEarned = won ? state.encounter.reward : 0
   // Winning refills the cistern. In V0 this is the only source of water —
   // expeditions (§9) are the other one and are not built yet, which is why
@@ -776,6 +882,7 @@ export function resolveBattle(
       squads: survivingSquads,
       prospects,
       officers,
+      machines,
       salvage: state.warband.salvage + salvageEarned,
       water: state.warband.water + waterEarned,
     },
@@ -787,6 +894,7 @@ export function resolveBattle(
       upkeep: state.lastUpkeep,
       squads: squadLosses,
       prospects: prospectLosses,
+      machines: machineLosses,
       enemy: enemyResults,
       ticks,
     },
@@ -821,7 +929,13 @@ export function advance(state: RunState): RunState {
     report: null,
     growth: rollGrowth(state.rng, home.warband, next),
     promoted: [],
-    event: rollEvent(state.rng, state.seenEvents),
+    // The gate is read from the warband AFTER the crew comes home, so a
+    // machine that walked out of a ruin this camp can be worked on this camp.
+    event: rollEvent(
+      state.rng,
+      state.seenEvents,
+      new Set(home.warband.machines.length > 0 ? (['machine'] as const) : []),
+    ),
     // The report has already said what the last march cost. Carrying it into
     // the next camp would put a stale number next to the live one.
     lastUpkeep: null,

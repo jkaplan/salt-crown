@@ -3,6 +3,8 @@ import type { ResolvedStats, SimGroup, UnitType } from '@salt/sim'
 import { MUTATIONS_BY_ID, leakLevel } from './mutations.js'
 import type { MutationRoll } from './mutations.js'
 import { applyBionics } from './bionics.js'
+import { applyCondition, machineTitle } from './machines.js'
+import type { Machine } from './machines.js'
 import { OFFICER_RANKS_BY_ID, officerTitle } from './officers.js'
 import type { Officer } from './officers.js'
 import {
@@ -61,6 +63,11 @@ export interface Warband {
    * see water.ts. Salvage rewards a good decision; Water punishes a big one.
    */
   water: number
+  /**
+   * Machines. Found only, never bought — see machines.ts. Individuals, like
+   * Prospects, because you never have enough of them to be anonymous.
+   */
+  machines: Machine[]
   /**
    * Bionics found and not yet installed. Ruin-only — this is the mechanical
    * reason delving exists for a True Kin warband (V0-DESIGN §3).
@@ -163,6 +170,23 @@ export function resolveProspectStats(p: Prospect): ResolvedStats {
   return clamp(s)
 }
 
+/**
+ * A machine's own stats, worn down by its condition.
+ *
+ * No mutations (they are not alive), no bionics (they are not True Kin), no
+ * wound ladder (wear is not a hit location). Condition is the whole of it,
+ * which is why it is the only number the roster shows.
+ */
+export function resolveMachineStats(m: Machine): ResolvedStats {
+  const s = baseStats(m.typeId)
+  applyCondition(s, m.condition)
+  return clamp(s)
+}
+
+export function machinePower(m: Machine): number {
+  return statPower(resolveMachineStats(m), 1)
+}
+
 export function resolveDiscipline(
   typeId: number,
   officer: Officer | null,
@@ -202,7 +226,7 @@ export function totalFodder(w: Warband): number {
 }
 
 export function totalBodies(w: Warband): number {
-  return totalFodder(w) + w.prospects.length
+  return totalFodder(w) + w.prospects.length + w.machines.length
 }
 
 export function warbandPower(w: Warband): number {
@@ -210,7 +234,9 @@ export function warbandPower(w: Warband): number {
     w.squads.reduce(
       (sum, sq) => sum + squadPower(sq, findOfficer(w, sq), findLeadingProspect(w, sq)),
       0,
-    ) + w.prospects.reduce((sum, p) => sum + prospectPower(p), 0)
+    ) +
+    w.prospects.reduce((sum, p) => sum + prospectPower(p), 0) +
+    w.machines.reduce((sum, m) => sum + machinePower(m), 0)
   )
 }
 
@@ -224,7 +250,7 @@ export function fodderByType(w: Warband): { typeId: number; count: number }[] {
 }
 
 export interface GroupSource {
-  kind: 'squad' | 'prospect'
+  kind: 'squad' | 'prospect' | 'machine'
   id: string
 }
 
@@ -290,6 +316,28 @@ export function toSimGroups(
       named: true,
     })
     sources.push({ kind: 'prospect', id: p.id })
+  }
+
+  /*
+   * Machines fight as individuals, like Prospects, and for the same reason —
+   * there are never enough of them for one to be anonymous. Discipline 1:
+   * a machine does not notice its own losses, which is the balance for it
+   * being far above everything else (V0-DESIGN §7).
+   */
+  for (const m of w.machines) {
+    const type = unitType(m.typeId)
+    groups.push({
+      team,
+      count: 1,
+      label: machineTitle(m, type.name),
+      color: type.color,
+      shape: squadShape(m.typeId),
+      stats: resolveMachineStats(m),
+      discipline: 1,
+      leaderLabel: m.name,
+      named: true,
+    })
+    sources.push({ kind: 'machine', id: m.id })
   }
 
   return { groups, sources }

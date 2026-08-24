@@ -1,6 +1,7 @@
 import { Rng } from '@salt/sim'
 import { escalateWound } from './wounds.js'
 import type { Prospect } from './prospects.js'
+import type { Machine } from './machines.js'
 
 /**
  * Expeditions — docs/V0-DESIGN.md §9.
@@ -45,6 +46,8 @@ export interface ExpeditionResult {
   found: Prospect[]
   /** Bionic ids pulled out of the ruin. Delve only — see bionics.ts. */
   salvaged: string[]
+  /** Machines walked out of the ruin. Delve only, and rare — see machines.ts. */
+  machines: Machine[]
   /** Crew who came back hurt, by name. */
   injured: string[]
   /** Crew who did not come back at all. Delve only. */
@@ -127,6 +130,17 @@ const DELVE_PROSPECT_CHANCE = 0.3
  */
 const DELVE_BIONIC_CHANCE = 0.34
 
+/**
+ * Chance a delve wakes something up and it follows them home.
+ *
+ * The rarest outcome in the game, and it has to be: machines are strictly
+ * better than anything you can buy, and §3 balances that with scarcity as much
+ * as with decay. At 7% a crew delving every camp of an eight-encounter run
+ * finds roughly one. Most runs never see a machine at all, which is what makes
+ * the run that does memorable.
+ */
+const DELVE_MACHINE_CHANCE = 0.07
+
 const SCAVENGE_FLAVOUR = [
   'A collapsed depot, picked over twice already. They found the third layer.',
   'Rail ties, cable, and a cistern that had not cracked. Unglamorous.',
@@ -172,6 +186,7 @@ export function resolveExpedition(
   encounterIndex: number,
   rollFound: (rng: Rng, index: number) => Prospect,
   rollBionic: (rng: Rng) => string,
+  rollMachine: (rng: Rng) => Machine,
 ): { result: ExpeditionResult; crew: Prospect[] } {
   const isDelve = verb === 'delve'
   const mult = isDelve ? delveMultiplier(rng) : 0.9 + rng.float() * 0.2
@@ -205,9 +220,11 @@ export function resolveExpedition(
 
   const found: Prospect[] = []
   const salvaged: string[] = []
+  const machines: Machine[] = []
   if (isDelve && crew.length > 0) {
     if (rng.float() < DELVE_PROSPECT_CHANCE) found.push(rollFound(rng, encounterIndex))
     if (rng.float() < DELVE_BIONIC_CHANCE) salvaged.push(rollBionic(rng))
+    if (rng.float() < DELVE_MACHINE_CHANCE) machines.push(rollMachine(rng))
   }
 
   return {
@@ -218,6 +235,7 @@ export function resolveExpedition(
       water,
       found,
       salvaged,
+      machines,
       injured,
       lost,
       flavour: flavourPool[rng.int(flavourPool.length)],

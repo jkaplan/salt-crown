@@ -1465,3 +1465,33 @@ button.install .price {
   margin-left: var(--s1);
   font-variant-numeric: tabular-nums;
 }
+
+/* ------------------------------------------------------------ machines -- */
+
+/* Cold metal against the mutant gold and the True Kin blue. A machine should
+   not read as a member of the warband — it reads as equipment that walks. */
+.machine-name { color: #cfe0e8; letter-spacing: 0.04em; }
+.row.machine.cold { opacity: 0.62; }
+
+/* Condition as a track, not a word alone: the player needs to see how many
+   battles are left in it, because that is the decision — spend it now, or
+   hold it for something worse. */
+.condition { margin-left: auto; display: inline-flex; align-items: center; gap: 3px; flex: none; cursor: help; }
+.condition .notch {
+  width: 4px;
+  height: 12px;
+  border-radius: 1px;
+  background: var(--hair);
+}
+.condition .notch.on { background: #cfe0e8; }
+.condition-word {
+  margin-left: var(--s1);
+  font-size: var(--t-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.condition.c-failing .notch.on { background: #d8b46a; }
+.condition.c-failing .condition-word { color: #d8b46a; }
+.condition.c-barely .notch.on { background: var(--danger); }
+.condition.c-barely .condition-word { color: var(--danger); }

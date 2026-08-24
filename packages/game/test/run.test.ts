@@ -41,6 +41,14 @@ import {
   BIONICS,
   BIONICS_BY_ID,
   BIONIC_SLOTS,
+  rollMachine,
+  MACHINE_CONDITION_MAX,
+  MACHINE_RUN_COST,
+  conditionMultiplier,
+  machinePower,
+  statPower,
+  MACHINE_TYPES,
+  resolveMachineStats,
   sellValue,
   fieldedCount,
   MAX_FIELDED_PROSPECTS,
@@ -49,6 +57,8 @@ import {
   ASSUMED_CAPACITY,
   rollGrowthChoices,
   rollOfficer,
+  rollOffers,
+  generateEncounter,
   squadLabel,
   toSimGroups,
   totalBodies,
@@ -902,14 +912,29 @@ describe('events and morale', () => {
   it('never repeats an event within a run', () => {
     const rng = new Rng(hashSeed('events'))
     const seen: string[] = []
+    const all = new Set<'machine'>(['machine'])
     for (let i = 0; i < EVENTS.length; i++) {
-      const e = rollEvent(rng, seen)
+      const e = rollEvent(rng, seen, all)
       expect(e).not.toBeNull()
       expect(seen).not.toContain(e!.id)
       seen.push(e!.id)
     }
     // Table exhausted — a run simply stops having events rather than looping.
-    expect(rollEvent(rng, seen)).toBeNull()
+    expect(rollEvent(rng, seen, all)).toBeNull()
+  })
+
+  it('never offers an event the warband cannot act on', () => {
+    // The Tinkerer turning up for a warband with no machine reads as a bug,
+    // not as flavour.
+    const gated = EVENTS.filter((e) => e.needs)
+    expect(gated.length).toBeGreaterThan(0)
+
+    const rng = new Rng(hashSeed('gate'))
+    const none = new Set<'machine'>()
+    for (let i = 0; i < 200; i++) {
+      const e = rollEvent(rng, [], none)
+      expect(e!.needs).toBeUndefined()
+    }
   })
 
   it('feeds morale into every squad’s discipline', () => {
@@ -961,6 +986,7 @@ describe('water and upkeep', () => {
     salvage: 0,
     water: 0,
     bionics: [],
+    machines: [],
     morale: 0,
   })
 
@@ -1154,7 +1180,7 @@ describe('expeditions', () => {
     for (let i = 0; i < runs; i++) {
       const rng = new Rng(hashSeed(`scav-${i}`))
       const crew = [rollProspect(rng, 0, 3), rollProspect(rng, 0, 3)]
-      const { result } = resolveExpedition(rng, 'scavenge', crew, 3, rollProspect0, rollBionic0)
+      const { result } = resolveExpedition(rng, 'scavenge', crew, 3, rollProspect0, rollBionic0, rollMachine)
       expect(result.salvage).toBe(0)
       expect(result.lost).toHaveLength(0)
       expect(result.found).toHaveLength(0)
@@ -1190,7 +1216,7 @@ describe('expeditions', () => {
     for (let i = 0; i < runs; i++) {
       const rng = new Rng(hashSeed(`delve-${i}`))
       const crew = [rollProspect(rng, 0, 3), rollProspect(rng, 0, 3)]
-      const { result } = resolveExpedition(rng, 'delve', crew, 3, rollProspect0, rollBionic0)
+      const { result } = resolveExpedition(rng, 'delve', crew, 3, rollProspect0, rollBionic0, rollMachine)
       hauls.push(result.salvage)
       lost += result.lost.length
       found += result.found.length
@@ -1343,12 +1369,164 @@ describe('bionics', () => {
     for (let i = 0; i < 300; i++) {
       const rng = new Rng(hashSeed(`bio-${i}`))
       const crew = [rollProspect(rng, 0, 2)]
-      const scav = resolveExpedition(rng, 'scavenge', crew, 2, rollProspect0, rollBionic0)
+      const scav = resolveExpedition(rng, 'scavenge', crew, 2, rollProspect0, rollBionic0, rollMachine)
       expect(scav.result.salvaged).toEqual([])
 
-      const delve = resolveExpedition(rng, 'delve', crew, 2, rollProspect0, rollBionic0)
+      const delve = resolveExpedition(rng, 'delve', crew, 2, rollProspect0, rollBionic0, rollMachine)
       salvaged += delve.result.salvaged.length
     }
     expect(salvaged).toBeGreaterThan(50)
+  })
+})
+
+describe('machines', () => {
+  const withMachine = (condition = MACHINE_CONDITION_MAX) => {
+    const run = start()
+    const m = { ...rollMachine(new Rng(hashSeed('m1'))), id: 'm1', condition }
+    return {
+      ...run,
+      warband: { ...run.warband, salvage: 5000, machines: [m] },
+    }
+  }
+
+  it('is never for sale, anywhere', () => {
+    /*
+     * V0-DESIGN §3: "not sold in the recruit screen — found in ruins and rare
+     * events, and that's the only way to get one." The shop and the encounter
+     * generator both build from the two purchasable pools, so this holds by
+     * construction — but it is the kind of invariant that a later refactor
+     * reaching for UNIT_TYPES would quietly break.
+     */
+    const rng = new Rng(hashSeed('market'))
+    for (let i = 0; i < 200; i++) {
+      for (const offer of rollOffers(rng, i % ENCOUNTERS_PER_RUN)) {
+        if (offer.kind === 'squad') {
+          expect(unitType(offer.typeId).lineage).not.toBe('machine')
+        }
+      }
+    }
+    // And no rival band fields one either.
+    for (let i = 0; i < 100; i++) {
+      const enc = generateEncounter(rng, i % ENCOUNTERS_PER_RUN)
+      for (const sq of enc.enemy.squads) {
+        expect(unitType(sq.typeId).lineage).not.toBe('machine')
+      }
+    }
+  })
+
+  it('only degrades, and only when it fights', () => {
+    const run = withMachine()
+    const marched = march(run)
+    const battled = resolveBattle(
+      marched.state,
+      marched.setup.playerSources.map((src) => ({
+        label: 'x',
+        started: 1,
+        dead: 0,
+        survived: 1,
+        endEffectiveness: 1,
+        damageDealt: 0,
+        damageTaken: 0,
+        team: src.kind === 'machine' ? TEAM_A : TEAM_A,
+      })) as never,
+      TEAM_A,
+      100,
+      marched.setup.playerSources,
+    )
+    expect(battled.warband.machines[0].condition).toBe(MACHINE_CONDITION_MAX - 1)
+    // Nothing puts it back. Condition is a one-way trip.
+    expect(battled.warband.machines[0].condition).toBeLessThan(run.warband.machines[0].condition)
+  })
+
+  it('wears down without falling off a cliff', () => {
+    /*
+     * Condition touches hp, damage and cycle time. NOT armour, accuracy or
+     * speed — those are what the thing is, and a worn machine is weaker and
+     * slower to fire, not suddenly a bad shot.
+     *
+     * The distinction is not cosmetic. Scaling every stat by the same factor
+     * compounds: at condition 4 a Chrome Warden was on 0.82 of five stats at
+     * once, about 0.55 of its effective power, and it went from 78% wins to
+     * 5% in two battles. Six condition has to mean roughly six battles.
+     */
+    const fresh = resolveMachineStats(withMachine(MACHINE_CONDITION_MAX).warband.machines[0])
+    const worn = resolveMachineStats(withMachine(1).warband.machines[0])
+
+    expect(worn.hp).toBeLessThan(fresh.hp)
+    expect(worn.damage).toBeLessThan(fresh.damage)
+    expect(worn.attackInterval).toBeGreaterThan(fresh.attackInterval)
+
+    expect(worn.armor).toBe(fresh.armor)
+    expect(worn.accuracy).toBe(fresh.accuracy)
+    expect(worn.moveSpeed).toBe(fresh.moveSpeed)
+
+    expect(conditionMultiplier(MACHINE_CONDITION_MAX)).toBe(1)
+    // Even a wreck is still a machine. The floor is high on purpose.
+    expect(conditionMultiplier(0)).toBeGreaterThan(0.5)
+  })
+
+  it('is far above anything that can be bought', () => {
+    // §3: "rare and devastating", "far above everything". A machine that
+    // traded evenly with cheap fodder would just be an expensive squad.
+    for (const type of MACHINE_TYPES) {
+      const m = { id: 'x', typeId: type.id, name: 'x', condition: MACHINE_CONDITION_MAX }
+      // Worth more than 25 Chaff, which is 50 salvage of bodies, against a
+      // running cost of 55 salvage a battle plus twelve mutants' worth of water.
+      expect(machinePower(m)).toBeGreaterThan(
+        statPower(resolveSquadStats({ id: 's', typeId: 0, count: 25, leader: null }, null), 1) * 0.9,
+      )
+    }
+  })
+
+  it('leaves a machine cold when the salvage will not cover it', () => {
+    // Expensive to merely own (§3). Being unable to pay is visible — it does
+    // not march — rather than a hidden extra step of decay.
+    const run = withMachine()
+    const broke = { ...run, warband: { ...run.warband, salvage: MACHINE_RUN_COST - 1 } }
+    const { state, setup } = march(broke)
+
+    expect(setup.playerSources.some((s) => s.kind === 'machine')).toBe(false)
+    expect(state.lastUpkeep!.cold).toBe(1)
+    // Still owned, and still there next camp.
+    expect(state.warband.machines).toHaveLength(1)
+    expect(state.warband.machines[0].condition).toBe(MACHINE_CONDITION_MAX)
+
+    // With salvage, it runs, and the running is what costs.
+    const paid = march(run)
+    expect(paid.setup.playerSources.some((s) => s.kind === 'machine')).toBe(true)
+    expect(paid.state.warband.salvage).toBe(run.warband.salvage - MACHINE_RUN_COST)
+  })
+
+  it('drinks like three mutants', () => {
+    // §3 calls the water cost brutal, and it is also what stops a machine
+    // core from being backed by an unlimited horde.
+    const run = withMachine()
+    const without = { ...run.warband, machines: [] }
+    expect(waterUpkeep(run.warband)).toBeGreaterThan(waterUpkeep(without))
+  })
+
+  it('lets the Tinkerer put condition back, and nothing else does', () => {
+    const tinkerer = EVENTS.find((e) => e.id === 'the-tinkerer')!
+    expect(tinkerer.needs).toBe('machine')
+
+    const restoring = tinkerer.choices.filter((c) => c.restoreMachine)
+    expect(restoring.length).toBeGreaterThan(0)
+
+    const run = { ...withMachine(2), event: tinkerer }
+    const best = restoring.reduce((a, b) => (b.restoreMachine! > a.restoreMachine! ? b : a))
+    const after = resolveEvent(run, tinkerer.choices.indexOf(best))
+    expect(after.warband.machines[0].condition).toBe(2 + best.restoreMachine!)
+
+    // Never past full — a Tinkerer restores, it does not improve.
+    const nearlyFull = { ...withMachine(MACHINE_CONDITION_MAX - 1), event: tinkerer }
+    expect(
+      resolveEvent(nearlyFull, tinkerer.choices.indexOf(best)).warband.machines[0].condition,
+    ).toBe(MACHINE_CONDITION_MAX)
+
+    // No other event in the table can do it.
+    for (const e of EVENTS) {
+      if (e.id === 'the-tinkerer') continue
+      for (const c of e.choices) expect(c.restoreMachine).toBeUndefined()
+    }
   })
 })

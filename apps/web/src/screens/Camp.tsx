@@ -12,6 +12,10 @@ import {
   moraleWord,
   BIONICS_BY_ID,
   BIONIC_SLOTS,
+  MACHINE_CONDITION_MAX,
+  MACHINE_RUN_COST,
+  conditionWord,
+  resolveMachineStats,
   payWater,
   waterUpkeep,
   waterState,
@@ -39,6 +43,7 @@ import type {
   RunState,
   Squad,
   SquadLeader,
+  Machine,
   Verb,
   Warband,
   Wound,
@@ -409,6 +414,51 @@ function OfficerRow({
   )
 }
 
+/**
+ * A machine, and the only number that matters about one.
+ *
+ * No mutations, no bionics, no wound ladder — condition is the whole story,
+ * and it only ever goes down. Shown as a track rather than a word alone so the
+ * player can see how many battles are left in it, which is the decision:
+ * spend it now, or hold it for something worse.
+ */
+function MachineRow({ machine, salvage }: { machine: Machine; salvage: number }) {
+  const type = unitType(machine.typeId)
+  const stats = resolveMachineStats(machine)
+  const cold = salvage < MACHINE_RUN_COST
+
+  return (
+    <li className={cold ? 'row machine cold' : 'row machine'}>
+      <div className="row-main">
+        <UnitShape typeId={machine.typeId} />
+        <span className="row-name">
+          <b className="machine-name">{machine.name}</b>
+          <span className="dim">{type.name}</span>
+        </span>
+        <span
+          className={`condition c-${conditionWord(machine.condition).replace(/ /g, '-')}`}
+          title="Machines only degrade. One step of condition per battle fought — a machine left cold keeps what it has. Only a Tinkerer can put any back."
+        >
+          {Array.from({ length: MACHINE_CONDITION_MAX }, (_, i) => (
+            <i key={i} className={i < machine.condition ? 'notch on' : 'notch'} />
+          ))}
+          <span className="condition-word">{conditionWord(machine.condition)}</span>
+        </span>
+      </div>
+      <div className="row-note">
+        {machine.condition} battle{machine.condition === 1 ? '' : 's'} left in it ·{' '}
+        {stats.damage.toFixed(0)} damage · {stats.armor.toFixed(1)} armour ·{' '}
+        {stats.hp.toFixed(0)} HP
+      </div>
+      <div className={cold ? 'row-note dead' : 'row-note'}>
+        {cold
+          ? `Cold — ${MACHINE_RUN_COST} salvage to run it, and there is not enough.`
+          : `${MACHINE_RUN_COST} salvage to run, every battle.`}
+      </div>
+    </li>
+  )
+}
+
 function ProspectRow({
   prospect,
   warband,
@@ -749,6 +799,12 @@ export default function Camp({
    * warning, because the player would plan against it.
    */
   const willDesert = payWater(warband).deserted
+  const machineBill = warband.machines.length * MACHINE_RUN_COST
+  // How many the salvage will not cover, computed the way march() does it.
+  const coldCount = Math.max(
+    0,
+    warband.machines.length - Math.floor(warband.salvage / MACHINE_RUN_COST),
+  )
   const salvageFlash = useJustChanged(warband.salvage)
   const waterFlash = useJustChanged(warband.water)
   const bodiesFlash = useJustChanged(bodies)
@@ -774,7 +830,7 @@ export default function Camp({
 
   const counts: Record<(typeof TABS)[number]['id'], number> = {
     line: warband.squads.length,
-    roster: warband.officers.length + warband.prospects.length,
+    roster: warband.officers.length + warband.prospects.length + warband.machines.length,
     recruit: run.offers.length,
     ruins: run.expedition ? run.expedition.crew.length : 0,
   }
@@ -829,6 +885,18 @@ export default function Camp({
             will walk before the fight" is a decision, and the player can still
             sell a squad or a Prospect to stop it.
           */}
+          {machineBill > 0 && (
+            <p className="march-facts">
+              <b className="salvage">{machineBill}</b> salvage to run{' '}
+              {warband.machines.length === 1 ? 'the machine' : `${warband.machines.length} machines`}
+              {coldCount > 0 && (
+                <span className="dead">
+                  {' '}
+                  — {coldCount} will stay cold
+                </span>
+              )}
+            </p>
+          )}
           {willDesert > 0 && (
             <p className="march-warning">
               The cistern will not cover it. <b>{willDesert}</b>{' '}
@@ -1008,6 +1076,22 @@ export default function Camp({
               <p className="empty">None. True Kin are hired, never bred — and never cheap.</p>
             )}
           </Section>
+
+          {warband.machines.length > 0 && (
+            <Section
+              title="Machines"
+              meta={`${MACHINE_RUN_COST} salvage each, every battle`}
+            >
+              <ul className="rows">
+                {warband.machines.map((m) => (
+                  <MachineRow key={m.id} machine={m} salvage={warband.salvage} />
+                ))}
+              </ul>
+              <p className="note">
+                Nobody builds these. They arrive as good as they will ever be and wear out.
+              </p>
+            </Section>
+          )}
 
           {warband.bionics.length > 0 && (
             <Section title="Salvaged implants" meta={warband.bionics.length}>

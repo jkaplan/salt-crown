@@ -1,4 +1,4 @@
-export { UNIT_TYPES, MUTANT_TYPES, TRUEKIN_TYPES, DISCIPLINE } from './units.js'
+export { UNIT_TYPES, MUTANT_TYPES, TRUEKIN_TYPES, MACHINE_TYPES, DISCIPLINE } from './units.js'
 export { MUTATIONS, MUTATIONS_BY_ID, describeRoll, leakLevel } from './mutations.js'
 export type { Mutation, MutationRoll } from './mutations.js'
 export {
@@ -56,6 +56,8 @@ export {
   squadCost,
   resolveSquadStats,
   resolveProspectStats,
+  resolveMachineStats,
+  machinePower,
   resolveDiscipline,
   squadShape,
   statPower,
@@ -105,6 +107,17 @@ export {
   bionicValue,
 } from './bionics.js'
 export type { Bionic } from './bionics.js'
+export {
+  MACHINE_CONDITION_MAX,
+  MACHINE_RUN_COST,
+  rollMachine,
+  conditionMultiplier,
+  conditionWord,
+  machineTitle,
+  isScrap,
+  applyCondition,
+} from './machines.js'
+export type { Machine } from './machines.js'
 export { rollOffers } from './shop.js'
 export type { Offer, SquadOffer, OfficerOffer } from './shop.js'
 export { ENCOUNTERS_PER_RUN, generateEncounter } from './encounters.js'
@@ -136,6 +149,7 @@ export type {
   BattleReport,
   SquadLoss,
   ProspectLoss,
+  MachineLoss,
   BattleSetup,
   GrowthOffer,
 } from './run.js'

@@ -23,13 +23,28 @@ export interface EventChoice {
   salvage?: number
   /** Minimum salvage required to pick this at all. */
   requires?: number
+  /**
+   * Restore condition to the most worn machine. The one exception to
+   * "machines only degrade" (V0-DESIGN §3), and it is an EVENT rather than a
+   * service on purpose — a shop that sells repairs turns a decaying asset back
+   * into an ordinary one.
+   */
+  restoreMachine?: number
 }
+
+/** An event that only makes sense when the warband has something to act on. */
+export type EventGate = 'machine'
 
 export interface GameEvent {
   id: string
   title: string
   body: string
   choices: EventChoice[]
+  /**
+   * Only offered when the warband has one of these. Without it the Tinkerer
+   * would turn up for a warband with no machine and read as a bug.
+   */
+  needs?: EventGate
 }
 
 /**
@@ -221,11 +236,37 @@ export const EVENTS: readonly GameEvent[] = [
       },
     ],
   },
+  {
+    id: 'the-tinkerer',
+    title: 'Someone at the edge of the firelight wants to look at it',
+    body:
+      'No House marks, no lineage anybody recognises, and a roll of tools that should not still exist. They have been watching the machine walk since midday and they have opinions about the noise it is making.',
+    needs: 'machine',
+    choices: [
+      {
+        label: 'Pay whatever they ask',
+        detail: 'The most worn machine comes back most of the way.',
+        salvage: -160,
+        requires: 160,
+        restoreMachine: 4,
+      },
+      {
+        label: 'Let them look, nothing more',
+        detail: 'A few hours of work and a part they had spare.',
+        restoreMachine: 1,
+      },
+      {
+        label: 'Send them off',
+        detail: 'Nobody gets to open it up. The column approves of the caution.',
+        morale: 0.03,
+      },
+    ],
+  },
 ]
 
-/** One event, never the same one twice in a run. */
-export function rollEvent(rng: Rng, seen: string[]): GameEvent | null {
-  const pool = EVENTS.filter((e) => !seen.includes(e.id))
+/** One event, never the same one twice in a run, and never an impossible one. */
+export function rollEvent(rng: Rng, seen: string[], has: Set<EventGate>): GameEvent | null {
+  const pool = EVENTS.filter((e) => !seen.includes(e.id) && (!e.needs || has.has(e.needs)))
   if (pool.length === 0) return null
   return pool[rng.int(pool.length)]
 }

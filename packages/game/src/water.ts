@@ -31,7 +31,13 @@ import { unitType } from './roster.js'
 export const WATER_PER_BODY: Record<Lineage, number> = {
   mutant: 1,
   truekin: 1.2,
-  machine: 3,
+  /*
+   * Twelve, not three. Three read as brutal next to a mutant's 1 and was not:
+   * against a forty-body warband one machine added 7 water to a bill of 80,
+   * because the superlinear term is driven by HEADCOUNT and a machine is one
+   * head. It has to pay for itself on the flat term instead.
+   */
+  machine: 12,
 }
 
 /**
@@ -63,6 +69,13 @@ export function waterUpkeep(w: Warband): number {
   }
   for (let i = 0; i < w.officers.length; i++) {
     raw += WATER_PER_BODY.truekin
+    bodies++
+  }
+  // §3 calls it brutal, and this is where that is charged. In V0 Coolant is
+  // folded into Water, so one machine drinks like three mutants and also
+  // pushes every other body further up the superlinear curve.
+  for (const m of w.machines) {
+    raw += WATER_PER_BODY[unitType(m.typeId).lineage]
     bodies++
   }
 

@@ -128,6 +128,15 @@ export default function ExpeditionCard({
                 came back with them
               </>
             )}
+            {result.machines.length > 0 && (
+              <>
+                {' · '}
+                <b className="machine-name">
+                  {result.machines.map((m) => m.name).join(', ')}
+                </b>{' '}
+                walked out after them
+              </>
+            )}
             {result.salvaged.length > 0 && (
               <>
                 {' · '}
