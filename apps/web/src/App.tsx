@@ -3,7 +3,6 @@ import {
   ENCOUNTERS_PER_RUN,
   advance,
   assignLeader,
-  buildBattle,
   buy,
   appraise,
   setFielded,
@@ -49,8 +48,11 @@ export default function App() {
 
   const onMarch = useCallback(() => {
     if (!run) return
-    setSetup(buildBattle(run))
-    setRun(march(run))
+    // The setup comes back from march() so it always matches the warband that
+    // actually leaves camp — a water shortfall removes bodies here.
+    const { state, setup } = march(run)
+    setSetup(setup)
+    setRun(state)
   }, [run])
 
   const onDone = useCallback(

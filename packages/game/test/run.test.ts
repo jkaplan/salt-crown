@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Battle, MAX_BODY_RADIUS, Rng, hashSeed } from '@salt/sim'
+import type { SimGroup } from '@salt/sim'
 import {
   ENCOUNTERS_PER_RUN,
   assignLeader,
@@ -7,6 +8,7 @@ import {
   buy,
   moveSquad,
   newRun,
+  march,
   placeSquad,
   BATTLES_PER_MUTATION,
   FIRSTBORN_AT_MUTATIONS,
@@ -42,6 +44,9 @@ import {
   totalBodies,
   totalFodder,
   unitType,
+  waterUpkeep,
+  payWater,
+  WATER_PER_BODY,
   UNIT_TYPES,
   resolveBattle,
   resolveProspectStats,
@@ -54,7 +59,7 @@ import {
   TREAT_COST,
   WOUND_PENALTY,
 } from '@salt/game'
-import type { RunState, Wound } from '@salt/game'
+import type { RunState, Warband, Wound } from '@salt/game'
 import { TEAM_A, TEAM_B } from '@salt/sim'
 
 function start(seed = 'test-seed'): RunState {
@@ -253,8 +258,8 @@ describe('battle setup', () => {
     const run = start()
     const setup = buildBattle(run)
     const fielded = setup.config.groups
-      .filter((g) => g.team === TEAM_A)
-      .reduce((n, g) => n + g.count, 0)
+      .filter((g: SimGroup) => g.team === TEAM_A)
+      .reduce((n: number, g: SimGroup) => n + g.count, 0)
     expect(fielded).toBe(totalFodder(run.warband) + run.warband.prospects.length)
   })
 
@@ -931,5 +936,110 @@ describe('unit content stays inside the sim’s limits', () => {
         `${t.name} has radius ${t.base.radius}; the sim is built for ${MAX_BODY_RADIUS}`,
       ).toBeLessThanOrEqual(MAX_BODY_RADIUS)
     }
+  })
+})
+
+describe('water and upkeep', () => {
+  const roster = (bodies: number, typeId = 0): Warband => ({
+    squads: [{ id: 's', typeId, count: bodies, leader: null }],
+    prospects: [],
+    officers: [],
+    salvage: 0,
+    water: 0,
+    morale: 0,
+  })
+
+  it('scales upkeep superlinearly with roster size', () => {
+    // V0-DESIGN §8's whole reason for existing: 120 bodies do not cost six
+    // times what 20 do, they cost sixteen. A linear cost would make the
+    // roster free to grow and there would be no reason to ever sell anyone.
+    const small = waterUpkeep(roster(20))
+    const large = waterUpkeep(roster(120))
+    expect(large / small).toBeGreaterThan(6)
+
+    // The multiplier itself, against the doc's table.
+    expect(waterUpkeep(roster(20)) / (20 * WATER_PER_BODY.mutant)).toBeCloseTo(1.5, 1)
+    expect(waterUpkeep(roster(120)) / (120 * WATER_PER_BODY.mutant)).toBeCloseTo(4.0, 1)
+  })
+
+  it('prices machines far above the other two lineages', () => {
+    // §3 calls their water cost "brutal", and it is the balance for them
+    // being far above everything else in a fight.
+    expect(WATER_PER_BODY.machine).toBeGreaterThan(WATER_PER_BODY.truekin * 2)
+    expect(WATER_PER_BODY.truekin).toBeGreaterThanOrEqual(WATER_PER_BODY.mutant)
+  })
+
+  it('pays without desertion when the cistern covers it', () => {
+    const w = { ...roster(30), water: 10_000 }
+    const paid = payWater(w)
+    expect(paid.deserted).toBe(0)
+    expect(paid.spent).toBe(waterUpkeep(w))
+    expect(paid.remaining).toBe(10_000 - paid.spent)
+    expect(paid.squads).toBe(w.squads)
+  })
+
+  it('sheds exactly enough bodies to afford the march, and no more', () => {
+    const w = { ...roster(80), water: 60 }
+    const paid = payWater(w)
+    expect(paid.deserted).toBeGreaterThan(0)
+
+    const left = paid.squads.reduce((n, sq) => n + sq.count, 0)
+    expect(left).toBe(80 - paid.deserted)
+    // Affordable now...
+    expect(waterUpkeep({ ...w, squads: paid.squads })).toBeLessThanOrEqual(w.water)
+    // ...and one more body would not have been.
+    const oneMore = paid.squads.map((sq, i) => (i === 0 ? { ...sq, count: sq.count + 1 } : sq))
+    expect(waterUpkeep({ ...w, squads: oneMore })).toBeGreaterThan(w.water)
+  })
+
+  it('thins the largest squad rather than deleting a unit type', () => {
+    // "A squeeze, never an execution" (§8). Losing a whole squad to thirst
+    // would silently remove a capability from the warband.
+    const w: Warband = {
+      ...roster(0),
+      squads: [
+        { id: 'big', typeId: 0, count: 40, leader: null },
+        { id: 'small', typeId: 1, count: 4, leader: null },
+      ],
+      water: 30,
+    }
+    const paid = payWater(w)
+    expect(paid.deserted).toBeGreaterThan(0)
+    expect(paid.squads.find((sq) => sq.id === 'small')?.count).toBe(4)
+  })
+
+  it('never lets the named tier walk', () => {
+    // Officers and Prospects are the permadeath tier. Losing a Firstborn you
+    // grew over ten battles to an arithmetic shortfall would be the most
+    // arbitrary death in the game.
+    const run = start()
+    const thirsty = { ...run.warband, water: 0 }
+    const paid = payWater(thirsty)
+    expect(paid.deserted).toBeGreaterThan(0)
+
+    const marched = march({ ...run, warband: thirsty }).state
+    expect(marched.warband.officers).toHaveLength(run.warband.officers.length)
+    expect(marched.warband.prospects).toHaveLength(run.warband.prospects.length)
+  })
+
+  it('charges the march before the battle, and fields who is left', () => {
+    // The setup has to come from the post-march warband. Building it from the
+    // pre-march one meant deserters marched anyway.
+    const run = start()
+    const thirsty = { ...run, warband: { ...run.warband, water: 0 } }
+    const { state, setup } = march(thirsty)
+
+    expect(state.lastUpkeep!.deserted).toBeGreaterThan(0)
+    const fielded = setup.config.groups
+      .filter((g) => g.team === TEAM_A)
+      .reduce((n, g) => n + g.count, 0)
+    expect(fielded).toBe(totalBodies(state.warband))
+    expect(fielded).toBeLessThan(totalBodies(run.warband))
+  })
+
+  it('shakes the column when people walk', () => {
+    const run = start()
+    const thirsty = { ...run, warband: { ...run.warband, water: 0, morale: 0 } }
+    expect(march(thirsty).state.warband.morale).toBeLessThan(0)
   })
 })

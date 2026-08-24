@@ -13,6 +13,7 @@ export {
   BattleEventType,
 } from './types.js'
 export type {
+  Lineage,
   UnitType,
   ResolvedStats,
   SimGroup,

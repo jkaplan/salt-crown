@@ -10,6 +10,9 @@ import {
   sellValue,
   MAX_FIELDED_PROSPECTS,
   moraleWord,
+  payWater,
+  waterUpkeep,
+  waterState,
   MUTATIONS_BY_ID,
   OFFICER_RANKS_BY_ID,
   findLeadingProspect,
@@ -682,7 +685,17 @@ export default function Camp({
   }
   const bodies = totalBodies(warband)
   const fodder = totalFodder(warband)
+  const upkeep = waterUpkeep(warband)
+  const cistern = waterState(warband.water, upkeep)
+  /*
+   * Desertion is decided by payWater at the moment of the march. Camp runs
+   * the same function against the same warband so the number shown here is
+   * the number who actually leave — a warning that guesses is worse than no
+   * warning, because the player would plan against it.
+   */
+  const willDesert = payWater(warband).deserted
   const salvageFlash = useJustChanged(warband.salvage)
+  const waterFlash = useJustChanged(warband.water)
   const bodiesFlash = useJustChanged(bodies)
   const idle =
     warband.officers.length +
@@ -718,6 +731,19 @@ export default function Camp({
         <span>
           <b className={bodiesFlash.trim()}>{bodies}</b> bodies
         </span>
+        {/*
+          Water never appears without the bill next to it. A cistern number on
+          its own is unreadable — 240 is comfortable at thirty bodies and a
+          crisis at ninety, and the player cannot know which without the
+          upkeep beside it.
+        */}
+        <span
+          className={`water-cell ${cistern}`}
+          title={`Every march costs water, scaled superlinearly by roster size. ${upkeep} for the ${bodies} you are carrying. Short, and the thirsty walk.`}
+        >
+          <b className={'water' + waterFlash}>{warband.water}</b> water
+          <i>/{upkeep} a march</i>
+        </span>
         <span>
           <b className="prospect-name">{fieldedCount(warband.prospects)}</b>
           <i>/{MAX_FIELDED_PROSPECTS}</i> fielded
@@ -733,8 +759,20 @@ export default function Camp({
           <p>{encounter.flavour}</p>
           <p className="march-facts">
             <b>{encounter.bodies}</b> enemy bodies · <b className="salvage">{encounter.reward}</b>{' '}
-            salvage if you win · losing ends the run
+            salvage and <b className="water">{encounter.waterReward}</b> water if you win · losing
+            ends the run
           </p>
+          {/*
+            Named, not implied. "You are short on water" is a status; "nine
+            will walk before the fight" is a decision, and the player can still
+            sell a squad or a Prospect to stop it.
+          */}
+          {willDesert > 0 && (
+            <p className="march-warning">
+              The cistern will not cover it. <b>{willDesert}</b>{' '}
+              {willDesert === 1 ? 'body walks' : 'bodies walk'} before the fight.
+            </p>
+          )}
         </div>
         <button
           className="btn-primary march"

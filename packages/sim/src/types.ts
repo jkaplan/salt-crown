@@ -130,11 +130,21 @@ export interface GroupResult {
 
 export type Winner = typeof TEAM_A | typeof TEAM_B | -1
 
+/**
+ * The three unit pools. Never "families" — see CLAUDE.md's terminology table.
+ *
+ * The sim itself is lineage-blind: it executes resolved stats and does not
+ * know or care what produced them. This lives here because UnitType does, and
+ * because `machine` needs to exist as a value before @salt/game can price
+ * water or discipline by it.
+ */
+export type Lineage = 'mutant' | 'truekin' | 'machine'
+
 /** A unit archetype, before mutations and officers touch it. */
 export interface UnitType {
   id: number
   name: string
-  lineage: 'mutant' | 'truekin'
+  lineage: Lineage
   /** Salvage per body. */
   cost: number
   base: Omit<ResolvedStats, 'regen' | 'quills' | 'frenzy'>

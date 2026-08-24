@@ -80,6 +80,15 @@ export {
   rollEvent,
 } from './events.js'
 export type { GameEvent, EventChoice } from './events.js'
+export {
+  WATER_PER_BODY,
+  ROSTER_SCALE_DIVISOR,
+  MORALE_PER_DESERTER,
+  waterUpkeep,
+  payWater,
+  waterState,
+} from './water.js'
+export type { DesertionResult } from './water.js'
 export { rollOffers } from './shop.js'
 export type { Offer, SquadOffer, OfficerOffer } from './shop.js'
 export { ENCOUNTERS_PER_RUN, generateEncounter } from './encounters.js'

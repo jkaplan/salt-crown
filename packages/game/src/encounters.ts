@@ -40,7 +40,10 @@ export interface Encounter {
   name: string
   flavour: string
   enemy: Warband
+  /** Salvage for winning. */
   reward: number
+  /** Water for winning. The only source of it in V0 until expeditions land. */
+  waterReward: number
   bodies: number
 }
 
@@ -100,7 +103,8 @@ export function generateEncounter(rng: Rng, index: number): Encounter {
     squads[0].leader = { kind: 'officer', id: officer.id }
   }
 
-  const enemy: Warband = { squads, prospects, officers, salvage: 0, morale: 0 }
+  // Enemy bands never march a campaign, so their cistern is inert.
+  const enemy: Warband = { squads, prospects, officers, salvage: 0, water: 0, morale: 0 }
   const bodies = squads.reduce((n, s) => n + s.count, 0) + prospects.length
 
   return {
@@ -109,6 +113,11 @@ export function generateEncounter(rng: Rng, index: number): Encounter {
     flavour: FLAVOUR[rng.int(FLAVOUR.length)],
     enemy,
     reward: Math.round(105 + index * 80),
+    // Tuned against sim:campaign so that a greedy buyer bleeds bodies it
+    // cannot water on ~11% of marches while still completing at the same rate
+    // it did before Water existed. Water caps warband SIZE (p50 69 -> 52), it
+    // does not add difficulty.
+    waterReward: Math.round(88 + index * 34),
     bodies,
   }
 }

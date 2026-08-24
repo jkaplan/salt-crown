@@ -8,13 +8,25 @@
  * biggest squads. If a greedy bot sweeps every run the encounters are too
  * soft; if it never survives act 2 they're too hard. It is a floor and a
  * ceiling, not a balance oracle.
+ *
+ * Two bots, because Water made one insufficient:
+ *
+ *   greedy   buys until broke. This is the behaviour Water exists to punish,
+ *            so its desertion count is the measurement of whether the squeeze
+ *            has any teeth at all.
+ *   thrifty  --thrifty. Stops buying when the next march's upkeep would
+ *            outrun what a win pays back. This is the floor for "can someone
+ *            who is paying attention still finish", which greedy alone cannot
+ *            answer once overbuying is punished.
+ *
+ * If greedy and thrifty complete at the same rate, Water is not doing
+ * anything. If thrifty cannot finish either, the curve is too steep.
  */
 import { Battle } from '@salt/sim'
 import {
   ENCOUNTERS_PER_RUN,
   advance,
   assignLeader,
-  buildBattle,
   buy,
   march,
   newRun,
@@ -23,8 +35,9 @@ import {
   squadPower,
   totalBodies,
   unitType,
+  waterUpkeep,
 } from '@salt/game'
-import type { RunState } from '@salt/game'
+import type { Offer, RunState } from '@salt/game'
 
 function arg(name: string, fallback: number): number {
   const i = process.argv.indexOf(`--${name}`)
@@ -38,11 +51,45 @@ function pad(s: string | number, w: number): string {
 }
 
 /** Buy whatever gives the most power per salvage, until broke. */
-function shop(state: RunState): RunState {
+function shop(state: RunState, thrifty: boolean): RunState {
   let s = state
   for (let guard = 0; guard < 8; guard++) {
+    /*
+     * A thrifty bot will not buy a body it cannot water.
+     *
+     * Two separate constraints, and an earlier version of this only checked
+     * the second — which is why it deserted almost as much as greedy did:
+     *
+     *   solvency  can the cistern pay the march that is about to happen
+     *   steady    does the roster cost more per march than a win pays back
+     *
+     * A roster can be solvent today and still shrinking, and it can be
+     * sustainable in the long run while being unable to pay this week. The
+     * player sees both in camp — the cistern and the bill — so the bot reads
+     * both too.
+     */
+    if (thrifty) {
+      const upkeep = waterUpkeep(s.warband)
+      if (upkeep > s.warband.water || upkeep >= s.encounter.waterReward) break
+    }
+    /*
+     * Checked on the state AFTER the purchase, not before. Checking before
+     * lets exactly one squad through the gate every camp, which is why a bot
+     * that refused to overbuy still went short on 17.7% of its marches.
+     */
+    const affordableWater = (o: Offer): boolean => {
+      if (!thrifty) return true
+      const projected = { ...s.warband, squads: [...s.warband.squads] }
+      if (o.kind === 'officer') projected.officers = [...projected.officers, o.officer]
+      else {
+        projected.squads.push({ id: o.id, typeId: o.typeId, count: o.count, leader: null })
+        projected.prospects = [...projected.prospects, ...o.prospects]
+      }
+      return waterUpkeep(projected) <= s.warband.water
+    }
+
     const scored = s.offers
-      .filter((o) => o.cost <= s.warband.salvage)
+      .filter((o) => o.cost <= s.warband.salvage && affordableWater(o))
       .map((o) => {
         if (o.kind === 'officer') return { id: o.id, value: 45 / o.cost }
         const power =
@@ -77,17 +124,24 @@ function shop(state: RunState): RunState {
   return s
 }
 
-function playRun(seedText: string) {
+function playRun(seedText: string, thrifty: boolean) {
   let state = newRun(seedText)
   let reached = 0
+  let deserted = 0
+  let shortMarches = 0
 
   while (state.phase !== 'over') {
     if (state.phase === 'camp') {
-      state = shop(state)
-      const setup = buildBattle(state)
-      state = march(state)
+      state = shop(state, thrifty)
+      const marched = march(state)
+      const setup = marched.setup
+      state = marched.state
       const battle = new Battle(setup.config)
       battle.run()
+      if (state.lastUpkeep && state.lastUpkeep.deserted > 0) {
+        deserted += state.lastUpkeep.deserted
+        shortMarches++
+      }
       state = resolveBattle(
         state, battle.results(), battle.winner, battle.tick, setup.playerSources,
       )
@@ -102,20 +156,32 @@ function playRun(seedText: string) {
     reached,
     bodies: totalBodies(state.warband),
     salvage: state.warband.salvage,
+    water: state.warband.water,
+    deserted,
+    shortMarches,
   }
 }
 
 const runs = arg('runs', 200)
+const thrifty = process.argv.includes('--thrifty')
 console.log('Salt Crown — campaign harness')
-console.log(`${runs} runs, greedy buyer, ${ENCOUNTERS_PER_RUN} encounters each\n`)
+console.log(
+  `${runs} runs, ${thrifty ? 'thrifty' : 'greedy'} buyer, ${ENCOUNTERS_PER_RUN} encounters each\n`,
+)
 
 let won = 0
+let deserted = 0
+let shortMarches = 0
+let marches = 0
 const reachedHist = new Array(ENCOUNTERS_PER_RUN + 1).fill(0)
 const finalBodies: number[] = []
 
 const started = Date.now()
 for (let i = 1; i <= runs; i++) {
-  const r = playRun(`seed-${i}`)
+  const r = playRun(`seed-${i}`, thrifty)
+  deserted += r.deserted
+  shortMarches += r.shortMarches
+  marches += r.reached + 1
   if (r.outcome === 'won') {
     won++
     finalBodies.push(r.bodies)
@@ -124,7 +190,11 @@ for (let i = 1; i <= runs; i++) {
 }
 const elapsed = Date.now() - started
 
-console.log(`runs won   ${pad(won, 5)}  ${((won / runs) * 100).toFixed(1)}%\n`)
+console.log(`runs won   ${pad(won, 5)}  ${((won / runs) * 100).toFixed(1)}%`)
+console.log(
+  `water      ${pad(deserted, 5)} deserters over ${marches} marches, ` +
+    `${((shortMarches / marches) * 100).toFixed(1)}% of marches short\n`,
+)
 console.log('  encounters won    runs')
 console.log('  ----------------------')
 for (let i = 0; i <= ENCOUNTERS_PER_RUN; i++) {

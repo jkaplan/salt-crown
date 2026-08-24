@@ -50,7 +50,32 @@ export default function Report({ report, onContinue, isLast }: Props) {
             </span>
             <span className="label">salvage</span>
           </div>
+          <div>
+            <span className="big water">
+              {report.waterEarned > 0 ? `+${report.waterEarned}` : '0'}
+            </span>
+            <span className="label">water</span>
+          </div>
         </div>
+
+        {/*
+          What the march itself cost, on the screen that accounts for the
+          battle. Desertion happens at the moment of marching, so without this
+          the only evidence is a warband that is quietly smaller than the one
+          the player left camp with.
+        */}
+        {report.upkeep && (
+          <p className="hint">
+            The march drank <b className="water">{report.upkeep.spent}</b> water.
+            {report.upkeep.deserted > 0 && (
+              <>
+                {' '}
+                <b className="dead">{report.upkeep.deserted}</b>{' '}
+                {report.upkeep.deserted === 1 ? 'body' : 'bodies'} would not march thirsty.
+              </>
+            )}
+          </p>
+        )}
 
         <div className="battle-summary">
           <h3>Battle summary</h3>

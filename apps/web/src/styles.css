@@ -498,6 +498,21 @@ h1, h2, h3 { margin: 0; font-weight: var(--w-bold); }
 .dim { color: var(--dim); }
 .salvage { color: var(--gold); }
 .prospect-name { color: var(--gold); }
+/* Water reads cool against Salvage's gold — two resources that are never
+   interchangeable should never be the same colour. */
+.water { color: #7fb2c7; }
+.water-cell i { color: var(--faint); font-style: normal; }
+.water-cell.tight .water { color: #d8b46a; }
+.water-cell.short .water { color: var(--danger); }
+
+/* Not a status line. It names how many people leave and stays out of the
+   button, because selling a squad is still a way to stop it. */
+.march-warning {
+  margin: var(--s2) 0 0;
+  font-size: var(--t-meta);
+  color: var(--danger);
+}
+.march-warning b { font-variant-numeric: tabular-nums; }
 .mutant { color: var(--mutant); }
 .truekin { color: var(--truekin); }
 .dead { color: var(--danger); }

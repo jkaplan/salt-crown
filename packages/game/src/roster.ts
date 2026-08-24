@@ -53,7 +53,13 @@ export interface Warband {
   squads: Squad[]
   prospects: Prospect[]
   officers: Officer[]
+  /** What you spend. Recruit, appraise, treat, install. */
   salvage: number
+  /**
+   * What you owe. Charged every march, scaled superlinearly by roster size —
+   * see water.ts. Salvage rewards a good decision; Water punishes a big one.
+   */
+  water: number
 }
 
 const BODY_SHAPE_COUNT = 8

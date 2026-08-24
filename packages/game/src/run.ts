@@ -20,6 +20,7 @@ import {
 } from './prospects.js'
 import type { MutationRoll } from './mutations.js'
 import { clampMorale, rollEvent } from './events.js'
+import { MORALE_PER_DESERTER, payWater } from './water.js'
 import type { GameEvent } from './events.js'
 import { MUTANT_TYPES } from './units.js'
 import { rollOfficer } from './officers.js'
@@ -59,6 +60,9 @@ export interface BattleReport {
   won: boolean
   encounterName: string
   salvageEarned: number
+  waterEarned: number
+  /** What getting here cost, and who walked rather than march thirsty. */
+  upkeep: { spent: number; deserted: number } | null
   squads: SquadLoss[]
   prospects: ProspectLoss[]
   enemy: GroupResult[]
@@ -88,6 +92,13 @@ export interface RunState {
   event: GameEvent | null
   /** Events already fired, so a run never repeats one. */
   seenEvents: string[]
+  /**
+   * What the last march cost, and who walked because of it. Cleared when the
+   * next camp opens. Desertion happens on the march, so this is how the
+   * report and the next camp can say what happened rather than leaving the
+   * player to notice a smaller warband.
+   */
+  lastUpkeep: { spent: number; deserted: number } | null
   outcome: 'won' | 'lost' | null
 }
 
@@ -104,6 +115,9 @@ function startingWarband(rng: Rng, selectedOfficer?: Officer): Warband {
     prospects: [prospect],
     officers: [officer],
     salvage: 120,
+    // Enough for the first two marches at the opening roster. The squeeze is
+    // meant to arrive as the warband grows, not on turn one.
+    water: 220,
     morale: 0,
   }
 }
@@ -124,6 +138,7 @@ export function newRun(seedText: string, selectedOfficer?: Officer): RunState {
     promoted: [],
     event: null,
     seenEvents: [],
+    lastUpkeep: null,
     outcome: null,
   }
 }
@@ -454,8 +469,37 @@ export function buildBattle(state: RunState): BattleSetup {
   }
 }
 
-export function march(state: RunState): RunState {
-  return { ...state, phase: 'battle' }
+/**
+ * Break camp. The march is where the water is spent.
+ *
+ * Charged BEFORE the battle, not after, so a shortfall costs you bodies in
+ * the fight it caused rather than being a bookkeeping note afterwards. Camp
+ * shows the bill and names the exact number who will walk, so this is never a
+ * surprise — it is a decision the player declined to make.
+ *
+ * Returns the battle setup along with the state, rather than leaving the
+ * caller to call buildBattle itself. Both callers used to build the battle
+ * from the pre-march warband, which was harmless until the march started
+ * removing bodies — deserters would have marched anyway. Handing back a setup
+ * that is already consistent with the state makes that ordering impossible to
+ * get wrong.
+ */
+export function march(state: RunState): { state: RunState; setup: BattleSetup } {
+  const { squads, deserted, spent, remaining } = payWater(state.warband)
+
+  const marched: RunState = {
+    ...state,
+    phase: 'battle',
+    warband: {
+      ...state.warband,
+      squads,
+      water: remaining,
+      morale: clampMorale(state.warband.morale - deserted * MORALE_PER_DESERTER),
+    },
+    lastUpkeep: { spent, deserted },
+  }
+
+  return { state: marched, setup: buildBattle(marched) }
 }
 
 /**
@@ -564,6 +608,10 @@ export function resolveBattle(
   })
 
   const salvageEarned = won ? state.encounter.reward : 0
+  // Winning refills the cistern. In V0 this is the only source of water —
+  // expeditions (§9) are the other one and are not built yet, which is why
+  // the payout has to cover a growing roster on its own.
+  const waterEarned = won ? state.encounter.waterReward : 0
 
   return {
     ...state,
@@ -574,11 +622,14 @@ export function resolveBattle(
       prospects,
       officers,
       salvage: state.warband.salvage + salvageEarned,
+      water: state.warband.water + waterEarned,
     },
     report: {
       won,
       encounterName: state.encounter.name,
       salvageEarned,
+      waterEarned,
+      upkeep: state.lastUpkeep,
       squads: squadLosses,
       prospects: prospectLosses,
       enemy: enemyResults,
@@ -614,6 +665,9 @@ export function advance(state: RunState): RunState {
     growth: rollGrowth(state.rng, state.warband, next),
     promoted: [],
     event: rollEvent(state.rng, state.seenEvents),
+    // The report has already said what the last march cost. Carrying it into
+    // the next camp would put a stale number next to the live one.
+    lastUpkeep: null,
   }
 }
 

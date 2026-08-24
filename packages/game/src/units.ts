@@ -186,7 +186,12 @@ export const TRUEKIN_TYPES = UNIT_TYPES.filter((u) => u.lineage === TRUEKIN)
  * (M3) sit at 1 and never degrade, which is the balance for them being much
  * stronger. See docs/V0-DESIGN.md §7.
  */
-export const DISCIPLINE: Record<UnitType["lineage"], number> = {
+export const DISCIPLINE: Record<UnitType['lineage'], number> = {
   mutant: 0.35,
   truekin: 0.78,
+  // Machines never notice their own losses. That is the balance for them
+  // being far above everything else in a fight — see CLAUDE.md's invariants.
+  // No machine unit types exist yet (M3); the rate does, so nothing has to
+  // remember to add it later.
+  machine: 1,
 }

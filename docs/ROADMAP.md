@@ -79,7 +79,7 @@ The mutants were then rebuilt to differ by *kind* rather than degree (three kind
 
 ## M3 — Ruins, machines, economy (weeks 6–7)
 
-- Water, superlinear upkeep, desertion on shortfall
+- ~~Water, superlinear upkeep, desertion on shortfall~~ ✅ built
 - Scavenge / Delve; crews miss the next battle
 - **Bionics**: found in ruins, installed into True Kin for Salvage
 - **Machines**: 5 types, found in ruins and rare events only, degrade permanently, cost Salvage per battle to run
@@ -87,6 +87,25 @@ The mutants were then rebuilt to differ by *kind* rather than degree (three kind
 - Ruin flavor and outcome text; first hints of what's below
 
 **Exit:** you delve instead of reinforcing, lose the next battle for it, and feel that it was your call.
+
+**Water result:** the first cut had no teeth — a greedy buyer and a careful one
+completed at the same rate (24.0% / 24.3%) and only 1.4% of marches went short,
+which by the harness's own criterion means the resource was decorative. Payout
+retuned from `115 + 62i` to `88 + 34i` against `sim:campaign`:
+
+| Bot | Completes | Deserters | Marches short | Winning size p50 |
+|---|---|---|---|---|
+| greedy | 20.8% | 2228 | 10.9% | — |
+| thrifty | 17.6% | 16 | 0.2% | 52 |
+
+Water caps warband **size** — p50 winning warband fell from 69 bodies to 52 —
+without changing difficulty; greedy still completes at roughly its pre-Water
+rate. It is a soft cap, not a trap: overbuying wastes salvage as bodies walk,
+rather than ending the run. That is §8's "a squeeze, never an execution".
+
+The thrifty bot completing *lower* is a limitation of the bot, not the curve —
+it can buy but never sell, so it has no way to shrink a roster it has outgrown.
+A player can sell a Prospect or let a squad go.
 
 ---
 
