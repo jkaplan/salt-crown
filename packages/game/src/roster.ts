@@ -193,7 +193,8 @@ export function resolveDiscipline(
   leader: Prospect | null = null,
   morale = 0,
 ): number {
-  const base = DISCIPLINE[unitType(typeId).lineage]
+  const type = unitType(typeId)
+  const base = type.discipline ?? DISCIPLINE[type.lineage]
   let bonus = (officer ? (OFFICER_RANKS_BY_ID.get(officer.rankId)?.moraleBonus ?? 0) : 0) + morale
   // Mutants fold at 0.35. One of their own who came back ten times is a
   // reason to keep standing.

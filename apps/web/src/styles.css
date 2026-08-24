@@ -1495,3 +1495,24 @@ button.install .price {
 .condition.c-failing .condition-word { color: #d8b46a; }
 .condition.c-barely .notch.on { background: var(--danger); }
 .condition.c-barely .condition-word { color: var(--danger); }
+
+/* ------------------------------------------------------------ encounters -- */
+
+.march-kind {
+  margin: 0 0 var(--s1);
+  font-size: var(--t-label);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.boss-word { color: var(--danger); margin-left: var(--s2); }
+
+/* A boss is the thing the act has been building toward. It gets a different
+   edge, not a different layout — the decision on the card is still "march". */
+.march-card.kind-boss {
+  border-left: 3px solid var(--danger);
+  background: linear-gradient(90deg, rgba(198, 90, 78, 0.1), transparent 70%);
+}
+.march-card.kind-wasteland {
+  border-left: 3px solid #6f8455;
+}

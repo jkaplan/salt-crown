@@ -118,10 +118,19 @@ export {
   applyCondition,
 } from './machines.js'
 export type { Machine } from './machines.js'
+export { FAUNA_TYPES, BOSS_TYPES } from './wasteland.js'
 export { rollOffers } from './shop.js'
 export type { Offer, SquadOffer, OfficerOffer } from './shop.js'
-export { ENCOUNTERS_PER_RUN, generateEncounter } from './encounters.js'
-export type { Encounter } from './encounters.js'
+export {
+  ENCOUNTERS_PER_RUN,
+  ENCOUNTERS_PER_ACT,
+  ACTS,
+  actOf,
+  isBossIndex,
+  encounterBudget,
+  generateEncounter,
+} from './encounters.js'
+export type { Encounter, EncounterKind } from './encounters.js'
 export {
   newRun,
   buy,

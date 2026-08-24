@@ -1,13 +1,55 @@
 import { Rng } from '@salt/sim'
 import { rollOfficer } from './officers.js'
-import type { Officer } from './officers.js'
 import { rollProspect } from './prospects.js'
-import type { Prospect } from './prospects.js'
 import type { Warband } from './roster.js'
 import { squadCost } from './roster.js'
-import { MUTANT_TYPES, TRUEKIN_TYPES } from './units.js'
+import { MUTANT_TYPES, TRUEKIN_TYPES, UNIT_TYPES } from './units.js'
+import { BOSS_TYPES, FAUNA_TYPES } from './wasteland.js'
 
-export const ENCOUNTERS_PER_RUN = 8
+/**
+ * Fifteen encounters, three acts of five, boss at the end of each —
+ * docs/V0-DESIGN.md §12. Target run length is 25-35 minutes, deliberately
+ * short: this has to be playable thirty-plus times and every extra minute
+ * taxes iteration speed.
+ */
+export const ENCOUNTERS_PER_RUN = 15
+export const ENCOUNTERS_PER_ACT = 5
+export const ACTS = 3
+
+export type EncounterKind = 'warband' | 'wasteland' | 'boss'
+
+export function actOf(index: number): number {
+  return Math.min(ACTS - 1, Math.floor(index / ENCOUNTERS_PER_ACT))
+}
+
+/** The last encounter of every act is a boss. */
+export function isBossIndex(index: number): boolean {
+  return index % ENCOUNTERS_PER_ACT === ENCOUNTERS_PER_ACT - 1
+}
+
+/**
+ * Salvage-equivalent budget per act, as a base and a slope.
+ *
+ * Written as three bands rather than one polynomial because acts ARE bands —
+ * §12 gives enemy counts of 8-20, 30-70 and 90-200+, which is a step function
+ * with a ramp inside each step, and pretending otherwise means picking a curve
+ * that fits none of the three properly.
+ *
+ * Bodies land at roughly budget/9.5, which is what these were solved against.
+ */
+const ACT_BUDGET_BASE = [75, 305, 900]
+const ACT_BUDGET_STEP = [20, 85, 200]
+
+/**
+ * A boss encounter is a spike, and most of it is one body.
+ *
+ * The escort exists so the boss is not fighting alone and the field still
+ * looks like a battle; it is deliberately a minority of the budget, because
+ * §10's brief is that a boss is "clearly not playing the same game" — one
+ * enormous problem, not a bigger version of last week.
+ */
+const BOSS_BUDGET_MULT = 1.5
+const BOSS_ESCORT_SHARE = 0.12
 
 /**
  * M1 fights rival warbands only — built from the same unit pool you recruit
@@ -37,6 +79,9 @@ const FLAVOUR = [
 
 export interface Encounter {
   index: number
+  /** 0, 1 or 2. Acts are five encounters each. */
+  act: number
+  kind: EncounterKind
   name: string
   flavour: string
   enemy: Warband
@@ -48,6 +93,147 @@ export interface Encounter {
 }
 
 
+const emptyWarband = (): Warband => ({
+  squads: [],
+  prospects: [],
+  officers: [],
+  // Enemy bands never march a campaign, so their cistern is inert.
+  salvage: 0,
+  water: 0,
+  bionics: [],
+  machines: [],
+  morale: 0,
+})
+
+const newId = (rng: Rng) => `e${rng.next().toString(36)}`
+
+/** Salvage-equivalent budget for an encounter, before the boss multiplier. */
+export function encounterBudget(index: number): number {
+  const act = actOf(index)
+  const step = Math.min(ENCOUNTERS_PER_ACT - 1, index % ENCOUNTERS_PER_ACT)
+  return ACT_BUDGET_BASE[act] + step * ACT_BUDGET_STEP[act]
+}
+
+/**
+ * A rival warband — §10's first pool, and nearly free content because it is
+ * built from the same units the player recruits.
+ */
+function buildWarband(rng: Rng, index: number, budget: number): Warband {
+  const w = emptyWarband()
+  const truekinChance = 0.1 + actOf(index) * 0.16 + (index % ENCOUNTERS_PER_ACT) * 0.03
+  let left = budget
+  let guard = 0
+
+  while (left > 25 && guard++ < 20) {
+    const isTrueKin = rng.float() < truekinChance
+    const pool = isTrueKin ? TRUEKIN_TYPES : MUTANT_TYPES
+    const type = pool[rng.int(pool.length)]
+    // Act 3 fields levies, not skirmish parties. Scaling the SQUAD size with
+    // the act keeps a 180-body band at a readable half-dozen squads instead of
+    // twenty identical ones.
+    const scale = 1 + actOf(index) * 1.6
+    const count = Math.round((isTrueKin ? 3 + rng.int(6) : 8 + rng.int(14)) * scale)
+    const cost = squadCost(type.id, count)
+    if (cost > left * 1.35) continue
+
+    w.squads.push({ id: newId(rng), typeId: type.id, count, leader: null })
+    // Rival bands throw up standouts the same way you do.
+    if (!isTrueKin && rng.float() < 0.5) {
+      w.prospects.push(rollProspect(rng, type.id, index))
+      left -= type.cost * 3
+    }
+    left -= cost
+  }
+
+  // Fallback so an unlucky roll can never produce an empty warband.
+  if (w.squads.length === 0) {
+    w.squads.push({
+      id: newId(rng),
+      typeId: MUTANT_TYPES[0].id,
+      count: Math.max(6, Math.round(budget / 8)),
+      leader: null,
+    })
+  }
+
+  // Later bands field an officer of their own.
+  if (index >= 2 && rng.float() < 0.5) {
+    const officer = rollOfficer(rng, `eo${rng.next().toString(36)}`)
+    w.officers.push(officer)
+    w.squads[0].leader = { kind: 'officer', id: officer.id }
+  }
+
+  return w
+}
+
+/**
+ * Fauna and flora — §10's second pool. Cheap, weird, atmospheric, doing their
+ * own thing.
+ *
+ * Built deliberately unlike a warband: one or two kinds of thing in quantity,
+ * no leaders, no mutations, no mixed composition. The difference the player
+ * should feel is one of SHAPE, not of stat lines — a beast encounter reads
+ * completely differently on the field from a levy drawn up and waiting.
+ */
+function buildWasteland(rng: Rng, index: number, budget: number): Warband {
+  const w = emptyWarband()
+  const kinds = 1 + rng.int(2)
+  const share = budget / kinds
+  const picked = new Set<number>()
+
+  for (let k = 0; k < kinds; k++) {
+    let type = FAUNA_TYPES[rng.int(FAUNA_TYPES.length)]
+    for (let tries = 0; tries < 4 && picked.has(type.id); tries++) {
+      type = FAUNA_TYPES[rng.int(FAUNA_TYPES.length)]
+    }
+    picked.add(type.id)
+    const count = Math.max(3, Math.round(share / type.cost))
+    w.squads.push({ id: newId(rng), typeId: type.id, count, leader: null })
+  }
+
+  return w
+}
+
+/**
+ * A boss — §10's third pool. "Bespoke, clearly not playing the same game as
+ * everyone else."
+ *
+ * One body with more HP than its entire escort, so the fight is a siege
+ * against a single problem rather than a bigger version of last week. The
+ * escort is there so the field still looks like a battle.
+ *
+ * The boss is picked by ACT, not rolled: the three of them are an escalation,
+ * and meeting the Long Gullet at encounter 5 would be a different game.
+ */
+function buildBoss(rng: Rng, index: number, budget: number): Warband {
+  const act = actOf(index)
+  const type = BOSS_TYPES[Math.min(BOSS_TYPES.length - 1, act)]
+  const w = buildWarband(rng, index, Math.round(budget * BOSS_ESCORT_SHARE))
+
+  // The boss leads the list, so it is the first thing the formation places
+  // and the first thing the player's eye lands on.
+  w.squads.unshift({ id: newId(rng), typeId: type.id, count: 1, leader: null })
+  return w
+}
+
+const WASTELAND_NAMES = [
+  'A Pack on the Flats', 'Something in the Wash', 'The Drift',
+  'Rooted in the Cut', 'What the Pipes Brought Up', 'A Bad Stretch of Road',
+]
+
+const WASTELAND_FLAVOUR = [
+  'It is not here for you. That will not help.',
+  'They have been following the water, and so have you.',
+  'Nothing about this is personal, which somehow makes it worse.',
+  'The animals left this stretch two days ago. These are not the animals.',
+  'It was already here. It will be here after.',
+]
+
+const BOSS_FLAVOUR = [
+  'The column stops without being told to.',
+  'Everyone has been hearing it for three days and nobody said so.',
+  'There is no line to form up against. There is only the one thing.',
+]
+
 /**
  * Enemy strength scales by salvage-equivalent budget, which naturally produces
  * escalating body counts — cheap mutants early, True Kin mixed in later.
@@ -57,67 +243,55 @@ export interface Encounter {
  * breaking the game isn't a reward. See docs/V0-DESIGN.md §7.
  */
 export function generateEncounter(rng: Rng, index: number): Encounter {
-  let budget = Math.round(70 + 52 * index + 6.5 * index * index)
-  const truekinChance = 0.12 + index * 0.07
+  const act = actOf(index)
+  const boss = isBossIndex(index)
+  // Fauna are an interruption, not a rotation: about one in three, and never
+  // in the slot before a boss, so the act builds toward the thing ending it.
+  const kind: EncounterKind = boss
+    ? 'boss'
+    : rng.float() < 0.34 && index % ENCOUNTERS_PER_ACT !== ENCOUNTERS_PER_ACT - 2
+      ? 'wasteland'
+      : 'warband'
 
-  const squads: Warband['squads'] = []
-  const prospects: Prospect[] = []
-  let guard = 0
-  while (budget > 25 && guard++ < 12) {
-    const isTrueKin = rng.float() < truekinChance
-    const pool = isTrueKin ? TRUEKIN_TYPES : MUTANT_TYPES
-    const type = pool[rng.int(pool.length)]
-    const count = isTrueKin ? 3 + rng.int(6) : 8 + rng.int(14)
-    const cost = squadCost(type.id, count)
-    if (cost > budget * 1.35) continue
+  const budget = Math.round(encounterBudget(index) * (boss ? BOSS_BUDGET_MULT : 1))
 
-    squads.push({
-      id: `e${rng.next().toString(36)}`,
-      typeId: type.id,
-      count,
-      leader: null,
-    })
-    // Rival bands throw up standouts the same way you do.
-    if (!isTrueKin && rng.float() < 0.5) {
-      prospects.push(rollProspect(rng, type.id, index))
-      budget -= type.cost * 3
-    }
-    budget -= cost
-  }
+  const enemy =
+    kind === 'boss'
+      ? buildBoss(rng, index, budget)
+      : kind === 'wasteland'
+        ? buildWasteland(rng, index, budget)
+        : buildWarband(rng, index, budget)
 
-  // Fallback so an unlucky roll can never produce an empty warband.
-  if (squads.length === 0) {
-    squads.push({
-      id: `e${rng.next().toString(36)}`,
-      typeId: MUTANT_TYPES[0].id,
-      count: 12 + index * 4,
-      leader: null,
-    })
-  }
+  const bodies = enemy.squads.reduce((n, s) => n + s.count, 0) + enemy.prospects.length
 
-  // Later bands field an officer of their own.
-  const officers: Officer[] = []
-  if (index >= 2 && rng.float() < 0.5) {
-    const officer = rollOfficer(rng, `eo${rng.next().toString(36)}`)
-    officers.push(officer)
-    squads[0].leader = { kind: 'officer', id: officer.id }
-  }
+  const name =
+    kind === 'boss'
+      ? UNIT_TYPES[enemy.squads[0].typeId].name
+      : kind === 'wasteland'
+        ? WASTELAND_NAMES[rng.int(WASTELAND_NAMES.length)]
+        : `${BAND_PREFIX[rng.int(BAND_PREFIX.length)]} ${BAND_SUFFIX[rng.int(BAND_SUFFIX.length)]}`
 
-  // Enemy bands never march a campaign, so their cistern is inert.
-  const enemy: Warband = { squads, prospects, officers, salvage: 0, water: 0, bionics: [], machines: [], morale: 0 }
-  const bodies = squads.reduce((n, s) => n + s.count, 0) + prospects.length
+  const flavour =
+    kind === 'boss'
+      ? BOSS_FLAVOUR[Math.min(BOSS_FLAVOUR.length - 1, act)]
+      : kind === 'wasteland'
+        ? WASTELAND_FLAVOUR[rng.int(WASTELAND_FLAVOUR.length)]
+        : FLAVOUR[rng.int(FLAVOUR.length)]
 
   return {
     index,
-    name: `${BAND_PREFIX[rng.int(BAND_PREFIX.length)]} ${BAND_SUFFIX[rng.int(BAND_SUFFIX.length)]}`,
-    flavour: FLAVOUR[rng.int(FLAVOUR.length)],
+    act,
+    kind,
+    name,
+    flavour,
     enemy,
-    reward: Math.round(105 + index * 80),
-    // Tuned against sim:campaign so that a greedy buyer bleeds bodies it
-    // cannot water on ~11% of marches while still completing at the same rate
-    // it did before Water existed. Water caps warband SIZE (p50 69 -> 52), it
-    // does not add difficulty.
-    waterReward: Math.round(88 + index * 34),
+    /*
+     * Payouts are a fraction of the budget rather than a curve of their own,
+     * so retuning difficulty cannot silently break the economy — the two move
+     * together by construction. Tuned against sim:campaign.
+     */
+    reward: Math.round(60 + budget * 0.52),
+    waterReward: Math.round(50 + budget * 0.3),
     bodies,
   }
 }

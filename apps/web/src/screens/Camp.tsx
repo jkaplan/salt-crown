@@ -871,8 +871,20 @@ export default function Camp({
         </span>
       </div>
 
-      <div className="march-card">
+      <div className={`march-card kind-${encounter.kind}`}>
         <div className="march-text">
+          {/*
+            A boss is announced, not encountered. The act and the word are the
+            whole difference between "another band on the road" and the thing
+            the act has been building toward — and the player should know
+            which they are about to march into before they commit a crew to a
+            ruin instead.
+          */}
+          <p className="march-kind">
+            Act {encounter.act + 1}
+            {encounter.kind === 'boss' && <b className="boss-word">— it is waiting</b>}
+            {encounter.kind === 'wasteland' && <span className="dim"> — not a warband</span>}
+          </p>
           <h1>{encounter.name}</h1>
           <p>{encounter.flavour}</p>
           <p className="march-facts">

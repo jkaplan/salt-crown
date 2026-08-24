@@ -177,14 +177,42 @@ the run that does memorable.
 
 ## M4 — Full run (weeks 8–9)
 
-- 15 encounters, 3 acts, 15 unit types
-- All three encounter pools: rival warbands, wasteland fauna/flora, bosses
-- **Three bosses** — horrors from below, visibly not playing the same game
-- Act 3 mass battles at 90–200+
+- ~~15 encounters, 3 acts, 15 unit types~~ ✅ built
+- ~~All three encounter pools: rival warbands, wasteland fauna/flora, bosses~~ ✅ built
+- ~~**Three bosses** — horrors from below, visibly not playing the same game~~ ✅ built
+- ~~Act 3 mass battles at 90–200+~~ ✅ built
 - The three break-run seeds from V0-DESIGN §11
 - **Two origins**: Scion of a House, and the Freed Firstborn (mutant start, True Kin at a premium)
 
 **Exit:** you complete full runs. At least one breaks.
+
+**Run structure result:** budgets are written as three bands with a ramp inside
+each, not one polynomial — acts *are* bands, and §12's 8–20 / 30–70 / 90–200+
+is a step function that no single curve fits properly. Payouts are a fraction
+of the budget rather than a curve of their own, so retuning difficulty can no
+longer silently break the economy.
+
+The first pass completed **0% of runs**, and the histogram named the cause:
+98 of 200 died at encounter 5. **Armour is the load-bearing number on a boss.**
+It is flat reduction, so a boss's armour decides whether cheap bodies are
+relevant to the fight *at all* rather than how tough it is — the act-1 boss had
+12 armour against a Chaff's 5 damage, every fodder swing did the minimum 1, and
+no quantity of warband could out-damage nothing.
+
+Correcting it overshot: cutting HP as well as armour left the act-1 boss
+outweighed by its own escort, which makes a boss encounter a warband with a
+mascot. A test caught that, not a playthrough. Armour stayed low, HP went back
+up, escort share dropped 0.35 → 0.12.
+
+| | greedy | thrifty |
+|---|---|---|
+| Completes | 17.0% | 16.5% |
+| Winning warband p50 | 46 | 57 (max 123) |
+
+Deaths are now spread evenly across all fifteen encounters with no wall
+anywhere. Battle time is **5.8 min per winning run at 1×** (1.5 at 4×), leaving
+roughly 20–30 minutes for fifteen camps — the shape §12's 25–35 minute target
+asks for. Act-3 fields run ~400 entities, which the sim does at 130× realtime.
 
 ---
 

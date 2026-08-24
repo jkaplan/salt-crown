@@ -153,4 +153,16 @@ export interface UnitType {
   blurb: string
   /** What the thing actually is. Shown on hover. */
   description: string
+  /**
+   * Overrides the lineage's discipline, if set.
+   *
+   * Lineage answers "how does this pool behave when it starts losing", which
+   * is the right question for the three POOLS THE PLAYER RECRUITS FROM. It is
+   * the wrong question for a pack animal or a thing from under the salt: they
+   * are mutant-lineage because the wasteland mutated them, and that says
+   * nothing useful about whether they understand they are losing.
+   *
+   * Enemy-only content, in practice. Nothing recruitable sets it.
+   */
+  discipline?: number
 }

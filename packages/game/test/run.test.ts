@@ -59,6 +59,13 @@ import {
   rollOfficer,
   rollOffers,
   generateEncounter,
+  ENCOUNTERS_PER_ACT,
+  ACTS,
+  actOf,
+  isBossIndex,
+  encounterBudget,
+  BOSS_TYPES,
+  FAUNA_TYPES,
   squadLabel,
   toSimGroups,
   totalBodies,
@@ -110,26 +117,40 @@ describe('run setup', () => {
   })
 
   it('gives the player something they can afford at the first camp', () => {
-    // A camp where nothing is purchasable is a dead turn. Guard the opening.
-    let affordableSomewhere = 0
-    for (let i = 0; i < 25; i++) {
+    // A camp where nothing is purchasable is a dead turn. Guard the opening —
+    // and guard BODIES specifically, because an opening shop that only offers
+    // an unaffordable Officer is the same dead turn wearing a hat.
+    let anything = 0
+    let bodies = 0
+    for (let i = 0; i < 60; i++) {
       const run = start(`open-${i}`)
-      if (run.offers.some((o) => o.cost <= run.warband.salvage)) affordableSomewhere++
+      const affordable = run.offers.filter((o) => o.cost <= run.warband.salvage)
+      if (affordable.length > 0) anything++
+      if (affordable.some((o) => o.kind === 'squad')) bodies++
     }
-    expect(affordableSomewhere).toBeGreaterThan(20)
+    expect(anything).toBeGreaterThan(55)
+    expect(bodies).toBeGreaterThan(45)
   })
 })
 
 describe('recruiting', () => {
   it('spends salvage, adds the squad, and consumes the offer', () => {
-    const run = start()
-    const offer = run.offers.find((o) => o.kind === 'squad' && o.cost <= run.warband.salvage)
-    expect(offer).toBeDefined()
+    // Seed-scanned rather than pinned. A single seed's opening shop is not
+    // guaranteed to hold an affordable SQUAD — the guarantee that it usually
+    // does is the test below, and asserting it here as well made this one
+    // fail whenever an unrelated change shifted the rng stream.
+    for (let i = 0; i < 40; i++) {
+      const run = start(`buy-${i}`)
+      const offer = run.offers.find((o) => o.kind === 'squad' && o.cost <= run.warband.salvage)
+      if (!offer) continue
 
-    const after = buy(run, offer!.id)
-    expect(after.warband.salvage).toBe(run.warband.salvage - offer!.cost)
-    expect(after.warband.squads.length).toBe(run.warband.squads.length + 1)
-    expect(after.offers.find((o) => o.id === offer!.id)).toBeUndefined()
+      const after = buy(run, offer.id)
+      expect(after.warband.salvage).toBe(run.warband.salvage - offer.cost)
+      expect(after.warband.squads.length).toBe(run.warband.squads.length + 1)
+      expect(after.offers.find((o) => o.id === offer.id)).toBeUndefined()
+      return
+    }
+    throw new Error('no affordable squad offer in 40 opening camps')
   })
 
   it('brings the batch’s standouts along with the bodies', () => {
@@ -1527,6 +1548,131 @@ describe('machines', () => {
     for (const e of EVENTS) {
       if (e.id === 'the-tinkerer') continue
       for (const c of e.choices) expect(c.restoreMachine).toBeUndefined()
+    }
+  })
+})
+
+describe('run structure', () => {
+  it('is three acts of five, with a boss ending each', () => {
+    expect(ENCOUNTERS_PER_RUN).toBe(ACTS * ENCOUNTERS_PER_ACT)
+    const bosses = [...Array(ENCOUNTERS_PER_RUN).keys()].filter(isBossIndex)
+    expect(bosses).toEqual([4, 9, 14])
+    expect(bosses.map(actOf)).toEqual([0, 1, 2])
+  })
+
+  it('escalates enemy counts into the bands the design asks for', () => {
+    // V0-DESIGN §12: Act 1 → 8-20, Act 2 → 30-70, Act 3 → 90-200+.
+    const rng = new Rng(hashSeed('bands'))
+    const byIndex: number[][] = Array.from({ length: ENCOUNTERS_PER_RUN }, () => [])
+    for (let s = 0; s < 120; s++) {
+      for (let i = 0; i < ENCOUNTERS_PER_RUN; i++) {
+        byIndex[i].push(generateEncounter(rng, i).bodies)
+      }
+    }
+    const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
+
+    // Non-boss encounters only: a boss is one enormous body plus a small
+    // escort, so its HEADCOUNT is deliberately lower than the fight before it.
+    const act = (n: number) =>
+      byIndex.filter((_, i) => actOf(i) === n && !isBossIndex(i)).map(median)
+
+    expect(Math.min(...act(0))).toBeGreaterThanOrEqual(8)
+    expect(Math.max(...act(0))).toBeLessThan(Math.min(...act(1)))
+    expect(Math.max(...act(1))).toBeLessThan(Math.min(...act(2)))
+    expect(Math.max(...act(2))).toBeGreaterThan(90)
+  })
+
+  it('draws from all three pools, and only the right one at a boss', () => {
+    const rng = new Rng(hashSeed('pools'))
+    const seen = new Set<string>()
+    for (let s = 0; s < 200; s++) {
+      for (let i = 0; i < ENCOUNTERS_PER_RUN; i++) {
+        const e = generateEncounter(rng, i)
+        seen.add(e.kind)
+        expect(e.kind === 'boss').toBe(isBossIndex(i))
+        expect(e.act).toBe(actOf(i))
+      }
+    }
+    expect([...seen].sort()).toEqual(['boss', 'warband', 'wasteland'])
+  })
+
+  it('makes a boss one enormous problem, not a bigger crowd', () => {
+    /*
+     * §10: "bespoke, clearly not playing the same game as everyone else."
+     * That is a claim about shape. The test is that the single body outweighs
+     * its entire escort — otherwise a boss encounter is just a warband with a
+     * mascot, and the fight reads the same as last week's.
+     */
+    const rng = new Rng(hashSeed('boss-shape'))
+    for (const i of [4, 9, 14]) {
+      for (let s = 0; s < 40; s++) {
+        const e = generateEncounter(rng, i)
+        const [boss, ...escort] = e.enemy.squads
+        expect(boss.count).toBe(1)
+        expect(unitType(boss.typeId).lineage).toBe('mutant')
+
+        const bossHp = unitType(boss.typeId).base.hp
+        const escortHp = escort.reduce((n, sq) => n + unitType(sq.typeId).base.hp * sq.count, 0)
+        expect(bossHp).toBeGreaterThan(escortHp)
+      }
+    }
+  })
+
+  it('escalates the three bosses rather than rolling them', () => {
+    // Meeting the Long Gullet at encounter 5 would be a different game.
+    const rng = new Rng(hashSeed('boss-order'))
+    for (let s = 0; s < 30; s++) {
+      const names = [4, 9, 14].map((i) => unitType(generateEncounter(rng, i).enemy.squads[0].typeId))
+      expect(names.map((t) => t.name)).toEqual(BOSS_TYPES.map((t) => t.name))
+      // Strictly escalating, so the act is legible from the thing in front of you.
+      expect(names[0].base.hp).toBeLessThan(names[1].base.hp)
+      expect(names[1].base.hp).toBeLessThan(names[2].base.hp)
+    }
+  })
+
+  it('keeps a boss killable by fodder', () => {
+    /*
+     * Armour is flat reduction, so a boss's armour decides whether cheap
+     * bodies matter at all rather than how tough it is. The first pass gave
+     * the act-1 boss 12 armour against a Chaff's 5 damage — every swing did
+     * the minimum 1, and 98 of 200 harness runs died on that one encounter.
+     *
+     * The rule this pins: a boss must never be immune to the cheapest thing
+     * the player can bring to that act. It should be BAD value, not zero.
+     */
+    const chaff = unitType(0).base.damage
+    for (const boss of BOSS_TYPES) {
+      expect(boss.base.armor).toBeLessThan(chaff * 2.5)
+    }
+  })
+
+  it('never lets a wasteland encounter carry leaders or mutations', () => {
+    // Beasts differ from a warband in SHAPE, not just stats. No officers, no
+    // standouts, no mixed levy — one or two kinds of thing in quantity.
+    const rng = new Rng(hashSeed('fauna'))
+    let checked = 0
+    for (let s = 0; s < 200 && checked < 40; s++) {
+      for (let i = 0; i < ENCOUNTERS_PER_RUN; i++) {
+        const e = generateEncounter(rng, i)
+        if (e.kind !== 'wasteland') continue
+        checked++
+        expect(e.enemy.officers).toHaveLength(0)
+        expect(e.enemy.prospects).toHaveLength(0)
+        expect(e.enemy.squads.length).toBeLessThanOrEqual(2)
+        for (const sq of e.enemy.squads) {
+          expect(FAUNA_TYPES.some((t) => t.id === sq.typeId)).toBe(true)
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0)
+  })
+
+  it('ties payouts to the budget so difficulty cannot drift from the economy', () => {
+    const rng = new Rng(hashSeed('pay'))
+    for (let i = 0; i < ENCOUNTERS_PER_RUN; i++) {
+      const e = generateEncounter(rng, i)
+      expect(e.reward).toBeGreaterThan(encounterBudget(i) * 0.4)
+      expect(e.waterReward).toBeGreaterThan(0)
     }
   })
 })

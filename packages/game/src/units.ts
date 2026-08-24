@@ -1,4 +1,5 @@
 import type { UnitType } from '@salt/sim'
+import { BOSS_TYPES, FAUNA_TYPES } from './wasteland.js'
 
 /**
  * M1 content: 10 unit types, 5 mutant and 5 True Kin. Machines arrive in M3
@@ -266,12 +267,17 @@ export const MACHINE_TYPES: readonly UnitType[] = [
 
 /**
  * Indexed by id — unitType(typeId) is UNIT_TYPES[typeId], so order matters and
- * machines have to live in here. They are deliberately NOT in either
- * purchasable pool: the shop and the encounter generator both build from
- * MUTANT_TYPES and TRUEKIN_TYPES, so a machine can never be offered for sale
- * or fielded by a rival band.
+ * machines, fauna and bosses have to live in here. None of them are in either
+ * purchasable pool: the shop and the rival-band generator both build from
+ * MUTANT_TYPES and TRUEKIN_TYPES, so none of them can ever be offered for sale
+ * or turn up in somebody else's levy.
  */
-export const UNIT_TYPES: readonly UnitType[] = [...RECRUITABLE, ...MACHINE_TYPES]
+export const UNIT_TYPES: readonly UnitType[] = [
+  ...RECRUITABLE,
+  ...MACHINE_TYPES,
+  ...FAUNA_TYPES,
+  ...BOSS_TYPES,
+]
 
 export const MUTANT_TYPES = UNIT_TYPES.filter((u) => u.lineage === MUTANT)
 export const TRUEKIN_TYPES = UNIT_TYPES.filter((u) => u.lineage === TRUEKIN)

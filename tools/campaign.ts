@@ -157,6 +157,7 @@ function playRun(seedText: string, thrifty: boolean, verb: 'scavenge' | 'delve' 
   let reached = 0
   let deserted = 0
   let shortMarches = 0
+  let ticks = 0
 
   while (state.phase !== 'over') {
     if (state.phase === 'camp') {
@@ -174,7 +175,7 @@ function playRun(seedText: string, thrifty: boolean, verb: 'scavenge' | 'delve' 
       const setup = marched.setup
       state = marched.state
       const battle = new Battle(setup.config)
-      battle.run()
+      ticks += battle.run()
       if (state.lastUpkeep && state.lastUpkeep.deserted > 0) {
         deserted += state.lastUpkeep.deserted
         shortMarches++
@@ -196,6 +197,7 @@ function playRun(seedText: string, thrifty: boolean, verb: 'scavenge' | 'delve' 
     water: state.warband.water,
     deserted,
     shortMarches,
+    ticks,
   }
 }
 
@@ -215,6 +217,7 @@ let won = 0
 let deserted = 0
 let shortMarches = 0
 let marches = 0
+const runTicks: number[] = []
 const reachedHist = new Array(ENCOUNTERS_PER_RUN + 1).fill(0)
 const finalBodies: number[] = []
 
@@ -223,6 +226,7 @@ for (let i = 1; i <= runs; i++) {
   const r = playRun(`seed-${i}`, thrifty, verb)
   deserted += r.deserted
   shortMarches += r.shortMarches
+  if (r.outcome === 'won') runTicks.push(r.ticks)
   marches += r.reached + 1
   if (r.outcome === 'won') {
     won++
@@ -242,6 +246,21 @@ console.log('  ----------------------')
 for (let i = 0; i <= ENCOUNTERS_PER_RUN; i++) {
   const bar = '#'.repeat(Math.round((reachedHist[i] / runs) * 40))
   console.log(`  ${pad(i, 14)}  ${pad(reachedHist[i], 6)}  ${bar}`)
+}
+
+/*
+ * Battle time only — camp time is the player's, and there is no way to guess
+ * it from here. V0-DESIGN §12 targets a 25-35 minute run, so this is the half
+ * of it the sim controls, at 20 Hz and whatever speed the player is running.
+ */
+if (runTicks.length > 0) {
+  runTicks.sort((a, b) => a - b)
+  const mid = runTicks[Math.floor(runTicks.length / 2)]
+  const mins = (n: number) => (n / 20 / 60).toFixed(1)
+  console.log(
+    `\nbattle time per winning run  p50 ${mins(mid)} min at 1x, ` +
+      `${mins(mid / 4)} min at 4x  (${mid} ticks)`,
+  )
 }
 
 if (finalBodies.length > 0) {
