@@ -227,6 +227,34 @@ export function treatWound(state: RunState, prospectId: string): RunState {
 }
 
 /**
+ * Pay to treat an Officer.
+ *
+ * Officers pick up wounds too — resolveBattle gives one to any Officer whose
+ * squad ended the battle collapsing — and until now there was no way to spend
+ * on it. A wounded Officer scales its ENTIRE squad bonus down (wounds.ts and
+ * officerBonusMultiplier), so a Crippled Warden hands its squad 1.55 armour
+ * instead of 2.5 and the player had no lever at all. Same cost and same
+ * one-rung step as a Prospect, because it is the same decision: pay now, or
+ * field them hurt and risk the next rung.
+ */
+export function treatOfficer(state: RunState, officerId: string): RunState {
+  const target = state.warband.officers.find((o) => o.id === officerId)
+  if (!target || !target.wound) return state
+  if (state.warband.salvage < TREAT_COST) return state
+
+  return {
+    ...state,
+    warband: {
+      ...state.warband,
+      salvage: state.warband.salvage - TREAT_COST,
+      officers: state.warband.officers.map((o) =>
+        o.id === officerId ? { ...o, wound: recoverWound(o.wound, 1) } : o,
+      ),
+    },
+  }
+}
+
+/**
  * Bench or field a Prospect.
  *
  * Fielding is capped; holding is not. Comparable games all cap what you field

@@ -46,6 +46,7 @@ import {
   resolveProspectStats,
   resolveSquadStats,
   treatWound,
+  treatOfficer,
   escalateWound,
   recoverWound,
   officerBonusMultiplier,
@@ -617,6 +618,48 @@ describe('wound ladder', () => {
       }
       expect(treatWound(stillWounded, brokeTarget.id)).toBe(stillWounded)
     }
+  })
+
+  /*
+   * An Officer wound was simulated and then unreachable — resolveBattle could
+   * hand one out, it silently scaled down every bonus the Officer granted, and
+   * nothing in the game could spend to fix it. The only route back to Healthy
+   * was the one free rung per battle.
+   */
+  it('treats an Officer wound, restoring the squad bonus it was scaling down', () => {
+    const run = start()
+    const officer = run.warband.officers[0]
+    const squad = run.warband.squads.find(
+      (sq) => sq.leader?.kind === 'officer' && sq.leader.id === officer.id,
+    )!
+
+    const wounded = {
+      ...run,
+      warband: {
+        ...run.warband,
+        salvage: TREAT_COST,
+        officers: run.warband.officers.map((o) =>
+          o.id === officer.id ? { ...o, wound: { zone: 'arms' as const, rung: 1 as const } } : o,
+        ),
+      },
+    }
+
+    const hurtStats = resolveSquadStats(squad, wounded.warband.officers[0])
+    const healed = treatOfficer(wounded, officer.id)
+
+    expect(healed.warband.salvage).toBe(0)
+    expect(healed.warband.officers[0].wound).toBeNull()
+
+    // The point of paying: the bonus comes back. Compared as a whole stat line
+    // so this holds whichever rank the seed happened to roll.
+    const healedStats = resolveSquadStats(squad, healed.warband.officers[0])
+    expect(healedStats).toEqual(resolveSquadStats(squad, officer))
+    expect(healedStats).not.toEqual(hurtStats)
+
+    // Healthy already, or broke — no charge either way.
+    expect(treatOfficer(healed, officer.id)).toBe(healed)
+    const broke = { ...wounded, warband: { ...wounded.warband, salvage: TREAT_COST - 1 } }
+    expect(treatOfficer(broke, officer.id)).toBe(broke)
   })
 })
 

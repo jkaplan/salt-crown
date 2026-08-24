@@ -10,6 +10,7 @@ import {
   resolveEvent,
   sellProspect,
   treatWound,
+  treatOfficer,
   chooseMutation,
   march,
   moveSquad,
@@ -149,6 +150,7 @@ export default function App() {
                   onResolveEvent={(i) => setRun(resolveEvent(run, i))}
                   onAppraise={(pid) => setRun(appraise(run, pid))}
                   onTreatWound={(pid) => setRun(treatWound(run, pid))}
+                  onTreatOfficer={(oid) => setRun(treatOfficer(run, oid))}
                   onSetFielded={(pid, f) => setRun(setFielded(run, pid, f))}
                   onSell={(pid) => setRun(sellProspect(run, pid))}
                   onMoveSquad={(sq, dir) => setRun(moveSquad(run, sq, dir))}

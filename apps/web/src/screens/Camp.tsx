@@ -15,6 +15,7 @@ import {
   findLeadingProspect,
   findOfficer,
   fodderByType,
+  officerBonusMultiplier,
   officerTitle,
   resolveProspectStats,
   resolveSquadStats,
@@ -27,12 +28,14 @@ import {
 } from '@salt/game'
 import type {
   GrowthOffer,
+  Officer,
   Offer,
   Prospect,
   RunState,
   Squad,
   SquadLeader,
   Warband,
+  Wound,
 } from '@salt/game'
 import MutationTag from '../components/MutationTag'
 import UnitName from '../components/UnitName'
@@ -65,6 +68,7 @@ interface Props {
   onResolveEvent: (choiceIndex: number) => void
   onAppraise: (prospectId: string) => void
   onTreatWound: (prospectId: string) => void
+  onTreatOfficer: (officerId: string) => void
   onSetFielded: (prospectId: string, fielded: boolean) => void
   onSell: (prospectId: string) => void
   onMoveSquad: (squadId: string, dir: -1 | 1) => void
@@ -269,6 +273,88 @@ function Capacity({ prospect }: { prospect: Prospect }) {
   )
 }
 
+/**
+ * A wound, shown the same way wherever it appears.
+ *
+ * Both named tiers can carry one, and a wound is the single most urgent thing
+ * a roster can tell you — so it reads identically on an Officer and on a
+ * Prospect rather than being restyled per row type.
+ */
+function WoundTag({ wound, note }: { wound: Wound; note: string }) {
+  return (
+    <span className="wound" title={note}>
+      {WOUND_RUNG_NAMES[wound.rung]} · {WOUND_ZONE_NAMES[wound.zone]}
+    </span>
+  )
+}
+
+/**
+ * An Officer, finally visible.
+ *
+ * Until now the only place an Officer appeared was inside a squad's leader
+ * dropdown — so the player could not see what they had hired, what it was
+ * doing, or that it had been hurt. Officers take wounds in resolveBattle and
+ * that quietly scaled down every bonus they granted, invisibly.
+ */
+function OfficerRow({
+  officer,
+  warband,
+  salvage,
+  onTreatOfficer,
+}: {
+  officer: Officer
+  warband: Warband
+  salvage: number
+  onTreatOfficer: Props['onTreatOfficer']
+}) {
+  const rank = OFFICER_RANKS_BY_ID.get(officer.rankId)
+  const leading = warband.squads.find(
+    (sq) => sq.leader?.kind === 'officer' && sq.leader.id === officer.id,
+  )
+  const wound = officer.wound
+  // An Officer has no body, so a wound scales the whole bonus instead of
+  // hitting a zone. Say so as a percentage — "Injured · Arms" alone does not
+  // explain why the squad got worse.
+  const kept = Math.round(officerBonusMultiplier(wound) * 100)
+
+  return (
+    <li className="row">
+      <div className="row-main">
+        <span className="row-name">
+          <b className="truekin">{officerTitle(officer)}</b>
+          <span className="dim">{rank?.effect}</span>
+        </span>
+        {wound && (
+          <WoundTag
+            wound={wound}
+            note={`Wounded — this Officer grants only ${kept}% of its normal bonus until it heals.`}
+          />
+        )}
+      </div>
+      <div className="row-note">
+        {leading ? (
+          <>
+            Leading {unitType(leading.typeId).name} ×{leading.count}
+            {wound && <span className="dead"> · bonus at {kept}%</span>}
+          </>
+        ) : (
+          'Leading nobody — assign from the battle line'
+        )}
+      </div>
+      {wound && (
+        <button
+          className="btn-quiet treat"
+          disabled={salvage < TREAT_COST}
+          onClick={() => onTreatOfficer(officer.id)}
+        >
+          Treat — {WOUND_RUNG_NAMES[wound.rung]} heals one rung{' '}
+          <span className="price">{TREAT_COST}</span>
+        </button>
+      )}
+    </li>
+  )
+}
+
 function ProspectRow({
   prospect,
   warband,
@@ -312,9 +398,10 @@ function ProspectRow({
           )}
         </span>
         {wound && (
-          <span className="wound" title={`${WOUND_ZONE_NAMES[wound.zone]} — costs ${TREAT_COST} salvage per rung to treat`}>
-            {WOUND_RUNG_NAMES[wound.rung]} · {WOUND_ZONE_NAMES[wound.zone]}
-          </span>
+          <WoundTag
+            wound={wound}
+            note={`${WOUND_ZONE_NAMES[wound.zone]} — costs ${TREAT_COST} salvage per rung to treat`}
+          />
         )}
         <Capacity prospect={prospect} />
       </div>
@@ -497,6 +584,12 @@ function OfferRow({
   )
 }
 
+const TABS = [
+  { id: 'line', label: 'Line' },
+  { id: 'roster', label: 'Roster' },
+  { id: 'recruit', label: 'Recruit' },
+] as const
+
 function Section({
   title,
   meta,
@@ -525,6 +618,7 @@ export default function Camp({
   onResolveEvent,
   onAppraise,
   onTreatWound,
+  onTreatOfficer,
   onSetFielded,
   onSell,
   onMoveSquad,
@@ -532,7 +626,19 @@ export default function Camp({
   onMarch,
 }: Props) {
   const { warband, encounter } = run
-  const [tab, setTab] = useState<'warband' | 'recruit'>('warband')
+  /*
+   * Three tabs, each answering one question.
+   *
+   *   Line     what order do they walk in — the only pre-battle decision
+   *   Roster   who do I actually have, and who is hurt
+   *   Recruit  who could I have
+   *
+   * "Warband" and "Roster" would have meant the same thing, so the ordering
+   * tab is named for what it is. Prospects moved out of it and in with the
+   * Officers, because those two are one question — the named tier — and they
+   * were split across a tab and a dropdown.
+   */
+  const [tab, setTab] = useState<'line' | 'roster' | 'recruit'>('line')
   const [openInfantry, setOpenInfantry] = useState(false)
   const [dragId, setDragId] = useState<string | null>(null)
   const [dropAt, setDropAt] = useState<number | null>(null)
@@ -582,6 +688,21 @@ export default function Camp({
     warband.officers.length +
     warband.prospects.length -
     warband.squads.filter((s) => s.leader).length
+
+  /*
+   * A wound is invisible from anywhere but the Roster, and an untreated one
+   * quietly costs you the whole battle it shows up in — so the tab carries a
+   * mark rather than waiting to be discovered.
+   */
+  const hurt =
+    warband.officers.filter((o) => o.wound).length +
+    warband.prospects.filter((p) => p.wound).length
+
+  const counts: Record<(typeof TABS)[number]['id'], number> = {
+    line: warband.squads.length,
+    roster: warband.officers.length + warband.prospects.length,
+    recruit: run.offers.length,
+  }
 
   return (
     <div className="camp">
@@ -713,24 +834,29 @@ export default function Camp({
       )}
 
       <nav className="tabs" role="tablist">
-        {(['warband', 'recruit'] as const).map((t) => (
+        {TABS.map((t) => (
           <button
-            key={t}
+            key={t.id}
             role="tab"
-            aria-selected={tab === t}
-            className={tab === t ? 'tab on' : 'tab'}
-            onClick={() => setTab(t)}
+            aria-selected={tab === t.id}
+            className={tab === t.id ? 'tab on' : 'tab'}
+            onClick={() => setTab(t.id)}
           >
-            {t === 'warband' ? 'Warband' : 'Recruit'}
-            <span className="tab-count">
-              {t === 'warband' ? warband.squads.length : run.offers.length}
-            </span>
+            {t.label}
+            <span className="tab-count">{counts[t.id]}</span>
+            {/* Wounds are the one thing worth pulling you into a tab you were
+                not going to open. */}
+            {t.id === 'roster' && hurt > 0 && (
+              <span className="tab-alert" title={`${hurt} wounded`}>
+                ✚
+              </span>
+            )}
           </button>
         ))}
       </nav>
 
       <div className="camp-body">
-        <div className="camp-col" hidden={tab !== 'warband'}>
+        <div className="camp-col" hidden={tab !== 'line'}>
           <Section title="Battle line" meta="front → back">
             <ul
               className={dragId ? 'rows dragging-list' : 'rows'}
@@ -762,6 +888,25 @@ export default function Camp({
               </p>
             )}
           </Section>
+        </div>
+
+        <div className="camp-col" hidden={tab !== 'roster'}>
+          <Section title="Officers" meta={warband.officers.length || undefined}>
+            <ul className="rows">
+              {warband.officers.map((o) => (
+                <OfficerRow
+                  key={o.id}
+                  officer={o}
+                  warband={warband}
+                  salvage={warband.salvage}
+                  onTreatOfficer={onTreatOfficer}
+                />
+              ))}
+            </ul>
+            {warband.officers.length === 0 && (
+              <p className="empty">None. True Kin are hired, never bred — and never cheap.</p>
+            )}
+          </Section>
 
           <Section title="Prospects" meta={warband.prospects.length || undefined}>
             <ul className="rows">
@@ -785,18 +930,10 @@ export default function Camp({
               </p>
             )}
           </Section>
-        </div>
 
-        <div className="camp-col" hidden={tab !== 'recruit'}>
-          <Section title="Recruit" meta={`${warband.salvage} salvage`}>
-            <ul className="rows">
-              {run.offers.map((o) => (
-                <OfferRow key={o.id} offer={o} salvage={warband.salvage} onBuy={onBuy} />
-              ))}
-            </ul>
-            {run.offers.length === 0 && <p className="empty">Nothing left on offer.</p>}
-          </Section>
-
+          {/* Fodder is the only tier with no individual identity, so it gets a
+              count and nothing else — and it belongs with the rest of what you
+              own rather than next to what is for sale. */}
           <Section title="Infantry" meta={`${fodder} bodies`}>
             <button className="btn-quiet disclose" onClick={() => setOpenInfantry((v) => !v)}>
               {openInfantry ? 'Hide' : 'Show'} breakdown
@@ -812,6 +949,17 @@ export default function Camp({
                 ))}
               </ul>
             )}
+          </Section>
+        </div>
+
+        <div className="camp-col" hidden={tab !== 'recruit'}>
+          <Section title="Recruit" meta={`${warband.salvage} salvage`}>
+            <ul className="rows">
+              {run.offers.map((o) => (
+                <OfferRow key={o.id} offer={o} salvage={warband.salvage} onBuy={onBuy} />
+              ))}
+            </ul>
+            {run.offers.length === 0 && <p className="empty">Nothing left on offer.</p>}
           </Section>
         </div>
       </div>

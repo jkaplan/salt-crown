@@ -1088,6 +1088,9 @@ tr.collapsing td:first-child { color: var(--danger); }
 .tab:hover:not(:disabled) { background: transparent; color: var(--ink); }
 .tab.on { color: var(--ink); box-shadow: inset 0 -2px 0 var(--a); background: transparent; }
 .tab-count { color: var(--faint); font-variant-numeric: tabular-nums; font-size: var(--t-meta); }
+/* A wound is only visible inside the Roster, and an untreated one costs you
+   the next battle — so the tab says so before you open it. */
+.tab-alert { color: var(--danger); font-size: var(--t-meta); line-height: 1; }
 
 /* The whole offer is the hit target, and it is not a card. */
 .offer-hit {

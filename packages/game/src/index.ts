@@ -94,6 +94,7 @@ export {
   resolveEvent,
   sellProspect,
   treatWound,
+  treatOfficer,
   moveSquad,
   placeSquad,
   buildBattle,
