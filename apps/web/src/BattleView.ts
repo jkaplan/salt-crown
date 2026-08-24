@@ -311,6 +311,10 @@ export class BattleView {
   private leaderScale: Float32Array = new Float32Array(0)
   /** Metadata for each sprite: groupIndex to look up unit details. */
   private spriteGroupIndex: number[] = []
+  /** Whether each sprite is a named leader. */
+  private isLeader: boolean[] = []
+  /** Durability scale for visual sizing (high armor/HP = larger). */
+  private durabilityScale: Float32Array = new Float32Array(0)
   /** Tooltip HTML element. */
   private tooltip: HTMLDivElement | null = null
   private tooltipHost: HTMLElement | null = null
@@ -343,6 +347,32 @@ export class BattleView {
 
   private teamAccentColor(team: typeof TEAM_A | typeof TEAM_B): number {
     return mixHex(this.teamBaseColor(team), 0xffffff, 0.52)
+  }
+
+  /**
+   * Compute visual scale based on overall unit power.
+   * Factors: DPS (damage × accuracy × attack speed) + durability (HP + armor).
+   * Higher power = larger sprite, making advantage readable at a glance.
+   */
+  private getPowerScale(stats: ResolvedStats): number {
+    // Offensive power: damage × accuracy × attack frequency (inverse of interval)
+    // Typical damage: 5-15, accuracy: 0.7-0.9, interval: 8-20
+    const attackFrequency = 1 / Math.max(1, stats.attackInterval)
+    const dps = stats.damage * stats.accuracy * attackFrequency
+    // Normalize DPS to 0..1 range (rough baseline: ~1.5 DPS per second)
+    const dpsNorm = Math.min(1, dps / 1.5)
+
+    // Defensive power: HP + armor value
+    // Typical HP: 30-170, armor: 0-7. Armor is flat reduction, so ~0.2 armor ≈ 1 HP
+    const defensiveValue = stats.hp + (stats.armor * 10)
+    // Normalize (typical max: ~200)
+    const defenseNorm = Math.min(1, defensiveValue / 200)
+
+    // Blend: slightly favor offense for readability, but both matter
+    const powerScore = dpsNorm * 0.55 + defenseNorm * 0.45
+
+    // Scale from 0.75x (weak) to 1.6x (powerful)
+    return 0.75 + powerScore * 0.85
   }
 
   /**
@@ -523,29 +553,41 @@ export class BattleView {
     this.sprites = []
     this.banners = []
     this.spriteGroupIndex = []
+    this.isLeader = []
 
     const b = this.battle
     this.displayHealth = new Float32Array(b.count)
     this.invMaxHp = new Float32Array(b.count)
     this.unitIsPlayer = new Uint8Array(b.count)
     this.leaderScale = new Float32Array(b.count).fill(1)
+    this.durabilityScale = new Float32Array(b.count)
     for (let i = 0; i < b.count; i++) {
       const group = config.groups[b.group[i]]
       const variant = i % BODY_VARIANTS
       const textureIndex = (group.shape % BODY_SHAPE_COUNT) * BODY_VARIANTS + variant
       const sprite = new Sprite(this.bodyTextures[textureIndex])
       sprite.anchor.set(0.5)
-      sprite.width = group.stats.radius * 2
-      sprite.height = group.stats.radius * 2
+      
+      // Apply power-based scale to size
+      const powerScale = this.getPowerScale(group.stats)
+      this.durabilityScale[i] = powerScale
+      sprite.width = group.stats.radius * 2 * powerScale
+      sprite.height = group.stats.radius * 2 * powerScale
+      
       sprite.blendMode = 'normal'
       sprite.x = b.x[i]
       sprite.y = b.y[i]
       this.displayHealth[i] = 1
       this.invMaxHp[i] = 1 / Math.max(1, group.stats.hp)
       this.unitIsPlayer[i] = group.team === TEAM_A ? 1 : 0
-      if (group.named) {
+      
+      const isLeader = group.named ?? false
+      this.isLeader.push(isLeader)
+      
+      if (isLeader) {
         this.leaderScale[i] = LEADER_SCALE
       }
+      
       this.sprites.push(sprite)
       this.spriteGroupIndex.push(b.group[i])
       // Add hover tooltip listeners
@@ -704,7 +746,14 @@ export class BattleView {
       const curve = eased * eased
       sprite.visible = true
       const step = (curve * TINT_STEPS) | 0
-      sprite.tint = isPlayer[i] === 1 ? playerTints[step] : enemyTints[step]
+      let baseTint = isPlayer[i] === 1 ? playerTints[step] : enemyTints[step]
+      
+      // Leaders are brighter/more saturated to stand out
+      if (this.isLeader[i]) {
+        baseTint = mixHex(baseTint, 0xffffff, 0.25)
+      }
+      
+      sprite.tint = baseTint
       sprite.alpha = 0.03 + curve * 0.97
 
       /*
@@ -888,36 +937,50 @@ export class BattleView {
     const group = this.config.groups[groupIndex]
     const stats = group.stats
     const spriteIndex = this.sprites.indexOf(sprite)
+    const isLeader = this.isLeader[spriteIndex]
     const hp = this.displayHealth[spriteIndex]
     const currentHp = Math.round(hp * stats.hp)
 
-    // Format mutation info if this is a leader
-    let mutationText = ''
-    if (group.leaderLabel) {
-      mutationText = `<div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.1); color: #ffd77a;">
-        <strong>${group.leaderLabel}</strong>
-      </div>`
-    }
-
     const lineageEmoji = group.color === 0x5a7fa3 ? '⬡' : '✦'
-
-    const content = `
-      <div style="line-height: 1.5;">
-        <div style="font-weight: bold; color: #e0e0e0; margin-bottom: 4px;">
+    
+    // Enhanced layout for leaders
+    let headerHtml = `
+      <div style="font-weight: bold; color: #e0e0e0; margin-bottom: 6px; font-size: 12px;">
+        ${lineageEmoji} ${group.label}${group.leaderLabel ? ` — <span style="color: #ffd77a;">${group.leaderLabel}</span>` : ''}
+      </div>
+    `
+    
+    if (isLeader) {
+      headerHtml = `
+        <div style="font-weight: bold; color: #ffd77a; margin-bottom: 4px; font-size: 13px;">
+          ★ ${group.label}
+        </div>
+        <div style="color: #ffd77a; margin-bottom: 6px; font-size: 11px;">
+          ${group.leaderLabel}
+        </div>
+      `
+    } else {
+      headerHtml = `
+        <div style="font-weight: bold; color: #e0e0e0; margin-bottom: 6px; font-size: 12px;">
           ${lineageEmoji} ${group.label}
         </div>
-        <div style="color: #b0b0b0; font-size: 10px; margin-bottom: 6px;">Unit in Squad</div>
-        <div style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 6px;">
-          <div><span style="color: #808080;">HP:</span> ${currentHp}/${Math.round(stats.hp)}</div>
-          <div><span style="color: #808080;">DMG:</span> ${stats.damage.toFixed(1)}</div>
-          <div><span style="color: #808080;">Armor:</span> ${stats.armor.toFixed(1)}</div>
-          <div><span style="color: #808080;">Range:</span> ${stats.range.toFixed(0)}</div>
-          <div><span style="color: #808080;">Acc:</span> ${(stats.accuracy * 100).toFixed(0)}%</div>
-          <div><span style="color: #808080;">Evade:</span> ${(stats.evade * 100).toFixed(0)}%</div>
-          <div><span style="color: #808080;">Interval:</span> ${stats.attackInterval.toFixed(1)}t</div>
-          <div><span style="color: #808080;">Discipline:</span> ${(group.discipline * 100).toFixed(0)}%</div>
+        <div style="color: #b0b0b0; font-size: 10px; margin-bottom: 6px;">Member of Squad</div>
+      `
+    }
+
+    const content = `
+      <div style="line-height: 1.6;">
+        ${headerHtml}
+        <div style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px;">
+          <div><span style="color: #808080; min-width: 40px; display: inline-block;">HP:</span> <span style="color: #b0b0b0;">${currentHp}/${Math.round(stats.hp)}</span></div>
+          <div><span style="color: #808080; min-width: 40px; display: inline-block;">DMG:</span> <span style="color: #b0b0b0;">${stats.damage.toFixed(1)}</span></div>
+          <div><span style="color: #808080; min-width: 40px; display: inline-block;">ARM:</span> <span style="color: #b0b0b0;">${stats.armor.toFixed(1)}</span></div>
+          <div><span style="color: #808080; min-width: 40px; display: inline-block;">RNG:</span> <span style="color: #b0b0b0;">${stats.range.toFixed(0)}</span></div>
+          <div><span style="color: #808080; min-width: 40px; display: inline-block;">ACC:</span> <span style="color: #b0b0b0;">${(stats.accuracy * 100).toFixed(0)}%</span></div>
+          <div><span style="color: #808080; min-width: 40px; display: inline-block;">EVD:</span> <span style="color: #b0b0b0;">${(stats.evade * 100).toFixed(0)}%</span></div>
+          <div><span style="color: #808080; min-width: 40px; display: inline-block;">INT:</span> <span style="color: #b0b0b0;">${stats.attackInterval.toFixed(1)}t</span></div>
+          <div><span style="color: #808080; min-width: 40px; display: inline-block;">DIS:</span> <span style="color: #b0b0b0;">${(group.discipline * 100).toFixed(0)}%</span></div>
         </div>
-        ${mutationText}
       </div>
     `
 
