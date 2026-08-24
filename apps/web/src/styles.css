@@ -1597,3 +1597,25 @@ button.install .price {
 
 .name-row { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
 .name-row .name-input { min-width: 160px; }
+
+/* ----------------------------------------------------------- postmortem -- */
+
+/* The answer to "why did I lose that". Sits above the tally because the tally
+   is evidence, not explanation. */
+.why {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s3);
+  border-left: 3px solid var(--hair);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03), transparent 70%);
+}
+.why-verdict { margin: 0; font-size: var(--t-title); color: var(--ink); }
+.why-evidence { margin: 0; font-size: var(--t-meta); color: var(--dim); line-height: 1.5; }
+
+/* Coloured by the mechanic that decided it, so a player who has seen a few
+   starts recognising the shape before reading the words. */
+.why-armour { border-left-color: #8ca0c8; }
+.why-morale { border-left-color: var(--danger); }
+.why-accuracy { border-left-color: #d8b46a; }
+.why-numbers { border-left-color: var(--a); }

@@ -126,6 +126,11 @@ export interface GroupResult {
   damageDealt: number
   /** Total damage this group absorbed over the battle. */
   damageTaken: number
+  /** Damage this group's swings lost to enemy armour. */
+  damageBlocked: number
+  /** Swings taken and swings that connected. */
+  swings: number
+  hits: number
 }
 
 export type Winner = typeof TEAM_A | typeof TEAM_B | -1

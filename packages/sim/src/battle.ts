@@ -189,6 +189,19 @@ export class Battle {
   readonly groupDamageDealt: Float32Array
   /** Total damage absorbed by each group over the battle. */
   readonly groupDamageTaken: Float32Array
+  /**
+   * Damage this group's swings LOST to enemy armour.
+   *
+   * The single most explanatory number in the game, and it used to be thrown
+   * away at the point it was computed. Armour is flat reduction, so a Chaff
+   * swinging 5 into 7 armour lands 1 — a warband can be twice the size of what
+   * it is fighting and land a tenth of the damage, and nothing on the report
+   * could say so. "I had more fighters and lost" is usually this.
+   */
+  readonly groupDamageBlocked: Float32Array
+  /** Swings taken, and swings that connected. Accuracy vs evade, made visible. */
+  readonly groupSwings: Float32Array
+  readonly groupHits: Float32Array
 
   private readonly maxHp: Float32Array
   private readonly cooldown: Int32Array
@@ -281,6 +294,9 @@ export class Battle {
     this.groupFirstUnit = new Int32Array(gn)
     this.groupDamageDealt = new Float32Array(gn)
     this.groupDamageTaken = new Float32Array(gn)
+    this.groupDamageBlocked = new Float32Array(gn)
+    this.groupSwings = new Float32Array(gn)
+    this.groupHits = new Float32Array(gn)
     this.collapsedFlag = new Uint8Array(gn)
 
     this.events = new Array<BattleEvent>(EVENT_CAPACITY)
@@ -371,6 +387,9 @@ export class Battle {
       endEffectiveness: this.groupEff[i],
       damageDealt: this.groupDamageDealt[i],
       damageTaken: this.groupDamageTaken[i],
+      damageBlocked: this.groupDamageBlocked[i],
+      swings: this.groupSwings[i],
+      hits: this.groupHits[i],
     }))
   }
 
@@ -462,11 +481,18 @@ export class Battle {
         if (chance < 0.05) chance = 0.05
         else if (chance > 0.95) chance = 0.95
 
+        this.groupSwings[gi]++
         if (rng.float() < chance) {
+          this.groupHits[gi]++
           // A bleeding squad hits softer. Fewer bodies AND weaker blows makes
           // the collapse superlinear, which is what a rout should feel like.
-          const raw = st.damage * groupEff[gi] - tt.armor
+          const swung = st.damage * groupEff[gi]
+          const raw = swung - tt.armor
           const dealt = raw > 1 ? raw : 1
+          // What armour ate. Measured against the SWING, so it captures the
+          // floor too: 5 into 7 armour lands 1 and loses 4.
+          const blocked = swung - dealt
+          if (blocked > 0) this.groupDamageBlocked[gi] += blocked
           damage[t] += dealt
 
           this.lastAttackTick[i] = this.tick

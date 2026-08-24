@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Battle, MAX_BODY_RADIUS, Rng, hashSeed } from '@salt/sim'
-import type { SimGroup } from '@salt/sim'
+import type { GroupResult, SimGroup } from '@salt/sim'
 import {
   ENCOUNTERS_PER_RUN,
   assignLeader,
@@ -58,6 +58,7 @@ import {
   rollGrowthChoices,
   rollOfficer,
   rollOffers,
+  postmortem,
   ORIGINS_BY_ID,
   foundingLevel,
   generateEncounter,
@@ -70,6 +71,7 @@ import {
   FAUNA_TYPES,
   squadLabel,
   toSimGroups,
+  makeGroup,
   totalBodies,
   totalFodder,
   unitType,
@@ -1793,5 +1795,145 @@ describe('origins', () => {
     expect(firstborn(['horns'], 'same').warband.officers.length).not.toBe(
       start('same').warband.officers.length,
     )
+  })
+})
+
+describe('postmortem', () => {
+  const g = (over: Partial<GroupResult>): GroupResult => ({
+    label: 'x',
+    team: TEAM_A,
+    started: 40,
+    dead: 40,
+    survived: 0,
+    endEffectiveness: 1,
+    damageDealt: 1000,
+    damageTaken: 1000,
+    damageBlocked: 0,
+    swings: 1000,
+    hits: 900,
+    ...over,
+  })
+
+  it('names armour when armour was the reason', () => {
+    // The case this exists for: more bodies, fewer results. Armour is flat
+    // reduction, so bringing more of something that hits for less than it is
+    // the one response that actively does not work.
+    const why = postmortem(
+      [g({ started: 80, damageDealt: 200, damageBlocked: 1400 })],
+      [g({ started: 30, team: TEAM_B })],
+      false,
+    )
+    expect(why.cause).toBe('armour')
+    expect(why.verdict).toMatch(/more bodies would not have helped/i)
+    expect(why.evidence).toMatch(/88%/)
+  })
+
+  it('names morale when the line folded rather than lost', () => {
+    const why = postmortem(
+      [g({ started: 90, endEffectiveness: 0.36 })],
+      [g({ started: 70, team: TEAM_B, endEffectiveness: 0.85 })],
+      false,
+    )
+    expect(why.cause).toBe('morale')
+    expect(why.evidence).toMatch(/damage multiplier/)
+  })
+
+  it('names accuracy when the swings were not landing', () => {
+    const why = postmortem(
+      [g({ swings: 2000, hits: 900 })],
+      [g({ team: TEAM_B })],
+      false,
+    )
+    expect(why.cause).toBe('accuracy')
+  })
+
+  it('says so plainly when nothing dominated', () => {
+    // A postmortem that always names a culprit is worse than silence — the
+    // player will act on it.
+    const why = postmortem([g({})], [g({ team: TEAM_B, started: 38 })], false)
+    expect(why.cause).toBe('even')
+    expect(why.evidence).toMatch(/nothing dominated/i)
+  })
+
+  it('reads the same evidence differently when you won', () => {
+    const heavy = { started: 80, damageDealt: 200, damageBlocked: 1400 }
+    const lost = postmortem([g(heavy)], [g({ team: TEAM_B })], false)
+    const held = postmortem([g(heavy)], [g({ team: TEAM_B })], true)
+    expect(lost.cause).toBe(held.cause)
+    expect(lost.verdict).not.toBe(held.verdict)
+  })
+
+  it('explains a real battle the player actually lost with more bodies', () => {
+    /*
+     * End to end against the sim, not against hand-written numbers. Forty
+     * Chaff (5 damage, no armour) against fifteen Shieldbearers — the fodder
+     * outnumbers them nearly three to one and loses, because flat armour eats almost every
+     * swing. If this ever stops being an armour verdict, either the armour
+     * model changed or the postmortem stopped reading it.
+     */
+    const chaff = makeGroup(TEAM_A, 0, 40)
+    const armoured = makeGroup(TEAM_B, 8, 15)
+    const battle = new Battle({ seed: 4242, groups: [chaff, armoured] })
+    battle.run()
+
+    const results = battle.results()
+    const mine = results.filter((r) => r.team === TEAM_A)
+    const theirs = results.filter((r) => r.team === TEAM_B)
+    const why = postmortem(mine, theirs, battle.winner === TEAM_A)
+
+    expect(mine[0].started).toBeGreaterThan(theirs[0].started * 2)
+    expect(mine[0].damageBlocked).toBeGreaterThan(0)
+    expect(['armour', 'morale']).toContain(why.cause)
+  })
+})
+
+describe('postmortem discrimination', () => {
+  const mirror = (seed: number) => {
+    const battle = new Battle({
+      seed,
+      groups: [makeGroup(TEAM_A, 0, 40), makeGroup(TEAM_B, 0, 40)],
+    })
+    battle.run()
+    const results = battle.results()
+    return postmortem(
+      results.filter((r) => r.team === TEAM_A),
+      results.filter((r) => r.team === TEAM_B),
+      battle.winner === TEAM_A,
+    )
+  }
+
+  it('stays silent about morale in a mirror match', () => {
+    /*
+     * Effectiveness is discipline + (1 - discipline) x alive/started, so the
+     * losing side of ANY battle ends low. The first version read that as
+     * "your line folded" and said it after every close defeat, including
+     * forty Chaff against forty Chaff where nothing about morale
+     * distinguished the sides at all.
+     *
+     * A verdict that is true of every loss explains none of them.
+     */
+    for (let seed = 1; seed <= 25; seed++) {
+      expect(mirror(seed).cause).not.toBe('morale')
+    }
+  })
+
+  it('still names morale when one side really is more brittle', () => {
+    // Mutants fold at 0.35, True Kin hold at 0.78. Same losses, very
+    // different collapse — that is a cause, not an outcome.
+    const battle = new Battle({
+      seed: 91,
+      groups: [
+        { ...makeGroup(TEAM_A, 0, 60), discipline: DISCIPLINE.mutant },
+        { ...makeGroup(TEAM_B, 5, 26), discipline: DISCIPLINE.truekin },
+      ],
+    })
+    battle.run()
+    const results = battle.results()
+    const why = postmortem(
+      results.filter((r) => r.team === TEAM_A),
+      results.filter((r) => r.team === TEAM_B),
+      battle.winner === TEAM_A,
+    )
+    expect(['morale', 'armour']).toContain(why.cause)
   })
 })

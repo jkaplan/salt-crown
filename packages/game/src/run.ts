@@ -24,6 +24,8 @@ import type { Machine } from './machines.js'
 import { clampMorale, rollEvent } from './events.js'
 import { MORALE_PER_DESERTER, payWater } from './water.js'
 import { BIONICS, BIONICS_BY_ID, BIONIC_SLOTS } from './bionics.js'
+import { postmortem } from './postmortem.js'
+import type { Postmortem } from './postmortem.js'
 import {
   MACHINE_CONDITION_MAX,
   MACHINE_RUN_COST,
@@ -59,6 +61,8 @@ export interface SquadLoss {
   damageDealt: number
   /** Total damage this squad took. */
   damageTaken: number
+  /** Damage this squad lost to enemy armour before it landed. */
+  damageBlocked: number
 }
 
 export interface MachineLoss {
@@ -87,6 +91,8 @@ export interface BattleReport {
   prospects: ProspectLoss[]
   machines: MachineLoss[]
   enemy: GroupResult[]
+  /** Why it went the way it did — see postmortem.ts. */
+  why: Postmortem
   ticks: number
 }
 
@@ -760,6 +766,7 @@ export function resolveBattle(
         endEffectiveness: r.endEffectiveness,
         damageDealt: r.damageDealt,
         damageTaken: r.damageTaken,
+        damageBlocked: r.damageBlocked,
       })
       return { ...sq, count: r.survived }
     })
@@ -879,6 +886,7 @@ export function resolveBattle(
       prospects: prospectLosses,
       machines: machineLosses,
       enemy: enemyResults,
+      why: postmortem(playerResults, enemyResults, won),
       ticks,
     },
   }

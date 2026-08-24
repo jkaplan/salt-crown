@@ -129,6 +129,8 @@ export {
   startingWarband,
 } from './origins.js'
 export type { Origin, OriginId, StartChoice } from './origins.js'
+export { postmortem } from './postmortem.js'
+export type { Postmortem } from './postmortem.js'
 export { rollOffers } from './shop.js'
 export type { Offer, SquadOffer, OfficerOffer } from './shop.js'
 export {

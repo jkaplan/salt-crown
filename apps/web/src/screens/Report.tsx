@@ -31,6 +31,16 @@ export default function Report({ report, onContinue, isLast }: Props) {
           {report.encounterName} · {(report.ticks / TICKS_PER_SECOND).toFixed(0)}s
         </p>
 
+        {/*
+          Answer first. A table of numbers only helps a player who already
+          knows which number matters, and the whole complaint this exists to
+          answer is not knowing which one that is.
+        */}
+        <div className={`why why-${report.why.cause}`}>
+          <p className="why-verdict">{report.why.verdict}</p>
+          <p className="why-evidence">{report.why.evidence}</p>
+        </div>
+
         <div className="tally">
           <div>
             <span className="big dead">{dead}</span>
@@ -149,6 +159,9 @@ export default function Report({ report, onContinue, isLast }: Props) {
               <th>Fielded</th>
               <th>Dead</th>
               <th>Standing</th>
+              <th title="Damage this squad lost to enemy armour before it landed. Armour is flat reduction, so a squad hitting for less than it does almost nothing no matter how many bodies it has.">
+                Blunted
+              </th>
               <th title="The damage multiplier it ended the battle on. Morale falls with losses, so a collapsing squad hits weaker as well as thinner.">
                 Morale
               </th>
@@ -163,6 +176,11 @@ export default function Report({ report, onContinue, isLast }: Props) {
                   <td>{s.started}</td>
                   <td className="dead">{s.dead}</td>
                   <td>{s.survived}</td>
+                  <td className={s.damageBlocked > s.damageDealt ? 'dead' : ''}>
+                    {s.damageDealt + s.damageBlocked > 0
+                      ? `${Math.round((s.damageBlocked / (s.damageDealt + s.damageBlocked)) * 100)}%`
+                      : '—'}
+                  </td>
                   <td className={eff < COLLAPSE_THRESHOLD * 100 ? 'dead' : ''}>{eff}%</td>
                 </tr>
               )
