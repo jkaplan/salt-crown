@@ -8,7 +8,7 @@ import {
   waterState,
   waterUpkeep,
 } from '@salt/game'
-import { GrowthCard, moraleTone, useJustChanged } from './parts'
+import { moraleTone, useJustChanged } from './parts'
 import type { CampProps } from './parts'
 import type { CampPage } from './pages'
 import { CAMP_PAGES } from './pages'
@@ -34,8 +34,6 @@ interface Props extends CampProps {
 
 export default function Hub({
   run,
-  onChooseMutation,
-  onResolveEvent,
   onMarch,
   onOpen,
 }: Props) {
@@ -134,50 +132,6 @@ export default function Hub({
         </span>
       </div>
 
-      {/*
-        Blocks the march. A choice you can walk past is not a choice, and
-        morale only means something if the thing that moves it has weight.
-      */}
-      {run.event && (
-        <div className="event">
-          <h2 className="event-title">{run.event.title}</h2>
-          <p className="event-body">{run.event.body}</p>
-          <div className="event-choices">
-            {run.event.choices.map((choice, i) => {
-              const blocked = choice.requires !== undefined && warband.salvage < choice.requires
-              return (
-                <button
-                  key={choice.label}
-                  className="event-choice"
-                  disabled={blocked}
-                  onClick={() => onResolveEvent(i)}
-                >
-                  <span className="ec-label">{choice.label}</span>
-                  <span className="ec-detail">{choice.detail}</span>
-                  <span className="ec-cost">
-                    {choice.salvage ? (
-                      <span className={choice.salvage > 0 ? 'salvage' : 'dead'}>
-                        {choice.salvage > 0 ? '+' : ''}
-                        {choice.salvage} salvage
-                      </span>
-                    ) : null}
-                    {choice.morale ? (
-                      <span className={choice.morale > 0 ? 'held' : 'dead'}>
-                        {choice.morale > 0 ? 'steadies' : 'shakes'} the column
-                      </span>
-                    ) : null}
-                    {choice.restoreMachine ? (
-                      <span className="held">restores a machine</span>
-                    ) : null}
-                    {blocked && <span className="dim">cannot afford</span>}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
       {/* The rarest thing in a run. Announced, not left to be noticed. */}
       {run.promoted.length > 0 && (
         <div className="promotion">
@@ -196,29 +150,6 @@ export default function Hub({
             )
           })}
         </div>
-      )}
-
-      {run.growth.length > 0 && (
-        <section className="section">
-          <h2>
-            They have survived
-            <span className="section-meta">{run.growth.length} ready to mutate</span>
-          </h2>
-          <ul className="rows">
-            {run.growth.map((offer) => {
-              const p = warband.prospects.find((x) => x.id === offer.prospectId)
-              if (!p) return null
-              return (
-                <GrowthCard
-                  key={offer.prospectId}
-                  offer={offer}
-                  prospect={p}
-                  onChoose={onChooseMutation}
-                />
-              )
-            })}
-          </ul>
-        </section>
       )}
 
       {/* Where you can go. Three doors, each one system. */}
@@ -272,8 +203,7 @@ export default function Hub({
         <button
           className="btn-primary march"
           onClick={onMarch}
-          disabled={bodies === 0 || run.event !== null}
-          title={run.event ? 'Answer the column first.' : undefined}
+          disabled={bodies === 0}
         >
           March
         </button>

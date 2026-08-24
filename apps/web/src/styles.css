@@ -1699,3 +1699,70 @@ button.install .price {
   .doors { flex-direction: row; }
   .door { flex: 1; }
 }
+
+/* ------------------------------------------------------------ takeovers -- */
+
+/*
+ * Required input gets the whole screen. Events and growth picks block the
+ * march, and a decision that shares a page with a shop reads as optional
+ * however the buttons are labelled — this is the Slay the Spire / FTL shape:
+ * one screen, one decision, no navigation offered while it is up.
+ *
+ * The chrome is identical to every other screen ON PURPOSE. Banner Saga's
+ * post-mortem is blunt about the alternative: inconsistent frame styles across
+ * menus "create confusion rather than distinction". What separates a takeover
+ * is the ground it sits on and the fact that nothing else is allowed on it.
+ */
+.takeover {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow-y: auto;
+  padding: var(--s4) var(--s3) calc(var(--s4) + var(--s3));
+}
+.takeover-body {
+  width: min(680px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+.takeover-body h1 { margin: 0; font-size: var(--t-display); line-height: 1.15; }
+.takeover-kind {
+  margin: 0;
+  font-size: var(--t-label);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.takeover-text { margin: 0; color: var(--dim); line-height: 1.6; }
+.takeover-note { margin: 0; font-size: var(--t-meta); color: var(--faint); }
+
+/* The ground is the only thing that changes between them. */
+.event-takeover { background: radial-gradient(120% 80% at 50% 0%, rgba(198,90,78,0.07), transparent 70%); }
+.growth-takeover { background: radial-gradient(120% 80% at 50% 0%, rgba(255,215,122,0.07), transparent 70%); }
+
+.growth-who { display: flex; align-items: center; gap: var(--s3); }
+.growth-who h1 { font-size: var(--t-title); }
+.growth-who p { margin: 2px 0 0; font-size: var(--t-meta); }
+.growth-carried { margin: 0; font-size: var(--t-meta); color: var(--gold); }
+.gc-blurb { font-size: var(--t-label); color: var(--faint); }
+
+.takeover .growth-choices { display: flex; flex-direction: column; gap: var(--s2); }
+.takeover .growth-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  padding: var(--s3);
+  min-height: 64px;
+}
+
+/* Each door gets its own ground too — same reasoning, same restraint. */
+.camp-warband { --page-tint: rgba(140, 160, 200, 0.05); }
+.camp-market { --page-tint: rgba(214, 178, 106, 0.05); }
+.camp-ruins { --page-tint: rgba(127, 199, 187, 0.05); }
+.camp-warband, .camp-market, .camp-ruins {
+  background: linear-gradient(180deg, var(--page-tint), transparent 240px);
+}
