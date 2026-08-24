@@ -624,3 +624,74 @@ These are personal, not squad-wide — see the note above on the leak being cut.
 - **Individual Houses as sub-origins** (own traditions, own bonuses) are V0.1. The two lineage origins in §13 are V0 because they're pure data.
 - **Title:** the repo is already called `salt_crown` — salt wastes, a crown for whoever holds the warband. Recommend keeping it until something clearly beats it.
 - Numeric tables exist to be tuned by the batch-sim harness, not argued about in advance.
+
+## 15. Player wishlist — raised 2026-08-24, deliberately not V0
+
+Requested directly by the player after playing several runs, in the player's
+own words below each heading. **None of this is built.** Explicitly deferred
+until V0 is complete — see CLAUDE.md's stated main risk ("scope creep toward
+the full vision"). Logged here rather than dropped, so it survives to be
+picked up in the right order instead of being reconstructed from memory.
+
+### Growth should feel like an event, not a notice
+
+*"I really want to feel a few things when playing this game... random
+mutations should be a bit more rare and should be an exciting event... A few
+times I've not even noticed I had a choice of mutations so maybe a modal
+instead."*
+
+Partially addressed already: growth picks became a full-screen takeover
+(`apps/web/src/screens/camp/GrowthScreen.tsx`) the session before this request
+was raised, specifically because a card between the status bar and the shop
+tabs was easy to miss. Whether that is enough — versus wanting rarer growth,
+more ceremony (animation, sound, framing), or both — is unresolved. Revisit by
+asking whether the takeover alone reads as an event once played again.
+
+### An "excited genome" — a rare trait that accelerates growth
+
+*"I like the idea of an 'excited genome' that increases the mutation level at
+a rapid speed. Need a different name for it."*
+
+Not a stat mutation like the rest of the MUTATIONS table — a meta-trait that
+changes the RATE a body earns growth (`BATTLES_PER_MUTATION` in
+`prospects.ts`, currently a flat constant for every Prospect). Needs its own
+mechanism: either a special roll a Prospect can carry, or an effect a growth
+choice itself can grant. Naming: keep it in-world register with the rest of
+the mutation table (`Horns`, `Carapace`, `Twitch Reflex`) rather than a
+biology-textbook term like "genome."
+
+### Mutation levels scaling past the current cap
+
+*"It'd be nice if mutation levels could scale past 10."*
+
+MUTATIONS levels currently run 1-6 (Qud-style — see mutations.ts). Whether
+this means raising the general cap, or specifically letting ONE exceptional
+mutation on an exceptional body climb past the normal ceiling (tying into the
+accelerant trait above), is still open — worth resolving together rather than
+guessing which.
+
+### Legendary creatures with backstory, and more factions
+
+*"Coming across a legendary creature like in Qud with some bit of backstory
+to them... I think it might require more factions like Qud has as well to
+really add story to make the world feel more alive but there is a sense of
+awe there and legendary creatures need to be highlighted as they possess much
+strength."*
+
+Two connected asks. Unique, named, lore-bearing wasteland encounters are a
+natural extension of the existing `wasteland` encounter kind (§10) — rare,
+strong, memorable, distinct from the three act-bosses. Expanded factions is
+larger: §14 already marks per-House sub-origins as V0.1, and this asks for
+more than that — faction identity and rivalry as a storytelling layer, not
+just a start-of-run price modifier. Track together since a legendary creature
+usually belongs to *somebody*.
+
+### Relics and synergistic perks
+
+*"Finding relics. Choosing perks that synergize. All the synergies."*
+
+Already the documented landing spot for squad-wide buffs — see ROADMAP.md's
+post-M4 entry on cutting the mutation leak: *"Squad-wide buffs are deferred
+to V0.1 relics/perks, which can explain themselves — carrying a totem or a
+banner leaking effect to a formation has a mechanism a body's own biology does
+not."* This request confirms that direction rather than adding a new one.
