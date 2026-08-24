@@ -121,11 +121,11 @@ export default function Report({ report, onContinue, isLast }: Props) {
           <thead>
             <tr>
               <th>Squad</th>
-              <th>Began</th>
+              <th>Fielded</th>
               <th>Dead</th>
-              <th>Left</th>
-              <th title="Damage multiplier it ended on. Low means it was collapsing.">
-                Fighting at
+              <th>Standing</th>
+              <th title="The damage multiplier it ended the battle on. Morale falls with losses, so a collapsing squad hits weaker as well as thinner.">
+                Morale
               </th>
             </tr>
           </thead>
@@ -133,7 +133,7 @@ export default function Report({ report, onContinue, isLast }: Props) {
             {report.squads.map((s) => {
               const eff = Math.round(s.endEffectiveness * 100)
               return (
-                <tr key={s.label} className={eff < 60 ? 'routed' : ''}>
+                <tr key={s.label} className={eff < 60 ? 'collapsing' : ''}>
                   <td>{s.label}</td>
                   <td>{s.started}</td>
                   <td className="dead">{s.dead}</td>
@@ -152,7 +152,7 @@ export default function Report({ report, onContinue, isLast }: Props) {
           </p>
         )}
 
-        <button onClick={onContinue}>
+        <button className="btn-primary" onClick={onContinue}>
           {report.won ? (isLast ? 'End the run' : 'Break camp') : 'The run ends here'}
         </button>
       </div>

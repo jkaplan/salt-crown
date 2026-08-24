@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ENCOUNTERS_PER_RUN,
   canBecomeFirstborn,
@@ -26,10 +26,28 @@ import type {
   SquadLeader,
   Warband,
 } from '@salt/game'
-import type { ResolvedStats } from '@salt/sim'
 import MutationTag from '../components/MutationTag'
 import UnitName from '../components/UnitName'
 import UnitShape from '../components/UnitShape'
+
+/**
+ * Returns a class name for one animation frame's worth of "this just moved".
+ *
+ * Salvage dropping when you buy is the clearest example: without it the number
+ * simply is different next render, and the player has to remember the old one.
+ */
+function useJustChanged(value: number): string {
+  const prev = useRef(value)
+  const [flash, setFlash] = useState(false)
+  useEffect(() => {
+    if (prev.current === value) return
+    prev.current = value
+    setFlash(true)
+    const t = setTimeout(() => setFlash(false), 900)
+    return () => clearTimeout(t)
+  }, [value])
+  return flash ? ' just-changed' : ''
+}
 
 interface Props {
   run: RunState
@@ -40,41 +58,6 @@ interface Props {
   onMoveSquad: (squadId: string, dir: -1 | 1) => void
   onPlaceSquad: (squadId: string, toIndex: number) => void
   onMarch: () => void
-}
-
-/**
- * Stat pills. Four numbers, always the same four, always in the same order —
- * so they can be compared down a column instead of read as prose.
- */
-function Stats({ s }: { s: ResolvedStats }) {
-  return (
-    <div className="stats">
-      <span title="Hit points">
-        <b>{s.hp.toFixed(0)}</b> hp
-      </span>
-      <span title="Damage per hit">
-        <b>{s.damage.toFixed(0)}</b> dmg
-      </span>
-      <span title="Flat damage reduction per hit">
-        <b>{s.armor.toFixed(0)}</b> arm
-      </span>
-      <span title={s.range > 40 ? 'Attack range' : 'Melee'}>
-        {s.range > 40 ? (
-          <>
-            <b>{s.range.toFixed(0)}</b> rng
-          </>
-        ) : (
-          'melee'
-        )}
-      </span>
-      <span title="Move speed — decides who reaches the enemy first">
-        <b>{s.moveSpeed.toFixed(1)}</b> spd
-      </span>
-      {s.regen > 0 && <span className="trait">regen</span>}
-      {s.quills > 0 && <span className="trait">quills</span>}
-      {s.frenzy > 0 && <span className="trait">frenzy</span>}
-    </div>
-  )
 }
 
 /**
@@ -202,7 +185,7 @@ function SquadRow({
         </button>
         <UnitShape typeId={squad.typeId} />
         <span className="row-name">
-          <UnitName typeId={squad.typeId} />
+          <UnitName typeId={squad.typeId} resolved={stats} />
           <span className="mult">×{squad.count}</span>
         </span>
         <span className={`pace ${pace(stats.moveSpeed).tone}`} title="Move speed">
@@ -210,7 +193,6 @@ function SquadRow({
         </span>
         <span className="row-pos">{index + 1}</span>
       </div>
-      <Stats s={stats} />
       <LeaderSelect squad={squad} warband={warband} onAssign={onAssign} />
     </li>
   )
@@ -291,7 +273,7 @@ function PotentialRow({
         <span className="row-name">
           <b className="potential-name">{potential.name}</b>
           <span className="dim">
-            <UnitName typeId={potential.typeId} />
+            <UnitName typeId={potential.typeId} resolved={stats} />
           </span>
         </span>
         <Capacity potential={potential} />
@@ -301,7 +283,6 @@ function PotentialRow({
           <MutationTag key={m.id} roll={m} />
         ))}
       </div>
-      <Stats s={stats} />
       <div className="row-note">
         {leading
           ? `Leading ${unitType(leading.typeId).name} ×${leading.count}`
@@ -309,7 +290,7 @@ function PotentialRow({
       </div>
       {!potential.appraised && (
         <button
-          className="assay"
+          className="btn-quiet assay"
           disabled={salvage < APPRAISAL_COST}
           onClick={() => onAppraise(potential.id)}
         >
@@ -338,7 +319,7 @@ function GrowthCard({
   const next = potential.mutations.length + 1
 
   return (
-    <li className="row growth">
+    <li className="row growth needs-you">
       <div className="row-main">
         <UnitShape typeId={potential.typeId} />
         <span className="row-name">
@@ -414,12 +395,11 @@ function OfferRow({
         <span className="row-main">
           <UnitShape typeId={offer.typeId} />
           <span className="row-name">
-            <span className={unitType(offer.typeId).lineage}>{unitType(offer.typeId).name}</span>
+            <UnitName typeId={offer.typeId} resolved={stats} />
             <span className="mult">×{offer.count}</span>
           </span>
           <span className="price-tag">{afford ? `Recruit ${offer.cost}` : `${offer.cost}`}</span>
         </span>
-        <Stats s={stats} />
         {offer.potentials.length > 0 ? (
           <span className="standouts">
             {offer.potentials.map((p) => (
@@ -515,6 +495,8 @@ export default function Camp({
   }
   const bodies = totalBodies(warband)
   const fodder = totalFodder(warband)
+  const salvageFlash = useJustChanged(warband.salvage)
+  const bodiesFlash = useJustChanged(bodies)
   const idle =
     warband.officers.length +
     warband.potentials.length -
@@ -529,10 +511,10 @@ export default function Camp({
           <i>/{ENCOUNTERS_PER_RUN}</i> encounter
         </span>
         <span>
-          <b className="salvage">{warband.salvage}</b> salvage
+          <b className={'salvage' + salvageFlash}>{warband.salvage}</b> salvage
         </span>
         <span>
-          <b>{bodies}</b> bodies
+          <b className={bodiesFlash.trim()}>{bodies}</b> bodies
         </span>
         <span>
           <b className="potential-name">{warband.potentials.length}</b> potentials
@@ -548,7 +530,7 @@ export default function Camp({
             salvage if you win · losing ends the run
           </p>
         </div>
-        <button className="march" onClick={onMarch} disabled={bodies === 0}>
+        <button className="btn-primary march" onClick={onMarch} disabled={bodies === 0}>
           March
         </button>
       </div>
@@ -620,7 +602,7 @@ export default function Camp({
             {warband.squads.length === 0 && <p className="empty">No squads.</p>}
             <p className="note">Slower squads lead. Faster squads catch up from behind.</p>
             {idle > 0 && (
-              <p className="note warn">
+              <p className="note needs-you">
                 {idle} leader{idle === 1 ? '' : 's'} leading nobody.
               </p>
             )}
@@ -657,7 +639,7 @@ export default function Camp({
           </Section>
 
           <Section title="Infantry" meta={`${fodder} bodies`}>
-            <button className="disclose" onClick={() => setOpenInfantry((v) => !v)}>
+            <button className="btn-quiet disclose" onClick={() => setOpenInfantry((v) => !v)}>
               {openInfantry ? 'Hide' : 'Show'} breakdown
             </button>
             {openInfantry && (

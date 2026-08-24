@@ -58,10 +58,10 @@ export default function LeaderSelect({
             <p className="preview-effect">{rank?.effect}</p>
 
             <div className="button-group">
-              <button className="back-btn" onClick={() => setSelectedOfficer(null)}>
+              <button className="btn-quiet back-btn" onClick={() => setSelectedOfficer(null)}>
                 Back
               </button>
-              <button className="confirm-btn" onClick={handleConfirm}>
+              <button className="btn-primary confirm-btn" onClick={handleConfirm}>
                 Confirm
               </button>
             </div>
@@ -93,7 +93,7 @@ export default function LeaderSelect({
           })}
         </ul>
 
-        <button className="back-btn" onClick={onBack}>
+        <button className="btn-quiet back-btn" onClick={onBack}>
           Back
         </button>
       </div>

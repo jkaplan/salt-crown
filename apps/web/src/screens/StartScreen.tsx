@@ -91,7 +91,7 @@ export default function StartScreen({
             </div>
           </div>
 
-          <button type="submit" className="start-btn">
+          <button type="submit" className="btn-primary start-btn">
             Begin Campaign
           </button>
         </form>

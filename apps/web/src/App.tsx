@@ -172,7 +172,7 @@ export default function App() {
                         ? `Eight fields held. ${totalBodies(run.warband)} still standing.`
                         : 'Nothing left to field. Attrition got there first.'}
                     </p>
-                    <button className="start-btn" onClick={restart}>
+                    <button className="btn-primary" onClick={restart}>
                       New run
                     </button>
                   </div>
