@@ -24,7 +24,7 @@ packages/game  content data (units, mutations, bionics, encounters) as typed obj
 apps/web       Vite + React + Pixi. Imports sim. Sim NEVER imports this.
 ```
 
-1. **The sim is deterministic.** `(state, inputs, seed) => newState`. Seeded PRNG only. Same seed, same result, always. Golden-seed replay tests exist; if you break one you changed combat behavior — say so explicitly rather than updating the fixture.
+1. **The sim is deterministic.** `(state, inputs, seed) => newState`. Seeded PRNG only. Same seed, same result, always. Golden-seed replay in `packages/sim/test/golden.test.ts` pins recorded hashes mid-battle and at the end. If one fails you changed combat behavior — say so explicitly, then re-record with `npm run sim:golden`. Never paste new numbers in to make it green.
 2. **Fixed timestep, 20 Hz.** Render interpolates at 60fps. Never tie sim advancement to frame time.
 3. **Battle state never enters React.** The battle view is one canvas React does not re-render.
 4. **No allocation in the tick loop.** Object pools / typed arrays. GC pressure is the real perf risk, not entity count.

@@ -6,22 +6,107 @@ import type { BattleConfig, BattleEvent, GroupResult, SimGroup, Winner } from '.
 /** Ring buffer capacity. Past this, the oldest notable event is overwritten. */
 const EVENT_CAPACITY = 512
 
-const CELL_SIZE = 48
 const DEFAULT_MAX_TICKS = 20 * 180
-const ROWS = 30
-const MAX_FIGHTERS_PER_LINE = 10
-const ROW_SPACING = 36
-const LINE_SPACING = 44
-const SQUAD_GAP_LINES = 1.2
-const FORMATION_OFFSET = 150
+
+/* ------------------------------------------------------------- bodies ---
+ *
+ * Three of the spacing numbers below are not free choices — they all have to
+ * clear the same distance, and getting one of them wrong fails quietly rather
+ * than loudly. So that distance gets a name.
+ */
+
+/**
+ * The widest body the sim is built to handle, in world units.
+ *
+ * This is a contract with @salt/game, not a per-unit limit the sim clamps:
+ * every spacing constant below is checked against it, and a body wider than
+ * this breaks them all at once in ways that look like physics bugs rather
+ * than like a number being out of range. The constructor rejects an oversized
+ * group outright, and a test in @salt/game holds the content to it.
+ *
+ * Widest V0 body is the Sludge-Waller at 12.
+ */
+export const MAX_BODY_RADIUS = 12
+
+/** Personal space. Bodies rest this far apart rather than touching. */
 const SEPARATION_BUFFER = 10
+
+/**
+ * The furthest apart two bodies can be and still push on each other. Every
+ * distance that has to be "at least a body apart" is measured against this.
+ */
+export const MAX_CONTACT_DISTANCE = MAX_BODY_RADIUS * 2 + SEPARATION_BUFFER
+
+/* ---------------------------------------------------------- separation --
+ *
+ * Iterative relaxation, not a physics solver.
+ */
+
 const SEPARATION_PASSES = 2
-/** Dead band: how far past reach a unit tolerates before closing again. */
-const RANGE_HYSTERESIS = 14
 /** Fraction of the overlap correction applied per pass. <1 settles, 1 snaps. */
 const SEPARATION_STRENGTH = 0.45
+
+/**
+ * Spatial grid cell, in world units.
+ *
+ * MUST be >= MAX_CONTACT_DISTANCE. separate() only ever compares a cell
+ * against itself and four forward neighbours, so a pair more than one cell
+ * apart on either axis is never tested — and if bodies can interact further
+ * than a cell is wide, some overlapping pairs are simply never separated.
+ * The failure is silent and looks like units clipping through each other.
+ *
+ * The headroom above the minimum is deliberate: cells sized exactly to the
+ * contact distance put nearly every pair in a neighbour sweep rather than in
+ * the cheaper same-cell loop.
+ */
+export const CELL_SIZE = 48
+
+/* ----------------------------------------------------------- formation --
+ *
+ * Melee at the front, ranged behind, arranged automatically. The player never
+ * places anything — this is a pure auto battler.
+ */
+
+const ROWS = 30
+const MAX_FIGHTERS_PER_LINE = 10
+/**
+ * Vertical gap between neighbours in a column, and horizontal gap between
+ * columns. Both MUST clear MAX_CONTACT_DISTANCE, or a formation spawns
+ * already overlapping and the opening ticks are spent shoving itself apart
+ * instead of advancing.
+ *
+ * LINE_SPACING is the looser of the two because columns close along X: ranks
+ * behind the front compress forward as the line engages, and starting them
+ * at the bare minimum means the second rank is inside the first before
+ * contact.
+ */
+export const ROW_SPACING = 36
+export const LINE_SPACING = 44
+const SQUAD_GAP_LINES = 1.2
+const FORMATION_OFFSET = 150
+
+/* ------------------------------------------------------------ movement -- */
+
+/**
+ * Dead band: how far past reach a unit tolerates before closing again.
+ *
+ * Must comfortably exceed how far separation can shove a body in one tick,
+ * or a unit in a packed line flips between "engaged" and "closing" every
+ * tick and the whole formation vibrates. Worst case per pass is
+ * MAX_CONTACT_DISTANCE * 0.5 * SEPARATION_STRENGTH against a fully
+ * coincident pair, which no settled line ever reaches.
+ */
+const RANGE_HYSTERESIS = 14
 /** Lateral correction is damped so lines close head-on rather than orbiting. */
 const LATERAL_DAMPING = 1
+
+/* --------------------------------------------------------------- arena --
+ *
+ * The field grows with the headcount so a 4000-body battle is not fought
+ * shoulder to shoulder in a 1600x900 box. Endless mode is the reason this
+ * exists; V0 encounters rarely cross the threshold.
+ */
+
 const ARENA_SCALE_THRESHOLD = 240
 const ARENA_SCALE_STEP = 120
 const ARENA_GROWTH_W = 140
@@ -151,7 +236,21 @@ export class Battle {
     this.rng = new Rng(config.seed)
 
     let total = 0
-    for (const g of config.groups) total += g.count
+    for (const g of config.groups) {
+      /*
+       * Loud, not clamped. An oversized body does not misbehave visibly — it
+       * quietly stops being separated from anything more than a grid cell
+       * away and spawns inside its own formation. Better to refuse the config
+       * at construction, where the content that caused it is still on screen.
+       */
+      if (g.stats.radius > MAX_BODY_RADIUS) {
+        throw new Error(
+          `${g.label}: radius ${g.stats.radius} exceeds MAX_BODY_RADIUS ${MAX_BODY_RADIUS}. ` +
+            'Raising it means raising ROW_SPACING and CELL_SIZE with it — see battle.ts.',
+        )
+      }
+      total += g.count
+    }
     this.count = total
     const arena = scaledArenaSize(total)
     this.worldW = arena.width

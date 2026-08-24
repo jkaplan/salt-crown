@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Battle, Rng, hashSeed } from '@salt/sim'
+import { Battle, MAX_BODY_RADIUS, Rng, hashSeed } from '@salt/sim'
 import {
   ENCOUNTERS_PER_RUN,
   assignLeader,
@@ -42,6 +42,7 @@ import {
   totalBodies,
   totalFodder,
   unitType,
+  UNIT_TYPES,
   resolveBattle,
   resolveProspectStats,
   resolveSquadStats,
@@ -906,6 +907,29 @@ describe('events and morale', () => {
       expect(e.choices.length).toBeGreaterThan(1)
       const shapes = e.choices.map((c) => `${c.salvage ?? 0}:${c.morale ?? 0}`)
       expect(new Set(shapes).size).toBe(shapes.length)
+    }
+  })
+})
+
+/**
+ * Content contract with the sim.
+ *
+ * The sim's spacing constants — grid cell, row spacing, line spacing — are all
+ * sized against MAX_BODY_RADIUS. A wider body would spawn inside its own
+ * formation and stop being separated from anything more than a grid cell away,
+ * which reads as a rendering glitch rather than as a stat being out of range.
+ *
+ * The Battle constructor throws on one, so this test is only here to fail in
+ * the right place: at the unit table, naming the type, rather than the first
+ * time somebody happens to field it.
+ */
+describe('unit content stays inside the sim’s limits', () => {
+  it('has no body wider than the spatial grid can separate', () => {
+    for (const t of UNIT_TYPES) {
+      expect(
+        t.base.radius,
+        `${t.name} has radius ${t.base.radius}; the sim is built for ${MAX_BODY_RADIUS}`,
+      ).toBeLessThanOrEqual(MAX_BODY_RADIUS)
     }
   })
 })

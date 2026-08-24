@@ -1,4 +1,4 @@
-export { Battle } from './battle.js'
+export { Battle, MAX_BODY_RADIUS } from './battle.js'
 export { Rng, hashSeed } from './rng.js'
 export { SpatialGrid } from './spatial.js'
 export {
