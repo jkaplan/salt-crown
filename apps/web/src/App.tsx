@@ -24,10 +24,11 @@ import Skirmish from './screens/Skirmish'
 import StartScreen from './screens/StartScreen'
 import LeaderSelect from './screens/LeaderSelect'
 import MutationLedger from './screens/MutationLedger'
+import SquadCardMockup from './screens/SquadCardMockup'
 import ParametersPanel from './components/ParametersPanel'
 import type { ViewStats } from './BattleView'
 
-type Mode = 'campaign' | 'skirmish' | 'mutations'
+type Mode = 'campaign' | 'skirmish' | 'mutations' | 'squad-mockup'
 type Setup = 'start' | 'leader'
 
 export default function App() {
@@ -115,6 +116,9 @@ export default function App() {
           <button className={mode === 'mutations' ? 'on' : ''} onClick={() => setMode('mutations')}>
             Mutation Ledger
           </button>
+          <button className={mode === 'squad-mockup' ? 'on' : ''} onClick={() => setMode('squad-mockup')}>
+            Squad Cards
+          </button>
           {mode === 'campaign' && run && (
             <button className={panelOpen ? 'on' : ''} onClick={() => setPanelOpen(!panelOpen)}>
               Details
@@ -128,6 +132,8 @@ export default function App() {
           {mode === 'skirmish' && <Skirmish />}
 
           {mode === 'mutations' && <MutationLedger />}
+
+          {mode === 'squad-mockup' && <SquadCardMockup />}
 
           {mode === 'campaign' && run && (
             <>

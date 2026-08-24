@@ -1,0 +1,223 @@
+/* Squad Card Mockup Styles */
+
+.squad-mockup {
+  padding: 20px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  min-height: 100vh;
+  font-family: 'Courier New', monospace;
+  color: #d0d0d0;
+}
+
+.mockup-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: #ffd77a;
+  text-shadow: 0 0 8px rgba(255, 215, 122, 0.3);
+}
+
+.teams-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.team {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 8px;
+}
+
+.team-label {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.team-a .team-label {
+  color: #7fc7bb;
+}
+
+.team-b .team-label {
+  color: #c4653a;
+}
+
+.squad-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 15px;
+}
+
+.squad-card {
+  background: rgba(20, 20, 30, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  transition: all 0.2s ease;
+}
+
+.squad-card:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(30, 30, 45, 0.9);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.1);
+}
+
+.squad-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.squad-name-lineage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.lineage-icon {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffd77a;
+  min-width: 14px;
+  text-align: center;
+}
+
+.squad-name {
+  font-weight: bold;
+  color: #e0e0e0;
+}
+
+.squad-count {
+  color: #a0a0a0;
+  font-size: 11px;
+  min-width: 45px;
+  text-align: right;
+}
+
+.health-bar-container {
+  margin-bottom: 8px;
+}
+
+.health-bar-bg {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.health-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7fc7bb 0%, #5aa89f 100%);
+  transition: width 0.3s ease;
+}
+
+.health-text {
+  font-size: 10px;
+  color: #808080;
+  text-align: right;
+}
+
+.leader-section {
+  background: rgba(255, 215, 122, 0.08);
+  border-left: 3px solid #ffd77a;
+  padding: 6px 8px;
+  margin: 8px 0;
+  border-radius: 2px;
+}
+
+.leader-name {
+  font-weight: bold;
+  color: #ffd77a;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.mutations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mutation-tag {
+  background: rgba(255, 215, 122, 0.2);
+  border: 1px solid rgba(255, 215, 122, 0.4);
+  color: #ffd77a;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.squad-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.stat-label {
+  color: #808080;
+  font-size: 10px;
+}
+
+.stat-value {
+  color: #c0c0c0;
+  font-weight: bold;
+  font-size: 11px;
+}
+
+.mockup-notes {
+  background: rgba(20, 20, 30, 0.8);
+  border: 1px solid rgba(255, 215, 122, 0.3);
+  border-radius: 6px;
+  padding: 15px;
+  margin-top: 20px;
+  color: #b0b0b0;
+  font-size: 13px;
+}
+
+.mockup-notes p {
+  margin: 0 0 8px 0;
+  color: #ffd77a;
+  font-weight: bold;
+}
+
+.mockup-notes ul {
+  margin: 0;
+  padding-left: 20px;
+  list-style: none;
+}
+
+.mockup-notes li {
+  margin: 4px 0;
+  color: #c0c0c0;
+}
+
+.mockup-notes li:before {
+  content: '» ';
+  color: #ffd77a;
+  margin-right: 6px;
+}

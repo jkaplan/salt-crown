@@ -302,12 +302,18 @@ export class BattleView {
   private sprites: Sprite[] = []
   private banners: Banner[] = []
   private battle: Battle | null = null
+  private config: BattleConfig | null = null
   private displayHealth: Float32Array = new Float32Array(0)
   /** Per-unit caches, filled once per battle so draw() touches no objects. */
   private invMaxHp: Float32Array = new Float32Array(0)
   private unitIsPlayer: Uint8Array = new Uint8Array(0)
   /** LEADER_SCALE for a named individual's own body, 1 for everyone else. */
   private leaderScale: Float32Array = new Float32Array(0)
+  /** Metadata for each sprite: groupIndex to look up unit details. */
+  private spriteGroupIndex: number[] = []
+  /** Tooltip HTML element. */
+  private tooltip: HTMLDivElement | null = null
+  private tooltipHost: HTMLElement | null = null
   private playerTints: number[] = []
   private enemyTints: number[] = []
   /** Strike flash, indexed by intensity. */
@@ -393,7 +399,9 @@ export class BattleView {
       preference: 'webgl',
     })
     this.app = app
+    this.tooltipHost = host
     host.appendChild(app.canvas)
+    this.setupTooltip(host)
     app.stage.addChild(this.world)
 
     // Tight, weak glow. At distance 10 / strength 1.8 the bloom from each
@@ -462,6 +470,11 @@ export class BattleView {
 
   destroy(): void {
     if (!this.app) return
+    // Clean up tooltip
+    if (this.tooltip && this.tooltipHost) {
+      this.tooltipHost.removeChild(this.tooltip)
+    }
+    this.tooltip = null
     this.app.ticker.remove(this.frame)
     for (const texture of this.bodyTextures) texture.destroy(true)
     this.bodyTextures = []
@@ -492,6 +505,7 @@ export class BattleView {
   start(config: BattleConfig): void {
     if (!this.app || !this.texture) return
 
+    this.config = config
     this.battle = new Battle(config)
     this.acc = 0
     this.simMsAvg = 0
@@ -508,6 +522,7 @@ export class BattleView {
     }
     this.sprites = []
     this.banners = []
+    this.spriteGroupIndex = []
 
     const b = this.battle
     this.displayHealth = new Float32Array(b.count)
@@ -532,6 +547,16 @@ export class BattleView {
         this.leaderScale[i] = LEADER_SCALE
       }
       this.sprites.push(sprite)
+      this.spriteGroupIndex.push(b.group[i])
+      // Add hover tooltip listeners
+      sprite.eventMode = 'static'
+      sprite.cursor = 'pointer'
+      sprite.on('pointerenter', () => {
+        this.updateTooltip(sprite, b.group[i])
+      })
+      sprite.on('pointerleave', () => {
+        this.hideTooltip()
+      })
       // Sorted into a per-team layer so the glow can be applied ONCE to the
       // layer instead of once per sprite. A filter on an individual sprite
       // forces its own render-target switch and filter pass, which destroys
@@ -834,5 +859,84 @@ export class BattleView {
       await new Promise((r) => setTimeout(r, 0))
     }
     return rows
+  }
+
+  private setupTooltip(host: HTMLElement): void {
+    const tooltip = document.createElement('div')
+    tooltip.style.cssText = `
+      position: absolute;
+      background: rgba(10, 8, 7, 0.95);
+      border: 1px solid rgba(255, 215, 122, 0.4);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: #d0d0d0;
+      pointer-events: none;
+      display: none;
+      z-index: 1000;
+      max-width: 280px;
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
+    `
+    host.appendChild(tooltip)
+    this.tooltip = tooltip
+  }
+
+  private updateTooltip(sprite: Sprite, groupIndex: number): void {
+    if (!this.tooltip || !this.config || !this.battle) return
+
+    const group = this.config.groups[groupIndex]
+    const stats = group.stats
+    const spriteIndex = this.sprites.indexOf(sprite)
+    const hp = this.displayHealth[spriteIndex]
+    const currentHp = Math.round(hp * stats.hp)
+
+    // Format mutation info if this is a leader
+    let mutationText = ''
+    if (group.leaderLabel) {
+      mutationText = `<div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.1); color: #ffd77a;">
+        <strong>${group.leaderLabel}</strong>
+      </div>`
+    }
+
+    const lineageEmoji = group.color === 0x5a7fa3 ? '⬡' : '✦'
+
+    const content = `
+      <div style="line-height: 1.5;">
+        <div style="font-weight: bold; color: #e0e0e0; margin-bottom: 4px;">
+          ${lineageEmoji} ${group.label}
+        </div>
+        <div style="color: #b0b0b0; font-size: 10px; margin-bottom: 6px;">Unit in Squad</div>
+        <div style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 6px;">
+          <div><span style="color: #808080;">HP:</span> ${currentHp}/${Math.round(stats.hp)}</div>
+          <div><span style="color: #808080;">DMG:</span> ${stats.damage.toFixed(1)}</div>
+          <div><span style="color: #808080;">Armor:</span> ${stats.armor.toFixed(1)}</div>
+          <div><span style="color: #808080;">Range:</span> ${stats.range.toFixed(0)}</div>
+          <div><span style="color: #808080;">Acc:</span> ${(stats.accuracy * 100).toFixed(0)}%</div>
+          <div><span style="color: #808080;">Evade:</span> ${(stats.evade * 100).toFixed(0)}%</div>
+          <div><span style="color: #808080;">Interval:</span> ${stats.attackInterval.toFixed(1)}t</div>
+          <div><span style="color: #808080;">Discipline:</span> ${(group.discipline * 100).toFixed(0)}%</div>
+        </div>
+        ${mutationText}
+      </div>
+    `
+
+    this.tooltip.innerHTML = content
+    this.tooltip.style.display = 'block'
+
+    // Position tooltip near the sprite
+    if (this.tooltipHost) {
+      const rect = this.tooltipHost.getBoundingClientRect()
+      const spriteScreenX = sprite.getGlobalPosition().x
+      const spriteScreenY = sprite.getGlobalPosition().y
+      this.tooltip.style.left = `${spriteScreenX + rect.left + 20}px`
+      this.tooltip.style.top = `${spriteScreenY + rect.top - 40}px`
+    }
+  }
+
+  private hideTooltip(): void {
+    if (this.tooltip) {
+      this.tooltip.style.display = 'none'
+    }
   }
 }
