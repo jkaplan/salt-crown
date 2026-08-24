@@ -8,12 +8,15 @@ import { toSimGroups, totalBodies, unitType } from './roster.js'
 import type { GroupSource, Squad, SquadLeader, Warband } from './roster.js'
 import {
   APPRAISAL_COST,
+  MAX_FIELDED_PROSPECTS,
+  fieldedCount,
   isFirstborn,
   isReadyToMutate,
   prospectTitle,
   revealIfMaxed,
   rollGrowthChoices,
   rollProspect,
+  sellValue,
 } from './prospects.js'
 import type { MutationRoll } from './mutations.js'
 import { MUTANT_TYPES } from './units.js'
@@ -209,6 +212,63 @@ export function treatWound(state: RunState, prospectId: string): RunState {
       salvage: state.warband.salvage - TREAT_COST,
       prospects: state.warband.prospects.map((p) =>
         p.id === prospectId ? { ...p, wound: recoverWound(p.wound, 1) } : p,
+      ),
+    },
+  }
+}
+
+/**
+ * Bench or field a Prospect.
+ *
+ * Fielding is capped; holding is not. Comparable games all cap what you field
+ * rather than what you own (docs/V0-DESIGN.md §5b), and the gap is where the
+ * reserve lives: bench a wounded body to let it recover, hold a graded one to
+ * sell, field the six you actually want fighting.
+ */
+export function setFielded(state: RunState, prospectId: string, fielded: boolean): RunState {
+  const target = state.warband.prospects.find((p) => p.id === prospectId)
+  if (!target || target.fielded === fielded) return state
+  if (fielded && fieldedCount(state.warband.prospects) >= MAX_FIELDED_PROSPECTS) return state
+
+  const prospects = state.warband.prospects.map((p) =>
+    p.id === prospectId ? { ...p, fielded } : p,
+  )
+  // A benched body cannot lead a squad it is not standing with.
+  const squads = fielded
+    ? state.warband.squads
+    : state.warband.squads.map((sq) =>
+        sq.leader?.kind === 'prospect' && sq.leader.id === prospectId
+          ? { ...sq, leader: null }
+          : sq,
+      )
+
+  return { ...state, warband: { ...state.warband, prospects, squads } }
+}
+
+/**
+ * Sell a body.
+ *
+ * This is what closes the speculation loop. You buy blind at the assumed
+ * price; if it grades out deep you can realise that as salvage instead of
+ * only as a fighter. The SELL_RATE spread is what stops buy-appraise-sell
+ * being an infinite money loop — a body has to actually grade above average
+ * for the round trip to profit.
+ */
+export function sellProspect(state: RunState, prospectId: string): RunState {
+  const target = state.warband.prospects.find((p) => p.id === prospectId)
+  if (!target) return state
+
+  const value = sellValue(target, unitType(target.typeId).cost)
+  return {
+    ...state,
+    warband: {
+      ...state.warband,
+      salvage: state.warband.salvage + value,
+      prospects: state.warband.prospects.filter((p) => p.id !== prospectId),
+      squads: state.warband.squads.map((sq) =>
+        sq.leader?.kind === 'prospect' && sq.leader.id === prospectId
+          ? { ...sq, leader: null }
+          : sq,
       ),
     },
   }

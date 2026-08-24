@@ -6,6 +6,8 @@ import {
   buildBattle,
   buy,
   appraise,
+  setFielded,
+  sellProspect,
   treatWound,
   chooseMutation,
   march,
@@ -145,6 +147,8 @@ export default function App() {
                   onChooseMutation={(pid, i) => setRun(chooseMutation(run, pid, i))}
                   onAppraise={(pid) => setRun(appraise(run, pid))}
                   onTreatWound={(pid) => setRun(treatWound(run, pid))}
+                  onSetFielded={(pid, f) => setRun(setFielded(run, pid, f))}
+                  onSell={(pid) => setRun(sellProspect(run, pid))}
                   onMoveSquad={(sq, dir) => setRun(moveSquad(run, sq, dir))}
                   onPlaceSquad={(sq, to) => setRun(placeSquad(run, sq, to))}
                   onMarch={onMarch}

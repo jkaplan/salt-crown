@@ -21,6 +21,11 @@ import {
   rollProspect,
   prospectCost,
   appraise,
+  setFielded,
+  sellProspect,
+  sellValue,
+  fieldedCount,
+  MAX_FIELDED_PROSPECTS,
   revealIfMaxed,
   APPRAISAL_COST,
   ASSUMED_CAPACITY,
@@ -614,6 +619,7 @@ describe('Firstborn promotion', () => {
     ...start().warband.prospects[0],
     capacity: 7,
     appraised: true,
+    fielded: true,
     wound: null,
     mutations: Array.from({ length: n }, (_, i) => ({ id: `m${i}`, level: 4 })),
   })
@@ -688,5 +694,92 @@ describe('Firstborn promotion', () => {
       promoted: [],
     }
     expect(chooseMutation(run, p.id, 0).promoted).toEqual([])
+  })
+})
+
+describe('reserve and market', () => {
+  const stock = (n: number, over: Partial<import('@salt/game').Prospect> = {}) =>
+    Array.from({ length: n }, (_, i) => ({
+      ...start().warband.prospects[0],
+      id: `p${i}`,
+      fielded: true,
+      ...over,
+    }))
+
+  const withProspects = (ps: import('@salt/game').Prospect[]): RunState => {
+    const base = start()
+    return { ...base, warband: { ...base.warband, prospects: ps, squads: [] } }
+  }
+
+  it('caps how many can take the field, not how many you own', () => {
+    const run = withProspects([
+      ...stock(MAX_FIELDED_PROSPECTS),
+      { ...stock(1)[0], id: 'bench', fielded: false },
+    ])
+    expect(run.warband.prospects).toHaveLength(MAX_FIELDED_PROSPECTS + 1)
+
+    // Full: the benched one cannot come on.
+    expect(setFielded(run, 'bench', true)).toBe(run)
+
+    // Make room, and it can.
+    const freed = setFielded(run, 'p0', false)
+    expect(fieldedCount(setFielded(freed, 'bench', true).warband.prospects)).toBe(
+      MAX_FIELDED_PROSPECTS,
+    )
+  })
+
+  it('keeps benched bodies off the battlefield entirely', () => {
+    const run = withProspects([
+      { ...stock(1)[0], id: 'in', fielded: true },
+      { ...stock(1)[0], id: 'out', fielded: false },
+    ])
+    const sources = toSimGroups(run.warband, TEAM_A).sources
+    expect(sources).toContainEqual({ kind: 'prospect', id: 'in' })
+    expect(sources).not.toContainEqual({ kind: 'prospect', id: 'out' })
+  })
+
+  it('drops a leadership when the leader is benched or sold', () => {
+    const base = start()
+    const p = base.warband.prospects[0]
+    const squad = base.warband.squads.find((s) => s.leader?.kind === 'prospect')
+    expect(squad).toBeDefined()
+
+    expect(
+      setFielded(base, p.id, false).warband.squads.find((s) => s.id === squad!.id)!.leader,
+    ).toBeNull()
+    expect(
+      sellProspect(base, p.id).warband.squads.find((s) => s.id === squad!.id)!.leader,
+    ).toBeNull()
+  })
+
+  it('pays out and removes the body when sold', () => {
+    const base = start()
+    const p = base.warband.prospects[0]
+    const after = sellProspect(base, p.id)
+    expect(after.warband.prospects).toHaveLength(0)
+    expect(after.warband.salvage).toBeGreaterThan(base.warband.salvage)
+  })
+
+  it('sells below cost, so buy-appraise-sell is not free money', () => {
+    // The spread is the whole reason speculation has a downside. Without it a
+    // player could grind salvage by churning the shop.
+    const base = start().warband.prospects[0]
+    for (const capacity of [1, 3, 7]) {
+      const p = { ...base, capacity, appraised: true, mutations: [] }
+      expect(sellValue(p, 10)).toBeLessThan(prospectCost(p, 10))
+    }
+  })
+
+  it('pays more for a body that graded out deep', () => {
+    const base = start().warband.prospects[0]
+    const shallow = { ...base, capacity: 1, appraised: true, mutations: [] }
+    const deep = { ...base, capacity: 7, appraised: true, mutations: [] }
+    expect(sellValue(deep, 10)).toBeGreaterThan(sellValue(shallow, 10))
+  })
+
+  it('ignores an unknown id', () => {
+    const run = start()
+    expect(sellProspect(run, 'nope')).toBe(run)
+    expect(setFielded(run, 'nope', false)).toBe(run)
   })
 })

@@ -46,6 +46,14 @@ export interface Prospect {
    * shopping. Paying an Assayer converts variance into certainty, at a price.
    */
   appraised: boolean
+  /**
+   * Whether this body takes the field.
+   *
+   * Unfielded Prospects are stock: they do not deploy, do not accrue battles
+   * towards Firstborn, and cannot die. Benching a wounded one to recover, or
+   * holding a graded one to sell, is the point of having a reserve at all.
+   */
+  fielded: boolean
   /** Wound ladder state — docs/V0-DESIGN.md §7. null = Healthy. */
   wound: Wound | null
 }
@@ -194,6 +202,7 @@ export function rollProspect(rng: Rng, typeId: number, encounterIndex: number): 
     growth: 0,
     capacity,
     appraised: false,
+    fielded: true,
     wound: null,
   }
 }
@@ -263,4 +272,35 @@ export function rollGrowthChoices(rng: Rng, p: Prospect, encounterIndex: number)
   }
 
   return choices
+}
+
+/**
+ * How many Prospects can take the field at once.
+ *
+ * Comparable games cap what you *field*, not what you *own* — Battle Brothers
+ * fields 12 from a roster of 20, precisely so the wounded and exhausted can
+ * sit out. See docs/V0-DESIGN.md §5b.
+ *
+ * The gap between owned and fielded is where this stops being a collection
+ * and starts being a business: bodies you are not fighting with are stock,
+ * and stock is for grading, holding, or selling.
+ */
+export const MAX_FIELDED_PROSPECTS = 6
+
+/**
+ * What a body fetches, as a fraction of what it is worth.
+ *
+ * The spread is the point. Without it, buy-appraise-sell is an infinite money
+ * loop; with it, a blind buy that grades out deep is genuinely profitable and
+ * one that grades out finished is a genuine loss. That is the speculation.
+ */
+export const SELL_RATE = 0.6
+
+/** Bodies currently taking the field. */
+export function fieldedCount(prospects: Prospect[]): number {
+  return prospects.filter((p) => p.fielded).length
+}
+
+export function sellValue(p: Prospect, baseCost: number): number {
+  return Math.max(1, Math.round(prospectCost(p, baseCost) * SELL_RATE))
 }

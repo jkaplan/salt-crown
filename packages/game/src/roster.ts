@@ -251,7 +251,10 @@ export function toSimGroups(
    * best standout in the warband became immortal the moment you promoted it,
    * which destroys the permadeath the tier exists for.
    */
+  // Only fielded Prospects fight. The rest are stock — they do not deploy,
+  // do not accrue battles, and cannot die. That is what a reserve is for.
   for (const p of w.prospects) {
+    if (!p.fielded) continue
     const type = unitType(p.typeId)
     groups.push({
       team,

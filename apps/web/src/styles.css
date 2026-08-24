@@ -1283,3 +1283,19 @@ button.treat .price { color: var(--gold); margin-left: var(--s1); font-variant-n
   text-transform: uppercase;
   color: #ffd77a;
 }
+
+/* --------------------------------------------------------- reserve ------ */
+
+.row-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.row-actions button { padding: var(--s1) 0; min-height: 32px; }
+.row-actions .sell .price { color: var(--gold); margin-left: var(--s1); font-variant-numeric: tabular-nums; }
+
+/* A held body is stock, not a fighter — recede it so the fielded six read
+   as the warband and the rest read as inventory. */
+.row.held { opacity: 0.62; }
+.held-tag {
+  font-size: var(--t-label);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}

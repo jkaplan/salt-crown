@@ -44,7 +44,7 @@ function officer(rankId: string): Officer {
 }
 
 function prospect(typeId: number, mutationId: string, level: number): Prospect {
-  return { id: 'pot', typeId, name: 'Test', mutations: [{ id: mutationId, level }], battles: 0, growth: 0, capacity: 6, appraised: true, wound: null }
+  return { id: 'pot', typeId, name: 'Test', mutations: [{ id: mutationId, level }], battles: 0, growth: 0, capacity: 6, appraised: true, fielded: true, wound: null }
 }
 
 function warband(squads: Squad[], officers: Officer[], prospects: Prospect[]): Warband {

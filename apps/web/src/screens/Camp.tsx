@@ -6,6 +6,9 @@ import {
   APPRAISAL_COST,
   isMaxed,
   isFirstborn,
+  fieldedCount,
+  sellValue,
+  MAX_FIELDED_PROSPECTS,
   MUTATIONS_BY_ID,
   OFFICER_RANKS_BY_ID,
   findLeadingProspect,
@@ -60,6 +63,8 @@ interface Props {
   onChooseMutation: (prospectId: string, choiceIndex: number) => void
   onAppraise: (prospectId: string) => void
   onTreatWound: (prospectId: string) => void
+  onSetFielded: (prospectId: string, fielded: boolean) => void
+  onSell: (prospectId: string) => void
   onMoveSquad: (squadId: string, dir: -1 | 1) => void
   onPlaceSquad: (squadId: string, toIndex: number) => void
   onMarch: () => void
@@ -261,12 +266,18 @@ function ProspectRow({
   salvage,
   onAppraise,
   onTreatWound,
+  onSetFielded,
+  onSell,
+  fieldFull,
 }: {
   prospect: Prospect
   warband: Warband
   salvage: number
   onAppraise: Props['onAppraise']
   onTreatWound: Props['onTreatWound']
+  onSetFielded: Props['onSetFielded']
+  onSell: Props['onSell']
+  fieldFull: boolean
 }) {
   const stats = resolveProspectStats(prospect)
   const leading = warband.squads.find(
@@ -275,7 +286,7 @@ function ProspectRow({
   const wound = prospect.wound
 
   return (
-    <li className="row">
+    <li className={prospect.fielded ? 'row' : 'row held'}>
       <div className="row-main">
         <UnitShape typeId={prospect.typeId} />
         <span className="row-name">
@@ -326,6 +337,34 @@ function ProspectRow({
           Treat — {WOUND_RUNG_NAMES[wound.rung]} heals one rung <span className="price">{TREAT_COST}</span>
         </button>
       )}
+      <div className="row-actions">
+        {/* Bench a wounded body to let it recover; hold a graded one to sell. */}
+        <button
+          className="btn-quiet"
+          disabled={!prospect.fielded && fieldFull}
+          title={
+            prospect.fielded
+              ? 'Hold in reserve. It will not fight, take wounds, or gain battles.'
+              : fieldFull
+                ? `Already fielding ${MAX_FIELDED_PROSPECTS}. Bench someone first.`
+                : 'Bring it to the next battle.'
+          }
+          onClick={() => onSetFielded(prospect.id, !prospect.fielded)}
+        >
+          {prospect.fielded ? 'Hold back' : 'Field'}
+        </button>
+        <button
+          className="btn-quiet sell"
+          title={
+            prospect.appraised
+              ? 'Sell at its graded value.'
+              : 'Ungraded stock sells at the going rate for an average body, whatever it is really worth.'
+          }
+          onClick={() => onSell(prospect.id)}
+        >
+          Sell <span className="price">{sellValue(prospect, unitType(prospect.typeId).cost)}</span>
+        </button>
+      </div>
     </li>
   )
 }
@@ -476,6 +515,8 @@ export default function Camp({
   onChooseMutation,
   onAppraise,
   onTreatWound,
+  onSetFielded,
+  onSell,
   onMoveSquad,
   onPlaceSquad,
   onMarch,
@@ -672,6 +713,9 @@ export default function Camp({
                 salvage={warband.salvage}
                 onAppraise={onAppraise}
                 onTreatWound={onTreatWound}
+                onSetFielded={onSetFielded}
+                onSell={onSell}
+                fieldFull={fieldedCount(warband.prospects) >= MAX_FIELDED_PROSPECTS}
               />
               ))}
             </ul>

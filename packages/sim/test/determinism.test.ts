@@ -230,7 +230,7 @@ describe('Battle events', () => {
 
 describe('Stat resolution', () => {
   const prospect = (mutations: { id: string; level: number }[]) => ({
-    id: 'x', typeId: 0, name: 'Test', mutations, battles: 0, growth: 0, capacity: 6, appraised: true,
+    id: 'x', typeId: 0, name: 'Test', mutations, battles: 0, growth: 0, capacity: 6, appraised: true, fielded: true,
     wound: null,
   })
 
