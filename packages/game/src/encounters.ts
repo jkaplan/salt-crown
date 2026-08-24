@@ -37,8 +37,8 @@ export function isBossIndex(index: number): boolean {
  *
  * Bodies land at roughly budget/9.5, which is what these were solved against.
  */
-const ACT_BUDGET_BASE = [75, 305, 900]
-const ACT_BUDGET_STEP = [20, 85, 200]
+const ACT_BUDGET_BASE = [54, 220, 648]
+const ACT_BUDGET_STEP = [14, 61, 144]
 
 /**
  * A boss encounter is a spike, and most of it is one body.

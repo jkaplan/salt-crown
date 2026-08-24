@@ -279,8 +279,20 @@ export const UNIT_TYPES: readonly UnitType[] = [
   ...BOSS_TYPES,
 ]
 
-export const MUTANT_TYPES = UNIT_TYPES.filter((u) => u.lineage === MUTANT)
-export const TRUEKIN_TYPES = UNIT_TYPES.filter((u) => u.lineage === TRUEKIN)
+/*
+ * Filtered from RECRUITABLE, not UNIT_TYPES — a real bug lived here for a
+ * while. Fauna and bosses are lineage 'mutant' for narrative reasons (the
+ * wasteland mutated them too), so filtering the full UNIT_TYPES table pulled
+ * all eight of them into MUTANT_TYPES alongside the five actual recruitable
+ * mutants. Both the shop (shop.ts) and the rival-band generator
+ * (encounters.ts) build from MUTANT_TYPES, so for a while The Long Gullet
+ * could have been offered for sale, or turned up leading a random scav-band
+ * at any encounter — found by sim:matchup unexpectedly iterating 18 unit
+ * types instead of 10, not by a test. There is now one: see
+ * "content stays inside the purchasable pool" in run.test.ts.
+ */
+export const MUTANT_TYPES = RECRUITABLE.filter((u) => u.lineage === MUTANT)
+export const TRUEKIN_TYPES = RECRUITABLE.filter((u) => u.lineage === TRUEKIN)
 
 /**
  * Discipline: the damage multiplier a squad retains once it has been ground

@@ -4,6 +4,8 @@ import type { GroupResult, SimGroup } from '@salt/sim'
 import {
   ENCOUNTERS_PER_RUN,
   MUTATIONS,
+  MUTANT_TYPES,
+  TRUEKIN_TYPES,
   assignLeader,
   buildBattle,
   buy,
@@ -1488,29 +1490,59 @@ describe('machines', () => {
     }
   }
 
-  it('is never for sale, anywhere', () => {
+  it('is never for sale or fielded by a rival, anywhere', () => {
     /*
      * V0-DESIGN §3: "not sold in the recruit screen — found in ruins and rare
      * events, and that's the only way to get one." The shop and the encounter
      * generator both build from the two purchasable pools, so this holds by
-     * construction — but it is the kind of invariant that a later refactor
-     * reaching for UNIT_TYPES would quietly break.
+     * construction — but it is exactly the invariant a later refactor
+     * reaching for UNIT_TYPES quietly broke.
+     *
+     * It DID break, silently: MUTANT_TYPES used to filter the full
+     * UNIT_TYPES table, and fauna/bosses are lineage 'mutant' for narrative
+     * reasons (the wasteland mutated them too). For a stretch of real commits,
+     * MUTANT_TYPES held 13 entries instead of 5 — the shop could have offered
+     * The Long Gullet for sale, and a rival scav-band could have fielded it.
+     * A previous version of this test checked only `lineage !== 'machine'`,
+     * which fauna and bosses trivially satisfy (they ARE lineage 'mutant'),
+     * so it stayed green the whole time. Found by npm run sim:matchup
+     * unexpectedly iterating 18 unit types instead of 10 — a symptom in a
+     * completely different tool — not by any test. This checks id
+     * membership directly, which is the only version of this invariant that
+     * cannot pass by accident.
      */
+    const forbidden = new Set([...MACHINE_TYPES, ...FAUNA_TYPES, ...BOSS_TYPES].map((t) => t.id))
+    expect(forbidden.size).toBeGreaterThan(0) // guards against the set itself going empty
+
     const rng = new Rng(hashSeed('market'))
     for (let i = 0; i < 200; i++) {
       for (const offer of rollOffers(rng, i % ENCOUNTERS_PER_RUN)) {
-        if (offer.kind === 'squad') {
-          expect(unitType(offer.typeId).lineage).not.toBe('machine')
-        }
+        if (offer.kind === 'squad') expect(forbidden.has(offer.typeId)).toBe(false)
       }
     }
-    // And no rival band fields one either.
-    for (let i = 0; i < 100; i++) {
+    /*
+     * And no ordinary rival LEVY fields one either — scoped to encounter
+     * KIND, not to every encounter. A 'wasteland' encounter is legitimately
+     * fauna, and a 'boss' encounter's squads[0] is legitimately the boss
+     * itself (§10 — both by design, not a leak). Checking every kind here
+     * was the first draft's own bug: it flagged The Long Gullet showing up
+     * in its OWN boss encounter as a violation. The real invariant is
+     * narrower — an ordinary rival scav-band never fields either.
+     */
+    for (let i = 0; i < 150; i++) {
       const enc = generateEncounter(rng, i % ENCOUNTERS_PER_RUN)
-      for (const sq of enc.enemy.squads) {
-        expect(unitType(sq.typeId).lineage).not.toBe('machine')
-      }
+      if (enc.kind !== 'warband') continue
+      for (const sq of enc.enemy.squads) expect(forbidden.has(sq.typeId)).toBe(false)
     }
+  })
+
+  it('keeps MUTANT_TYPES and TRUEKIN_TYPES scoped to the recruitable pool', () => {
+    // The five-plus-five the design promises (§12), not five-plus-eight-more
+    // because fauna and bosses share the mutant lineage tag.
+    expect(MUTANT_TYPES).toHaveLength(5)
+    expect(TRUEKIN_TYPES).toHaveLength(5)
+    for (const t of MUTANT_TYPES) expect(FAUNA_TYPES.some((f) => f.id === t.id)).toBe(false)
+    for (const t of MUTANT_TYPES) expect(BOSS_TYPES.some((b) => b.id === t.id)).toBe(false)
   })
 
   it('only degrades, and only when it fights', () => {

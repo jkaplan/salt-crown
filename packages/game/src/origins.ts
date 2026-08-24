@@ -75,7 +75,7 @@ export const ORIGINS: readonly Origin[] = [
       'No Officers. You lead by steadying the line, not by remaking it — a squad you stand with holds better for your being there. True Kin will not readily serve under a mutant and price themselves accordingly — a bionic core is a slow, expensive pivot rather than the default. Cheaper roster, weaker bodies, far more variance.',
     truekinPremium: 2.1,
     // Fewer bodies to water, and no Officers drinking on the payroll.
-    startingSalvage: 145,
+    startingSalvage: 215,
     startingWater: 190,
   },
 ]
@@ -179,21 +179,26 @@ export function startingWarband(rng: Rng, choice: StartChoice): Warband {
   if (choice.origin === 'firstborn') {
     const you = foundingFirstborn(rng, choice.mutationIds ?? [], choice.name || 'Firstborn')
     /*
-     * You and one other, and the other one matters more than it looks.
+     * ONE squad, everyone under it, led by "you".
      *
-     * The Scion starts with two leader slots filled. Measured headless, a
-     * Firstborn start with only ONE completed 3.0% of runs against the
-     * Scion's 14.0% — most of the gap was simply that every squad past the
-     * first had nobody in front of it, at a mutant's 0.35 discipline.
+     * Splitting the opening roster across two leaders used to make sense
+     * because leadership set a squad's STATS — spreading standouts thin was
+     * still better than none. It cut the mutation leak (see the post-M4
+     * roadmap entry) removed that; leadership is discipline only now, and
+     * discipline is a FLOOR applied to every body in the squad regardless of
+     * squad size. Splitting sixteen bodies across two leaders — one of them
+     * an ordinary Prospect worth +0.05, not yet the +0.2 a titled Firstborn
+     * gives — put most of the roster under the weaker bonus for no reason.
+     * Consolidating under the one bonus that matters is strictly better with
+     * nothing invented: same bodies, same leaders, different arrangement.
      *
-     * A second Prospect is the right lever because it is the origin's own
-     * story rather than a handout: the mutant path grows its named tier
-     * instead of hiring one, so it starts with the pipeline already running.
+     * The second Prospect still exists and still grows — earnedGrowth counts
+     * battles survived regardless of leadership — it just is not spending its
+     * leader slot on a squad it barely improves.
      */
     const second = rollProspect(rng, MUTANT_TYPES[3].id, 0)
     const squads: Squad[] = [
-      { id: 'sq-start-1', typeId: MUTANT_TYPES[0].id, count: 10, leader: { kind: 'prospect', id: you.id } },
-      { id: 'sq-start-2', typeId: MUTANT_TYPES[3].id, count: 6, leader: { kind: 'prospect', id: second.id } },
+      { id: 'sq-start-1', typeId: MUTANT_TYPES[0].id, count: 22, leader: { kind: 'prospect', id: you.id } },
     ]
     return { ...base, squads, prospects: [you, second], officers: [] }
   }

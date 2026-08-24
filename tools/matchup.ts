@@ -11,7 +11,19 @@
  * A row that reads ~50% against everything is a unit with no identity.
  */
 import { Battle, TEAM_A, TEAM_B } from '@salt/sim'
-import { UNIT_TYPES, makeGroup } from '@salt/game'
+import { MUTANT_TYPES, TRUEKIN_TYPES, UNIT_TYPES, makeGroup } from '@salt/game'
+
+/**
+ * The purchasable pool ONLY — not UNIT_TYPES, which also holds machines,
+ * fauna and bosses since they widened it (M3/M4). This matrix answers "do
+ * the things a player CHOOSES BETWEEN actually differ", and those three
+ * pools are never a choice: machines and bosses are found, not bought, and
+ * fauna never appear in the shop. Including them used to make the matrix 5x
+ * slower for no reason and produced cells like "a 900-cost boss against 400
+ * salvage" that floor to one body against two hundred Chaff — not a
+ * balance question, a unit-cost mismatch.
+ */
+const RECRUITABLE = [...MUTANT_TYPES, ...TRUEKIN_TYPES]
 
 function arg(name: string, fallback: number): number {
   const i = process.argv.indexOf(`--${name}`)
@@ -44,19 +56,19 @@ console.log('Salt Crown — matchup matrix')
 console.log(`${budget} salvage per side, ${seeds} seeds per cell\n`)
 console.log('Row wins vs column, as a percentage. ~50 everywhere means no identity.\n')
 
-const header = UNIT_TYPES.map((t) => short(t.name)).join(' ')
+const header = RECRUITABLE.map((t) => short(t.name)).join(' ')
 console.log(`${' '.repeat(15)}${header}`)
 
 const spread: { name: string; range: number; lo: string; hi: string }[] = []
 
-for (const a of UNIT_TYPES) {
+for (const a of RECRUITABLE) {
   const cells: string[] = []
   let lo = 2
   let hi = -1
   let loName = ''
   let hiName = ''
 
-  for (const b of UNIT_TYPES) {
+  for (const b of RECRUITABLE) {
     if (a.id === b.id) {
       cells.push('    —')
       continue
