@@ -1642,3 +1642,60 @@ button.install .price {
   padding: 2px var(--s2);
   align-self: flex-start;
 }
+
+/* ------------------------------------------------------------- camp hub -- */
+
+/* Three doors, one system each. Cards rather than tabs on purpose: tabs make
+   things peers, and "answer this before you can march" is not a peer of
+   "look at the shop". */
+.doors { display: flex; flex-direction: column; gap: var(--s2); }
+.door {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px var(--s3);
+  text-align: left;
+  background: var(--surface);
+  padding: var(--s3);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1px var(--hair);
+  min-height: 56px;
+}
+.door:hover:not(:disabled) { background: var(--surface); box-shadow: inset 0 0 0 1px var(--a); }
+.door-name { font-size: var(--t-title); color: var(--ink); }
+.door-count {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-title);
+}
+.door-blurb { font-size: var(--t-meta); color: var(--faint); }
+
+/* What needs deciding, and where. Only real state — a list that always has
+   something on it teaches the player to stop reading it. */
+.notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.notes li { font-size: var(--t-meta); color: var(--dim); }
+.notes button { padding: var(--s1) 0; min-height: 32px; text-align: left; color: var(--dim); }
+.notes button:hover:not(:disabled) { color: var(--ink); background: transparent; }
+.notes .note-urgent, .notes .note-urgent button { color: var(--danger); }
+
+/* One way back, always in the same place. */
+.page-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--hair);
+}
+.page-head h1 { margin: 0; font-size: var(--t-title); }
+.page-head .dim { font-size: var(--t-meta); }
+.page-head .back { padding: var(--s1) 0; min-height: 36px; }
+
+.camp-page { display: flex; flex-direction: column; gap: var(--s4); }
+
+@media (min-width: 760px) {
+  .doors { flex-direction: row; }
+  .door { flex: 1; }
+}

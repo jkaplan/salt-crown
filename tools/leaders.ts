@@ -117,29 +117,51 @@ for (const edge of [0, 0.02, 0.05, 0.1, 0.2]) {
 }
 console.log()
 
-console.log('  spend            option                       win     vs base   same salvage')
-console.log('  ------------------------------------------------------------------ in bodies')
+/*
+ * Win rate cannot compare leaders, and the old table proved it: calibrated to
+ * a 50/50 baseline, every single option read 100% — including spending the
+ * same salvage on plain bodies. Combat is Lanchester-square, so at a knife
+ * edge ANY advantage saturates and the column measures nothing.
+ *
+ * Body equivalence does not saturate. Fight the led squad against a plain one
+ * and binary-search the size that brings it back to even: the answer is "this
+ * leader is worth N extra bodies", which is directly comparable to what those
+ * bodies cost.
+ */
+function equivalentBodies(led: Warband): number {
+  let lo = Math.round(baseCount * 0.6)
+  let hi = Math.round(baseCount * 3)
+  for (let i = 0; i < 10 && lo < hi; i++) {
+    const mid = Math.round((lo + hi) / 2)
+    const w = winRate(led, warband([squad(CHAFF, mid)], [], []))
+    if (w > 0.5) lo = mid + 1
+    else hi = mid - 1
+  }
+  return lo
+}
 
-/** What the same salvage buys if spent on fodder instead. */
-function bodiesInstead(cost: number): number {
-  return winRate(
-    warband([squad(CHAFF, baseCount + Math.floor(cost / chaffCost))], [], []),
-    foe,
+const evenAgainst = equivalentBodies(bare(baseCount))
+console.log(`An unled squad of ${baseCount} trades evenly with ${evenAgainst}.`)
+console.log('Everything below is measured against that, in extra bodies of worth.\n')
+
+console.log('  option                          worth      as bodies   salvage   per body')
+console.log('  ----------------------------------------------------------------------')
+
+function row(label: string, cost: number, led: Warband): void {
+  const equal = equivalentBodies(led)
+  const extra = equal - evenAgainst
+  const bought = Math.floor(cost / chaffCost)
+  console.log(
+    `  ${label.padEnd(30)}${pad(equal, 5)}${pad(`+${extra}`, 11)}${pad(cost, 10)}` +
+      `${pad(bought, 10)}`,
   )
 }
 
 for (const rank of OFFICER_RANKS) {
-  const led = warband(
-    [squad(CHAFF, baseCount, { kind: 'officer', id: 'off' })],
-    [officer(rank.id)],
-    [],
-  )
-  const w = winRate(led, foe)
-  const alt = bodiesInstead(rank.cost)
-  console.log(
-    `  ${pad(rank.cost, 3)} salvage    officer: ${rank.rank.padEnd(20)}` +
-      `${pad((w * 100).toFixed(0), 4)}%   ${pad(((w - baseline) * 100).toFixed(0), 5)}pp   ` +
-      `${pad((alt * 100).toFixed(0), 4)}%`,
+  row(
+    `officer: ${rank.rank}`,
+    rank.cost,
+    warband([squad(CHAFF, baseCount, { kind: 'officer', id: 'off' })], [officer(rank.id)], []),
   )
 }
 
@@ -150,21 +172,44 @@ const SHOWCASE = ['horns', 'carapace', 'quills', 'frenzy']
 for (const id of SHOWCASE) {
   if (!MUTATIONS.some((m) => m.id === id)) continue
   for (const level of [2, 6]) {
-    const cost = unitType(CHAFF).cost + level * 9
-    const led = warband(
-      [squad(CHAFF, baseCount, { kind: 'prospect', id: 'pot' })],
-      [],
-      [prospect(CHAFF, id, level)],
-    )
-    const w = winRate(led, foe)
-    const alt = bodiesInstead(cost)
-    console.log(
-      `  ${pad(cost, 3)} salvage    prospect: ${`${id} ${level}`.padEnd(18)}` +
-        `${pad((w * 100).toFixed(0), 4)}%   ${pad(((w - baseline) * 100).toFixed(0), 5)}pp   ` +
-        `${pad((alt * 100).toFixed(0), 4)}%`,
+    row(
+      `prospect: ${id} ${level}`,
+      unitType(CHAFF).cost + level * 9,
+      warband(
+        [squad(CHAFF, baseCount, { kind: 'prospect', id: 'pot' })],
+        [],
+        [prospect(CHAFF, id, level)],
+      ),
     )
   }
 }
 
-console.log('\nRightmost column is the same salvage spent on extra bodies instead.')
-console.log('A leader that loses to its own price in fodder is a trap.')
+console.log()
+
+/*
+ * The leak, isolated.
+ *
+ * A Prospect leaks at half level and a Firstborn at full, so the same body is
+ * worth measurably more once promoted. This is the mutant lineage's entire
+ * army-scale multiplier — if the gap here is small, the ten battles it takes
+ * to earn the title are not buying anything.
+ */
+console.log('  the leak: same body, half level vs full')
+console.log('  ----------------------------------------------------------------------')
+for (const id of SHOWCASE) {
+  if (!MUTATIONS.some((m) => m.id === id)) continue
+  const half = prospect(CHAFF, id, 6)
+  const full = { ...half, titled: true }
+  const a = equivalentBodies(
+    warband([squad(CHAFF, baseCount, { kind: 'prospect', id: 'pot' })], [], [half]),
+  )
+  const b = equivalentBodies(
+    warband([squad(CHAFF, baseCount, { kind: 'prospect', id: 'pot' })], [], [full]),
+  )
+  console.log(
+    `  ${`${id} 6`.padEnd(30)}${pad(`+${a - evenAgainst}`, 5)}  ->${pad(`+${b - evenAgainst}`, 5)}` +
+      `   (Firstborn)`,
+  )
+}
+
+console.log('\nA leader that is worth fewer bodies than its price buys is a trap.')
