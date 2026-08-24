@@ -17,6 +17,10 @@ import {
   rollCapacity,
   rollPotential,
   potentialCost,
+  appraise,
+  revealIfMaxed,
+  APPRAISAL_COST,
+  ASSUMED_CAPACITY,
   rollGrowthChoices,
   rollOfficer,
   squadLabel,
@@ -391,11 +395,54 @@ describe('capacity', () => {
     expect(isReadyToMutate(deep)).toBe(true)
   })
 
-  it('prices unused capacity — room to grow is what is being bought', () => {
+  it('prices unused capacity once it is known', () => {
     const base = start().warband.potentials[0]
-    const one = { ...base, capacity: 1, mutations: [{ id: 'horns', level: 3 }] }
+    const one = { ...base, capacity: 1, appraised: true, mutations: [{ id: 'horns', level: 3 }] }
     const six = { ...one, capacity: 6 }
     expect(potentialCost(six, 10)).toBeGreaterThan(potentialCost(one, 10))
+  })
+
+  it('prices an ungraded body identically whatever it is actually worth', () => {
+    // This is the whole market. If the price tag moved with the hidden value
+    // the player could read capacity straight off the shop and there would be
+    // no gamble to take.
+    const base = { ...start().warband.potentials[0], appraised: false, mutations: [] }
+    const prices = [1, 2, 3, 4, 5, 6, 7].map((c) => potentialCost({ ...base, capacity: c }, 10))
+    expect(new Set(prices).size).toBe(1)
+  })
+
+  it('charges a premium for certainty', () => {
+    const base = { ...start().warband.potentials[0], capacity: ASSUMED_CAPACITY, mutations: [] }
+    expect(potentialCost({ ...base, appraised: true }, 10)).toBeGreaterThan(
+      potentialCost({ ...base, appraised: false }, 10),
+    )
+  })
+
+  it('reveals a ceiling once a body stops growing', () => {
+    const base = start().warband.potentials[0]
+    const growing = { ...base, appraised: false, capacity: 3, mutations: [{ id: 'a', level: 1 }] }
+    const done = { ...growing, mutations: [
+      { id: 'a', level: 1 },
+      { id: 'b', level: 1 },
+      { id: 'c', level: 1 },
+    ] }
+    expect(revealIfMaxed(growing).appraised).toBe(false)
+    expect(revealIfMaxed(done).appraised).toBe(true)
+  })
+
+  it('spends salvage to appraise, and only once', () => {
+    const run = start()
+    const p = run.warband.potentials.find((x) => !x.appraised)
+    if (!p) return
+
+    const after = appraise(run, p.id)
+    expect(after.warband.salvage).toBe(run.warband.salvage - APPRAISAL_COST)
+    expect(after.warband.potentials.find((x) => x.id === p.id)!.appraised).toBe(true)
+    // Already graded — no further charge.
+    expect(appraise(after, p.id)).toBe(after)
+    // Cannot afford it.
+    const broke = { ...run, warband: { ...run.warband, salvage: 0 } }
+    expect(appraise(broke, p.id)).toBe(broke)
   })
 
   it('only lets deep bodies reach Firstborn', () => {

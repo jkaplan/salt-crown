@@ -3,6 +3,7 @@ import {
   ENCOUNTERS_PER_RUN,
   canBecomeFirstborn,
   capacityGrade,
+  APPRAISAL_COST,
   isMaxed,
   MUTATIONS_BY_ID,
   OFFICER_RANKS_BY_ID,
@@ -35,6 +36,7 @@ interface Props {
   onBuy: (offerId: string) => void
   onAssign: (squadId: string, leader: SquadLeader | null) => void
   onChooseMutation: (potentialId: string, choiceIndex: number) => void
+  onAppraise: (potentialId: string) => void
   onMoveSquad: (squadId: string, dir: -1 | 1) => void
   onPlaceSquad: (squadId: string, toIndex: number) => void
   onMarch: () => void
@@ -224,6 +226,28 @@ function SquadRow({
  */
 function Capacity({ potential }: { potential: Potential }) {
   const filled = potential.mutations.length
+
+  /*
+   * An ungraded body must LOOK ungraded. If the slots were drawn from the
+   * true capacity the shape would leak the answer, so unappraised stock shows
+   * only what it already carries, plus an open question mark. That gap is the
+   * entire market.
+   */
+  if (!potential.appraised) {
+    return (
+      <span
+        className="capacity unknown"
+        title="Ungraded. Nobody has read this body — it may be finished already, or it may hold six. An Assayer can tell you."
+      >
+        {Array.from({ length: filled }, (_, i) => (
+          <i key={i} className="slot on" />
+        ))}
+        <i className="slot query">?</i>
+        <span className="capacity-word">ungraded</span>
+      </span>
+    )
+  }
+
   const maxed = isMaxed(potential)
   const legend = canBecomeFirstborn(potential)
 
@@ -244,7 +268,17 @@ function Capacity({ potential }: { potential: Potential }) {
   )
 }
 
-function PotentialRow({ potential, warband }: { potential: Potential; warband: Warband }) {
+function PotentialRow({
+  potential,
+  warband,
+  salvage,
+  onAppraise,
+}: {
+  potential: Potential
+  warband: Warband
+  salvage: number
+  onAppraise: Props['onAppraise']
+}) {
   const stats = resolvePotentialStats(potential)
   const leading = warband.squads.find(
     (sq) => sq.leader?.kind === 'potential' && sq.leader.id === potential.id,
@@ -273,6 +307,15 @@ function PotentialRow({ potential, warband }: { potential: Potential; warband: W
           ? `Leading ${unitType(leading.typeId).name} ×${leading.count}`
           : 'Not leading — assign from a squad'}
       </div>
+      {!potential.appraised && (
+        <button
+          className="assay"
+          disabled={salvage < APPRAISAL_COST}
+          onClick={() => onAppraise(potential.id)}
+        >
+          Have an Assayer read it <span className="price">{APPRAISAL_COST}</span>
+        </button>
+      )}
     </li>
   )
 }
@@ -422,6 +465,7 @@ export default function Camp({
   onBuy,
   onAssign,
   onChooseMutation,
+  onAppraise,
   onMoveSquad,
   onPlaceSquad,
   onMarch,
@@ -585,7 +629,13 @@ export default function Camp({
           <Section title="Potentials" meta={warband.potentials.length || undefined}>
             <ul className="rows">
               {warband.potentials.map((p) => (
-                <PotentialRow key={p.id} potential={p} warband={warband} />
+                <PotentialRow
+                key={p.id}
+                potential={p}
+                warband={warband}
+                salvage={warband.salvage}
+                onAppraise={onAppraise}
+              />
               ))}
             </ul>
             {warband.potentials.length === 0 && (

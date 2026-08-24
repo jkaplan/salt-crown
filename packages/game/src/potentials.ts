@@ -36,6 +36,15 @@ export interface Potential {
    * not a rule.
    */
   capacity: number
+  /**
+   * Whether the player knows the capacity.
+   *
+   * Hidden capacity is the entire market. An unappraised body is priced on the
+   * AVERAGE capacity, so buying blind is roughly break-even in expectation and
+   * wildly variable in fact — which is what makes it speculation rather than
+   * shopping. Paying an Assayer converts variance into certainty, at a price.
+   */
+  appraised: boolean
 }
 
 /**
@@ -55,6 +64,15 @@ const CAPACITY_TABLE: ReadonlyArray<{ upTo: number; capacity: number }> = [
   { upTo: 0.995, capacity: 6 },
   { upTo: 1.0, capacity: 7 },
 ]
+
+/**
+ * What an unappraised body is priced as. Roughly the mean of the table above,
+ * so the seller is not leaking the answer through the price tag.
+ */
+export const ASSUMED_CAPACITY = 2
+
+/** Salvage an Assayer charges to read a body's capacity. */
+export const APPRAISAL_COST = 45
 
 export function rollCapacity(rng: Rng): number {
   const r = rng.float()
@@ -162,15 +180,36 @@ export function rollPotential(rng: Rng, typeId: number, encounterIndex: number):
     battles: 0,
     growth: 0,
     capacity,
+    appraised: false,
   }
 }
 
+/**
+ * Price a body.
+ *
+ * What it can already do is observable, so that part is priced honestly. Room
+ * to grow is only priced on the TRUE capacity if somebody has actually read
+ * it — otherwise both the seller and the buyer are working from the average,
+ * which is exactly the gap a speculator lives in.
+ */
 export function potentialCost(p: Potential, baseCost: number): number {
   let total = baseCost
   for (const m of p.mutations) total += m.level * POTENTIAL_COST_PER_LEVEL
-  // Room to grow is priced separately from what it can already do.
-  total += Math.max(0, p.capacity - p.mutations.length) * POTENTIAL_COST_PER_CAPACITY
+
+  const capacity = p.appraised ? p.capacity : ASSUMED_CAPACITY
+  total += Math.max(0, capacity - p.mutations.length) * POTENTIAL_COST_PER_CAPACITY
+  // Certainty is worth paying for; a graded body costs more than a blind one.
+  if (p.appraised) total *= 1.15
+
   return Math.round(total)
+}
+
+/**
+ * A body that has stopped growing has told you its capacity, whether or not
+ * you ever paid to find out.
+ */
+export function revealIfMaxed(p: Potential): Potential {
+  return !p.appraised && p.mutations.length >= p.capacity ? { ...p, appraised: true } : p
 }
 
 export function potentialTitle(p: Potential, typeName: string): string {

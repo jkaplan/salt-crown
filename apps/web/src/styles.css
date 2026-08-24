@@ -853,3 +853,28 @@ select option {
 .capacity.legend .slot.on { background: #ffd77a; }
 .capacity.legend .capacity-word { color: #ffd77a; }
 .standout .capacity { margin-left: 0; }
+
+/* Ungraded stock: shows what it already carries plus an open question. The
+   shape must not leak the answer, or there is no gamble. */
+.capacity.unknown .capacity-word { color: #8fa8d3; }
+.slot.query {
+  width: auto;
+  height: auto;
+  transform: none;
+  background: none;
+  color: #8fa8d3;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 650;
+  line-height: 1;
+}
+button.assay {
+  align-self: flex-start;
+  background: transparent;
+  color: #8fa8d3;
+  padding: 6px 0;
+  min-height: 34px;
+  font-size: 12px;
+}
+button.assay:hover:not(:disabled) { background: transparent; color: var(--ink); }
+button.assay .price { color: var(--gold); margin-left: 4px; font-variant-numeric: tabular-nums; }

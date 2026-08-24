@@ -6,7 +6,14 @@ import { rollOffers } from './shop.js'
 import type { Offer } from './shop.js'
 import { toSimGroups, totalBodies, unitType } from './roster.js'
 import type { GroupSource, Squad, SquadLeader, Warband } from './roster.js'
-import { isReadyToMutate, potentialTitle, rollGrowthChoices, rollPotential } from './potentials.js'
+import {
+  APPRAISAL_COST,
+  isReadyToMutate,
+  potentialTitle,
+  revealIfMaxed,
+  rollGrowthChoices,
+  rollPotential,
+} from './potentials.js'
 import type { MutationRoll } from './mutations.js'
 import { MUTANT_TYPES } from './units.js'
 import { rollOfficer } from './officers.js'
@@ -123,7 +130,7 @@ export function chooseMutation(
 
   const potentials = state.warband.potentials.map((p) =>
     p.id === potentialId
-      ? { ...p, mutations: [...p.mutations, choice], growth: p.growth + 1 }
+      ? revealIfMaxed({ ...p, mutations: [...p.mutations, choice], growth: p.growth + 1 })
       : p,
   )
 
@@ -131,6 +138,32 @@ export function chooseMutation(
     ...state,
     warband: { ...state.warband, potentials },
     growth: state.growth.filter((g) => g.potentialId !== potentialId),
+  }
+}
+
+/**
+ * Pay an Assayer to read a body's capacity.
+ *
+ * The Assayers are what is left of the breeding programmes' grading staff —
+ * a profession that exists because the Houses needed to price stock. Buying
+ * blind is cheap and variable; this is how you convert a gamble into a known
+ * quantity, and it is worth doing before you decide whether a body is worth
+ * protecting.
+ */
+export function appraise(state: RunState, potentialId: string): RunState {
+  const target = state.warband.potentials.find((p) => p.id === potentialId)
+  if (!target || target.appraised) return state
+  if (state.warband.salvage < APPRAISAL_COST) return state
+
+  return {
+    ...state,
+    warband: {
+      ...state.warband,
+      salvage: state.warband.salvage - APPRAISAL_COST,
+      potentials: state.warband.potentials.map((p) =>
+        p.id === potentialId ? { ...p, appraised: true } : p,
+      ),
+    },
   }
 }
 
