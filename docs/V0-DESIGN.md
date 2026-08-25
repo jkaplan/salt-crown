@@ -734,6 +734,28 @@ run at the current find rate, next to roughly 1 maiming per run at
 MAIM_CHANCE. PLACEHOLDER numbers, same as every other new system this
 session — a real tuning pass wants more data than one measurement.
 
+**Extended to enemies** — *"are enemy warbands able to have relics as well?
+... I want rules to apply to everyone."* A rival band built by
+`buildWarband` (encounters.ts) can now spawn already carrying a relic on
+one squad and an implant on its officer, one roll each for the whole band
+rather than per squad — rolling per squad on a six-squad Act 3 band would
+have made enemies systematically richer in found gear than the player,
+which is the opposite of the ask. Scoped to ordinary rival bands only:
+wasteland fauna carry none by design, and a boss or legendary's own body
+keeps its separately-measured tuning untouched (a boss's WARBAND ESCORT,
+built the same way any rival band is, can still inherit one). No visibility
+gap to solve on top of it — `scoutEnemy` already reads real resolved stats,
+so a rival band's gear already shows up in the armour read before you
+march, the same way it would if it were yours.
+
+Measured before shipping, same discipline as MAIM_CHANCE and the on-curve
+buying lever: A/B on identical seeds, thrifty completion, ENEMY_RELIC_CHANCE
+0.12 / ENEMY_BIONIC_CHANCE 0.3 vs both at 0. 34/150 (22.7%) with enemy gear
+off, 26/150 (17.3%) with it on — a real ~24% relative difficulty increase,
+not free flavour. Kept at the measured strength on request rather than
+softened, so this is an intentional tightening of the curve, not an
+unplanned one.
+
 ### Point-buy growth instead of choosing 1 of 3
 
 *"They should each have a relative cost / value. I think I'd rather it be a

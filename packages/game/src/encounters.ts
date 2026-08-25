@@ -6,6 +6,8 @@ import { squadCost } from './roster.js'
 import { MUTANT_TYPES, TRUEKIN_TYPES, UNIT_TYPES } from './units.js'
 import { BOSS_TYPES, FAUNA_TYPES } from './wasteland.js'
 import { LEGENDARY_TYPES } from './legendaries.js'
+import { BIONICS } from './bionics.js'
+import { RELICS } from './relics.js'
 
 /**
  * Fifteen encounters, three acts of five, boss at the end of each —
@@ -77,6 +79,33 @@ const LEGENDARY_CHANCE = 0.09
 /** A little richer than the budget alone would pay — the "awe" has to show
  * up somewhere the player can see it, and a receipt is where. */
 const LEGENDARY_BUDGET_MULT = 1.2
+
+/**
+ * Found gear, for the enemy — "I want rules to apply to everyone", raised
+ * directly. A rival band draws from the same recruitable pool you do and
+ * lives in the same wasteland, so there is no reason only your own warband
+ * ever turns up carrying a relic or an implant.
+ *
+ * Deliberately ONE roll for the whole band, not one per squad — the player's
+ * own relic rate is a genuine rarity (measured: ~0.24 bound per 15-encounter
+ * run even with active delving), and rolling per squad on a six-squad Act 3
+ * band would make enemies systematically richer in found gear than the
+ * player ever is, which defeats the actual ask. Scoped to buildWarband only:
+ * wasteland fauna carry no gear by design (see buildWasteland's own doc
+ * comment), and a boss or legendary's own body keeps its already-measured
+ * tuning untouched — only a boss's WARBAND escort, built via buildWarband
+ * like any other band, can inherit one.
+ *
+ * Free of any extra plumbing on the visibility side: scoutEnemy already
+ * reads resolveSquadStats, which already applies a bound relic or an
+ * officer's bionics, so a scouted "heavily armoured" read already reflects
+ * whatever gear a rival band happens to be carrying.
+ *
+ * PLACEHOLDER — chosen to roughly match the player's own rarity, not
+ * measured against the batch harness yet.
+ */
+const ENEMY_RELIC_CHANCE = 0.12
+const ENEMY_BIONIC_CHANCE = 0.3
 
 /**
  * M1 fights rival warbands only — built from the same unit pool you recruit
@@ -197,8 +226,18 @@ function buildWarband(rng: Rng, index: number, budget: number): Warband {
   // Later bands field an officer of their own.
   if (index >= 2 && rng.float() < 0.5) {
     const officer = rollOfficer(rng, `eo${rng.next().toString(36)}`)
+    // One implant, not a full build — proportionate to how rarely a player
+    // manages to fit even one, not a systematic edge either way.
+    if (rng.float() < ENEMY_BIONIC_CHANCE) {
+      officer.bionics.push(BIONICS[rng.int(BIONICS.length)].id)
+    }
     w.officers.push(officer)
     w.squads[0].leader = { kind: 'officer', id: officer.id }
+  }
+
+  // A rival band can turn up already carrying a relic — see the note above.
+  if (w.squads.length > 0 && rng.float() < ENEMY_RELIC_CHANCE) {
+    w.squads[rng.int(w.squads.length)].relicId = RELICS[rng.int(RELICS.length)].id
   }
 
   return w

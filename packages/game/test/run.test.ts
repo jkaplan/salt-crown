@@ -1663,6 +1663,51 @@ describe('machines', () => {
     for (const t of MUTANT_TYPES) expect(BOSS_TYPES.some((b) => b.id === t.id)).toBe(false)
   })
 
+  it('lets a rival band turn up already carrying found gear, same as the player can find', () => {
+    // "I want rules to apply to everyone" — a rival warband can spawn with a
+    // relic bound to one squad, or an officer carrying an implant. Existence
+    // check across enough seeds to hit both at least once; the exact rate is
+    // ENEMY_RELIC_CHANCE/ENEMY_BIONIC_CHANCE in encounters.ts, not asserted
+    // here so this doesn't become a tuning tripwire.
+    const rng = new Rng(hashSeed('enemy-gear'))
+    let sawRelic = false
+    let sawBionic = false
+    for (let i = 0; i < 400 && !(sawRelic && sawBionic); i++) {
+      const enc = generateEncounter(rng, 2 + (i % 3)) // index >= 2, never the boss slot
+      if (enc.kind !== 'warband') continue
+      if (enc.enemy.squads.some((sq) => sq.relicId)) sawRelic = true
+      if (enc.enemy.officers.some((o) => o.bionics.length > 0)) sawBionic = true
+    }
+    expect(sawRelic).toBe(true)
+    expect(sawBionic).toBe(true)
+  })
+
+  it("reflects a rival band's own gear in the pre-march scouting read", () => {
+    // No separate wiring needed for this — scoutEnemy already reads
+    // resolveSquadStats, which already applies a bound relic. Chaff carries
+    // zero armour on its own (the "barely armoured" band's floor); Salt
+    // Idol's flat +1.5 crosses straight into "lightly armoured", so this
+    // is a guaranteed band change rather than one that depends on where a
+    // particular unit's base stat happens to sit relative to a boundary.
+    const enemy: Warband = {
+      squads: [{ id: 'x', typeId: 0, count: 20, leader: null }], // Chaff
+      prospects: [],
+      officers: [],
+      salvage: 0,
+      water: 0,
+      bionics: [],
+      relics: [],
+      machines: [],
+      morale: 0,
+    }
+    const bare = scoutEnemy(enemy)
+    const geared = scoutEnemy({
+      ...enemy,
+      squads: [{ ...enemy.squads[0], relicId: 'salt-idol' }],
+    })
+    expect(geared.armorWord).not.toBe(bare.armorWord)
+  })
+
   it('only degrades, and only when it fights', () => {
     const run = withMachine()
     const marched = march(run)
