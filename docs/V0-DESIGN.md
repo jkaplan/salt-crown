@@ -702,6 +702,26 @@ rivalry as a storytelling layer, not just a start-of-run price modifier. The
 natural next connection: giving a legendary creature an owner, a faction it
 belongs to, is likely how the two asks were meant to reinforce each other.
 
+**Followers, checked against the finished fiction, not the first draft of
+it.** An earlier session proposed followers for multiple legendaries by
+feel — Widowsalt leading Salt Hounds among them — before the backstories
+above were finished. Re-read against the actual text before building
+anything: Widowsalt's is explicit that a pack would be a direct
+contradiction ("the only Salt Hound left... hers included"), and The
+Ungraded and The Standing Debt are both written as solitary by construction
+too. Only Glasskeeper's fiction actually asks for company — "the swarms
+that follow it are not an accident" — so only Glasskeeper got one: a fixed
+18-body Glasswing escort (`buildLegendary`, encounters.ts), not scaled to
+encounterBudget, matching every other legendary's fixed-power design.
+
+Measured before shipping: a Chaff-count threshold sweep against the sim
+directly (`tools/_glasskeeper.ts`, not checked in) showed solo Glasskeeper
+crossing from losing to winning around 15-20 Chaff, escorted around 30-35 —
+a real, roughly 50% tougher threshold, not a cosmetic addition. Kept at 18
+on request rather than softened, so — like the enemy-gear chances above —
+this is a deliberate difficulty increase for this one legendary specifically,
+not an unmeasured one.
+
 ### Relics and synergistic perks ✅ built
 
 *"Finding relics. Choosing perks that synergize. All the synergies."*

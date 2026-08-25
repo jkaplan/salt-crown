@@ -113,6 +113,9 @@ export const LEGENDARY_TYPES: readonly UnitType[] = [
     // is never really a fight against one thing. Range stands in for "the
     // swarm is doing most of the work" without also making it untouchable —
     // early evade/accuracy were tuned too far in that direction together.
+    // The swarm the flavour promises is also a REAL escort, not just this
+    // stat abstraction — the one exception to every other legendary fighting
+    // alone, see encounters.ts's buildLegendary.
     base: {
       hp: 200, armor: 2, damage: 14, attackInterval: 10,
       range: 70, moveSpeed: 4.4, accuracy: 0.8, evade: 0.12, radius: 8,

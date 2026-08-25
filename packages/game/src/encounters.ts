@@ -294,18 +294,33 @@ function buildBoss(rng: Rng, index: number, budget: number): Warband {
 }
 
 /**
- * A legendary — one body, no escort, and never the same one twice in a run.
+ * Solo by default, and never the same one twice in a run.
  *
  * No escort on purpose: a boss gets one so the field still looks like a
  * battle around a siege; a legendary is the opposite kind of encounter, one
  * dangerous individual met alone on the flats, and giving it a retinue would
- * make it read as a smaller boss instead of its own thing.
+ * make it read as a smaller boss instead of its own thing. Widowsalt's own
+ * backstory makes that explicit for her specifically — "the only Salt Hound
+ * left... hers included" — a pack would directly contradict what she is.
+ *
+ * ONE exception: Glasskeeper. Its own flavour text isn't ambiguous about
+ * this — "the swarms that follow it are not an accident" — so leaving it
+ * to fight alone would be the mechanics quietly contradicting the fiction
+ * sitting right next to them. GLASSKEEPER_ESCORT is fixed, not scaled to
+ * encounterBudget, matching the rest of a legendary's power: the module
+ * comment above is explicit that legendaries stay a fixed threat regardless
+ * of when a run meets one, and an escort that grew with the act would break
+ * that the same way a scaled body would.
  *
  * Falls back to `null` — and the caller falls back to an ordinary wasteland
  * roll — once every legendary has already appeared this run, rather than
  * repeating one. Meeting "the" Widowsalt twice in one run undoes the entire
  * point of the word.
  */
+const GLASSKEEPER_ID = 25
+const GLASSWING_ID = 16
+const GLASSKEEPER_ESCORT = 18
+
 function buildLegendary(
   rng: Rng,
   seenLegendaries: readonly number[],
@@ -316,6 +331,9 @@ function buildLegendary(
   const type = available[rng.int(available.length)]
   const w = emptyWarband()
   w.squads.push({ id: newId(rng), typeId: type.id, count: 1, leader: null })
+  if (type.id === GLASSKEEPER_ID) {
+    w.squads.push({ id: newId(rng), typeId: GLASSWING_ID, count: GLASSKEEPER_ESCORT, leader: null })
+  }
   return { warband: w, typeId: type.id }
 }
 

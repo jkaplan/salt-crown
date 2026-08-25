@@ -1974,16 +1974,41 @@ describe('run structure', () => {
     expect(found).not.toBeNull()
     const e = found!
 
-    expect(e.enemy.squads).toHaveLength(1)
+    // Solo for every legendary except Glasskeeper, which carries a real
+    // Glasswing escort — its own flavour text promises exactly that. Either
+    // way squads[0] is always the legendary itself.
+    const isGlasskeeper = e.enemy.squads[0].typeId === 25
+    expect(e.enemy.squads).toHaveLength(isGlasskeeper ? 2 : 1)
     expect(e.enemy.squads[0].count).toBe(1)
     expect(LEGENDARY_IDS.has(e.enemy.squads[0].typeId)).toBe(true)
     expect(e.name).toBe(unitType(e.enemy.squads[0].typeId).name)
     expect(e.flavour).toBe(unitType(e.enemy.squads[0].typeId).blurb)
 
     const { groups } = toSimGroups(e.enemy, TEAM_B)
-    expect(groups).toHaveLength(1)
+    expect(groups).toHaveLength(isGlasskeeper ? 2 : 1)
     expect(groups[0].named).toBe(true)
     expect(groups[0].leaderLabel).toBe(unitType(e.enemy.squads[0].typeId).name)
+  })
+
+  it("gives Glasskeeper the Glasswing escort its own flavour text promises, and nobody else one", () => {
+    const rng = new Rng(hashSeed('glasskeeper-escort'))
+    let glasskeeper: Encounter | null = null
+    let others = 0
+    for (let i = 0; i < 800 && (!glasskeeper || others < 3); i++) {
+      const e = generateEncounter(rng, 1 + (i % 3))
+      if (e.kind !== 'legendary') continue
+      if (e.enemy.squads[0].typeId === 25) glasskeeper = e
+      else others++
+    }
+    expect(glasskeeper).not.toBeNull()
+    expect(others).toBeGreaterThan(0)
+
+    expect(glasskeeper!.enemy.squads).toHaveLength(2)
+    expect(glasskeeper!.enemy.squads[1].typeId).toBe(16) // Glasswing
+    expect(glasskeeper!.enemy.squads[1].count).toBeGreaterThan(1)
+    // Bodies reported to the player already fold the escort in — no
+    // separate accounting needed anywhere downstream.
+    expect(glasskeeper!.bodies).toBe(1 + glasskeeper!.enemy.squads[1].count)
   })
 
   it('never repeats a legendary within a run', () => {
