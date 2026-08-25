@@ -29,7 +29,15 @@
  * A leader that is worth fewer bodies than its price buys is a trap.
  */
 import { Battle, TEAM_A, TEAM_B } from '@salt/sim'
-import { MUTATIONS, OFFICER_RANKS, UNIT_TYPES, toSimGroups } from '@salt/game'
+import {
+  MUTATIONS,
+  OFFICER_RANKS,
+  UNIT_TYPES,
+  toSimGroups,
+  unitType,
+  prospectPower,
+  statPower,
+} from '@salt/game'
 import type { Officer, Prospect, Squad, Warband } from '@salt/game'
 
 function arg(name: string, fallback: number): number {
@@ -221,7 +229,14 @@ const SHOWCASE = ['horns', 'carapace', 'quills', 'frenzy']
  * only what leadership itself contributed.
  */
 console.log('  leading a squad, isolated as (leading - unled): discipline only')
-console.log('  mutation level should not move this number\n')
+console.log(
+  '  mutation level should not move this MUCH — each number below is the\n' +
+    '  difference of two independent stochastic estimates, so a few bodies of\n' +
+    '  spread between the two "ordinary" rows is sampling noise at this seed\n' +
+    '  count, not a leak. A real leak would show up as a difference on the\n' +
+    "  order of the Prospect's own worth (see the analytical section below),\n" +
+    '  not a handful of bodies.\n',
+)
 
 function leadershipContribution(level: number, titled: boolean): number {
   const p = { ...prospect(CHAFF, 'horns', level), titled }
@@ -233,13 +248,8 @@ function leadershipContribution(level: number, titled: boolean): number {
   return led - unled
 }
 
-console.log(
-  `  ordinary, horns 2                +${leadershipContribution(2, false)} bodies`,
-)
-console.log(
-  `  ordinary, horns 6                +${leadershipContribution(6, false)} bodies` +
-    '   <- should match the row above',
-)
+console.log(`  ordinary, horns 2                +${leadershipContribution(2, false)} bodies`)
+console.log(`  ordinary, horns 6                +${leadershipContribution(6, false)} bodies`)
 console.log(`  Firstborn, horns 6                +${leadershipContribution(6, true)} bodies`)
 
 console.log()
@@ -247,21 +257,26 @@ console.log()
 /*
  * What mutations DO still buy: the Prospect's own body, fighting as itself.
  *
- * Every Prospect is its own group regardless of whether it's leading (see
- * toSimGroups), so a highly-mutated one is worth something on the field
- * purely by existing — this measures that directly, fielded alongside an
- * otherwise-plain squad it is NOT leading, so leadership's discipline bonus
- * can't bleed into the number.
+ * NOT measured by adding one body to a 200-strong war and asking equivalentVs
+ * to notice — a first version of this section did exactly that and printed
+ * "+0 bodies" for every single mutation and level, which reads as "mutations
+ * do not help the Prospect's own combat power at all" and is wrong. One
+ * body's marginal contribution to a two-hundred-body war is smaller than this
+ * tool's own resolution (whole Chaff-equivalents), and a stochastic 40-seed
+ * binary search cannot resolve something that small either. This uses
+ * prospectPower directly instead — the same analytical stat-power score the
+ * game itself budgets encounters and the buying bot with, no battle
+ * simulated, no sampling noise, sensitive at any scale.
  */
 console.log("  a Prospect's own worth, fighting as their own body (not leading)")
+console.log('  in Chaff-equivalents (statPower ratio, not a simulated battle)')
 console.log('  ----------------------------------------------------------------------')
-const bare0 = equivalentVs(warband([squad(CHAFF, baseCount)], [], []), CHAFF)
+const chaffPower = statPower({ ...unitType(CHAFF).base, regen: 0, quills: 0, frenzy: 0 }, 1)
 for (const id of SHOWCASE) {
   if (!MUTATIONS.some((m) => m.id === id)) continue
   for (const level of [2, 6]) {
-    const p = prospect(CHAFF, id, level)
-    const withOne = equivalentVs(warband([squad(CHAFF, baseCount)], [], [p]), CHAFF)
-    console.log(`  ${`${id} ${level}`.padEnd(30)}${pad(`+${withOne - bare0}`, 5)} bodies`)
+    const worth = prospectPower(prospect(CHAFF, id, level)) / chaffPower
+    console.log(`  ${`${id} ${level}`.padEnd(30)}${pad(worth.toFixed(1), 5)}`)
   }
 }
 
@@ -272,17 +287,19 @@ console.log()
  * (FIRSTBORN_HP_MULT vs PROSPECT_HP_MULT — see prospects.ts) quite apart from
  * anything it leads, so the same mutation at the same level should still be
  * worth more once titled — this is what ten battles survived actually buys,
- * now that it does not also buy a squad-wide multiplier.
+ * now that it does not also buy a squad-wide multiplier. Same analytical
+ * measure as above, for the same reason.
  */
 console.log('  promotion, same mutation and level: ordinary vs Firstborn')
+console.log('  in Chaff-equivalents')
 console.log('  ----------------------------------------------------------------------')
 for (const id of SHOWCASE) {
   if (!MUTATIONS.some((m) => m.id === id)) continue
   const ordinary = prospect(CHAFF, id, 6)
   const titled = { ...ordinary, titled: true }
-  const a = equivalentVs(warband([squad(CHAFF, baseCount)], [], [ordinary]), CHAFF)
-  const b = equivalentVs(warband([squad(CHAFF, baseCount)], [], [titled]), CHAFF)
-  console.log(`  ${`${id} 6`.padEnd(30)}${pad(`+${a - bare0}`, 5)}  ->${pad(`+${b - bare0}`, 5)}   (Firstborn)`)
+  const a = prospectPower(ordinary) / chaffPower
+  const b = prospectPower(titled) / chaffPower
+  console.log(`  ${`${id} 6`.padEnd(30)}${pad(a.toFixed(1), 5)}  ->${pad(b.toFixed(1), 5)}   (Firstborn)`)
 }
 
 console.log('\nA leader that is worth fewer bodies than its price buys is a trap.')
