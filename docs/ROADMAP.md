@@ -66,27 +66,33 @@ The mutants were then rebuilt to differ by *kind* rather than degree (three kind
 
 ---
 
-## M2 — Attrition and leaders (weeks 4–5)
+## M2 — Attrition and leaders (weeks 4–5) ✅ DONE
 
-- Wound ladder, hit zones, permadeath, injury effects
-- Officer squad bonuses
-- **Firstborn promotion** — surviving mutants accumulate mutations and graduate to the named tier
-- Morale as a run-level resource shifted by events (see V0-DESIGN §7)
-- Recovery and treatment costs
-- Roster screen showing the whole warband at a glance
+- ~~Wound ladder, hit zones, permadeath, injury effects~~ ✅ built
+- ~~Officer squad bonuses~~ ✅ built
+- ~~**Firstborn promotion** — surviving mutants accumulate mutations and graduate to the named tier~~ ✅ built
+- ~~Morale as a run-level resource shifted by events (see V0-DESIGN §7)~~ ✅ built
+- ~~Recovery and treatment costs~~ ✅ built
+- ~~Roster screen showing the whole warband at a glance~~ ✅ built — rebuilt again since as the Warband page in Camp's hub-and-doors split
 
-**Exit:** losing a Firstborn you grew over ten battles makes you wince.
+**Exit:** losing a Firstborn you grew over ten battles makes you wince. Held back on this
+for a long stretch — the mutation-leak mechanic that made a Firstborn's promotion into a
+squad-wide power spike was cut (fiction-driven, not a balance call: nothing explained how
+one body's mutation reached twenty others). Losing one still matters — the body itself, the
+battles survived, the discipline bonus its squad loses — just not for the reason this line
+originally meant. Left as-is rather than rewritten, since it is a record of what the exit
+criterion WAS when M2 shipped, not a live spec.
 
 ---
 
-## M3 — Ruins, machines, economy (weeks 6–7)
+## M3 — Ruins, machines, economy (weeks 6–7) ✅ DONE
 
 - ~~Water, superlinear upkeep, desertion on shortfall~~ ✅ built
 - ~~Scavenge / Delve; crews miss the next battle~~ ✅ built
 - ~~**Bionics**: found in ruins, installed into True Kin for Salvage~~ ✅ built
 - ~~**Machines**: 5 types, found in ruins and rare events only, degrade permanently, cost Salvage per battle to run~~ ✅ built
 - ~~Tinkerer event — the rare exception that can restore a machine~~ ✅ built
-- Ruin flavor and outcome text; first hints of what's below
+- ~~Ruin flavor and outcome text; first hints of what's below~~ ✅ built — SCAVENGE_FLAVOUR / DELVE_FLAVOUR in expeditions.ts
 
 **Exit:** you delve instead of reinforcing, lose the next battle for it, and feel that it was your call.
 
@@ -177,7 +183,7 @@ the run that does memorable.
 
 ---
 
-## M4 — Full run (weeks 8–9)
+## M4 — Full run (weeks 8–9) ✅ DONE
 
 - ~~15 encounters, 3 acts, 15 unit types~~ ✅ built
 - ~~All three encounter pools: rival warbands, wasteland fauna/flora, bosses~~ ✅ built
