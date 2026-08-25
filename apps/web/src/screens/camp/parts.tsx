@@ -19,6 +19,7 @@ import {
   BIONICS_BY_ID,
   BIONIC_SLOTS,
   RELICS_BY_ID,
+  HOUSES_BY_NAME,
   MACHINE_CONDITION_MAX,
   MACHINE_RUN_COST,
   conditionWord,
@@ -384,7 +385,9 @@ export function OfficerRow({
     <li className="row">
       <div className="row-main">
         <span className="row-name">
-          <b className="truekin">{officerTitle(officer)}</b>
+          <b className="truekin" title={HOUSES_BY_NAME.get(officer.house)?.blurb}>
+            {officerTitle(officer)}
+          </b>
           <span className="dim">{rank?.effect}</span>
         </span>
         {wound && (
@@ -701,7 +704,9 @@ export function OfferRow({
         <button className="offer-hit" disabled={!afford} onClick={() => onBuy(offer.id)}>
           <span className="row-main">
             <span className="row-name">
-              <b className="truekin">{officerTitle(offer.officer)}</b>
+              <b className="truekin" title={HOUSES_BY_NAME.get(offer.officer.house)?.blurb}>
+                {officerTitle(offer.officer)}
+              </b>
               <span className="dim">{rank?.effect}</span>
             </span>
             <span className="price-tag">{afford ? `Hire ${offer.cost}` : `${offer.cost}`}</span>

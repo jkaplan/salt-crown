@@ -69,11 +69,63 @@ export const OFFICER_RANKS: readonly OfficerRank[] = [
 
 export const OFFICER_RANKS_BY_ID = new Map(OFFICER_RANKS.map((r) => [r.id, r]))
 
-/** The Houses. True Kin only — mutants have no caste and no traditions. */
-export const HOUSES = [
-  'Vantry', 'Oskal', 'Merethel', 'Caldrion',
-  'Thessaly', 'Ambrose', 'Wexhall', 'Duon',
-] as const
+/**
+ * The Houses. True Kin only — mutants have no caste and no traditions.
+ *
+ * Existed as eight interchangeable name tokens before this — every Officer
+ * got one at random, and nothing distinguished "Vantry" from "Oskal" beyond
+ * the label. Requested directly, as the second half of the legendary
+ * creatures ask: "it might require more factions like Qud has... to really
+ * add story." Identity only, not mechanics — per-House bonuses ("sub-
+ * origins") are explicitly cut to V0.1 (docs/ROADMAP.md), so this stays a
+ * blurb and a name, the same shape a unit type's own blurb/description is.
+ */
+export interface House {
+  name: string
+  blurb: string
+}
+
+export const HOUSES: readonly House[] = [
+  {
+    name: 'Vantry',
+    blurb:
+      "Oldest of the eight, and it never lets anyone forget it. Every other House's claim to a bloodline runs through a Vantry marriage somewhere, which is exactly the leverage it intended.",
+  },
+  {
+    name: 'Oskal',
+    blurb: 'Fields more spears than it can pay for and has never once let that stop it. Half the wars on record started as an Oskal debt.',
+  },
+  {
+    name: 'Merethel',
+    blurb:
+      'Owns the roads, not the land — tolls, escorts, salvage rights. It has never needed to win a war when it can simply be the one everyone pays to reach it.',
+  },
+  {
+    name: 'Caldrion',
+    blurb:
+      "Keeps the old rites nobody else bothered preserving, and insists everyone else's version is a corruption of theirs.",
+  },
+  {
+    name: 'Thessaly',
+    blurb: 'Was the largest House once. Says so constantly. What is left of it fits in one holdfast and a very long memory.',
+  },
+  {
+    name: 'Ambrose',
+    blurb:
+      'Bought its seat two generations ago and has spent both of them proving it belongs there. The others let it, and never quite let it forget the difference.',
+  },
+  {
+    name: 'Wexhall',
+    blurb: 'Sealed its gates during a war nobody else remembers starting and never fully reopened them. Trades, when it trades, at the wall.',
+  },
+  {
+    name: 'Duon',
+    blurb:
+      'Runs more vats than any other House and treats the arithmetic as a virtue. If the mutant flood has an author, this is the House that signs the ledger.',
+  },
+]
+
+export const HOUSES_BY_NAME = new Map(HOUSES.map((h) => [h.name, h]))
 
 const GIVEN = [
   'Aurel', 'Bel', 'Cassim', 'Doren', 'Elowen', 'Fenn', 'Gavric', 'Hest',
@@ -102,7 +154,7 @@ export function rollOfficer(rng: Rng, id: string): Officer {
     id,
     rankId: rank.id,
     name: GIVEN[rng.int(GIVEN.length)],
-    house: HOUSES[rng.int(HOUSES.length)],
+    house: HOUSES[rng.int(HOUSES.length)].name,
     wound: null,
     bionics: [],
   }

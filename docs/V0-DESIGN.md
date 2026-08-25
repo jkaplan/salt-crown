@@ -670,7 +670,7 @@ mutation on an exceptional body climb past the normal ceiling (tying into the
 accelerant trait above), is still open — worth resolving together rather than
 guessing which.
 
-### Legendary creatures with backstory ✅ built — factions still open
+### Legendary creatures with backstory ✅ built — factions ✅ built (identity only)
 
 *"Coming across a legendary creature like in Qud with some bit of backstory
 to them... I think it might require more factions like Qud has as well to
@@ -696,11 +696,29 @@ un-fully-closed gap in how hard this content hits the Freed Firstborn origin
 specifically — flagged there for M5's eventual larger balance pass rather than
 chased to zero here.
 
-Expanded factions remains open and unbuilt. §14 already marks per-House
-sub-origins as V0.1, and this asks for more than that — faction identity and
-rivalry as a storytelling layer, not just a start-of-run price modifier. The
-natural next connection: giving a legendary creature an owner, a faction it
-belongs to, is likely how the two asks were meant to reinforce each other.
+**Factions, scoped deliberately.** Per-House mechanical bonuses ("sub-
+origins") are explicitly named in ROADMAP.md as one of the few things
+called out as the main risk to this project's scope discipline if pulled
+forward — so this stayed identity and narrative only, nothing mechanical,
+nothing that touches a player's own choices or stats.
+
+`officers.ts`'s eight Houses (Vantry, Oskal, Merethel, Caldrion, Thessaly,
+Ambrose, Wexhall, Duon) existed already, but as interchangeable name
+tokens — every Officer got one at random and nothing distinguished them.
+Each now carries a real one-line blurb, the same shape a unit type's own
+blurb/description already has. Wired into where a House can actually show
+up: a rival warband fielding an officer is now named and flavoured after
+that officer's own House ("Levies of Vantry", with Vantry's own blurb as
+the encounter's flavour text) instead of the generic, disconnected
+scav-band name pool — a band led by a real House now reads as one. An
+officer-less band stays exactly what it was, unaffiliated opportunists.
+Surfaced at the moment it matters most, too: the Scion's founding
+commander pick (LeaderSelect.tsx) now shows the House's identity alongside
+the rank effect, so picking a House is a real flavoured choice on the very
+first screen of a run, not a label discovered later by accident.
+
+Legendary-faction ownership and House rivalry as an active mechanic remain
+open — the natural next connection, not built here.
 
 **Followers, checked against the finished fiction, not the first draft of
 it.** An earlier session proposed followers for multiple legendaries by

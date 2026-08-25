@@ -5,10 +5,11 @@ export {
   OFFICER_RANKS,
   OFFICER_RANKS_BY_ID,
   HOUSES,
+  HOUSES_BY_NAME,
   rollOfficer,
   officerTitle,
 } from './officers.js'
-export type { Officer, OfficerRank } from './officers.js'
+export type { Officer, OfficerRank, House } from './officers.js'
 export {
   PROSPECT_HP_MULT,
   PROSPECT_COST_PER_LEVEL,

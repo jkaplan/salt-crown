@@ -64,6 +64,8 @@ import {
   ASSUMED_CAPACITY,
   rollGrowthChoices,
   rollOfficer,
+  HOUSES,
+  HOUSES_BY_NAME,
   rollOffers,
   postmortem,
   scoutEnemy,
@@ -1866,6 +1868,45 @@ describe('machines', () => {
       if (e.id === 'the-tinkerer') continue
       for (const c of e.choices) expect(c.restoreMachine).toBeUndefined()
     }
+  })
+})
+
+describe('Houses', () => {
+  it('gives every House a distinct, real identity', () => {
+    expect(HOUSES.length).toBe(8)
+    const blurbs = new Set(HOUSES.map((h) => h.blurb))
+    expect(blurbs.size).toBe(HOUSES.length)
+    for (const h of HOUSES) expect(h.blurb.length).toBeGreaterThan(20)
+  })
+
+  it('rolls an Officer into one of the real Houses', () => {
+    const rng = new Rng(hashSeed('house-roll'))
+    for (let i = 0; i < 100; i++) {
+      const o = rollOfficer(rng, `o${i}`)
+      expect(HOUSES_BY_NAME.has(o.house)).toBe(true)
+    }
+  })
+
+  it('names a House-led rival band after the House, not the generic pool', () => {
+    const rng = new Rng(hashSeed('house-named'))
+    let named: Encounter | null = null
+    let opportunist: Encounter | null = null
+    for (let i = 0; i < 300 && (!named || !opportunist); i++) {
+      const e = generateEncounter(rng, 2 + (i % 3)) // index >= 2, so an officer can appear
+      if (e.kind !== 'warband') continue
+      if (e.enemy.officers.length > 0) named = e
+      else opportunist = e
+    }
+    expect(named).not.toBeNull()
+    expect(opportunist).not.toBeNull()
+
+    const house = HOUSES_BY_NAME.get(named!.enemy.officers[0].house)!
+    expect(named!.name).toBe(`Levies of ${house.name}`)
+    expect(named!.flavour).toBe(house.blurb)
+
+    // An officer-less band has no House to speak for it — same generic
+    // naming as before this feature existed.
+    expect(opportunist!.name).not.toMatch(/^Levies of /)
   })
 })
 

@@ -941,6 +941,7 @@ button.buy:hover:not(:disabled) { background: var(--gold); color: #17120a; }
 .rank-label, .house-label { font-size: var(--t-meta); color: var(--dim); }
 .leader-effect, .preview-effect { font-size: var(--t-body); color: var(--a); }
 .leader-line { font-size: var(--t-meta); color: var(--dim); }
+.house-blurb { margin: 0; font-size: var(--t-label); color: var(--faint); line-height: 1.4; }
 
 /* ----------------------------------------------------- parameters panel -- */
 

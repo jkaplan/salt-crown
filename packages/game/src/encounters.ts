@@ -1,5 +1,5 @@
 import { Rng } from '@salt/sim'
-import { rollOfficer } from './officers.js'
+import { HOUSES_BY_NAME, rollOfficer } from './officers.js'
 import { rollProspect } from './prospects.js'
 import type { Warband } from './roster.js'
 import { squadCost } from './roster.js'
@@ -112,9 +112,15 @@ const ENEMY_BIONIC_CHANCE = 0.3
  * from, so the content is nearly free. Wasteland fauna and the bosses from
  * below arrive in M4 (docs/V0-DESIGN.md §10).
  */
+/**
+ * "Levies of" deliberately isn't in this pool — it's now what a House-led
+ * band gets named instead (see the House section of generateEncounter), and
+ * keeping it here too would make "Levies of Ashfall" ambiguous between a
+ * real House and this generic pool coincidentally producing the same shape.
+ */
 const BAND_PREFIX = [
   'Scav-band of', 'The Rust', 'Outriders of', 'The Low', 'Kin of',
-  'The Salt', 'Wallers of', 'The Broken', 'Levies of', 'The Pale',
+  'The Salt', 'Wallers of', 'The Broken', 'Raiders of', 'The Pale',
 ]
 
 const BAND_SUFFIX = [
@@ -418,12 +424,25 @@ export function generateEncounter(
 
   const bodies = enemy.squads.reduce((n, s) => n + s.count, 0) + enemy.prospects.length
 
+  /*
+   * A rival band with an officer is fielded BY a House, not just led by one —
+   * so it gets that House's own name and identity instead of the generic
+   * scav-band pool, the same way a boss or legendary is named after itself
+   * rather than a placeholder. An officer-less band is exactly that: loose
+   * opportunists with no House backing it, which the generic names already
+   * read as ("Scav-band of...", "Outriders of...").
+   */
+  const houseOfficer = kind === 'warband' ? enemy.officers[0] : undefined
+  const house = houseOfficer ? HOUSES_BY_NAME.get(houseOfficer.house) : undefined
+
   const name =
     kind === 'boss' || kind === 'legendary'
       ? UNIT_TYPES[enemy.squads[0].typeId].name
       : kind === 'wasteland'
         ? WASTELAND_NAMES[rng.int(WASTELAND_NAMES.length)]
-        : `${BAND_PREFIX[rng.int(BAND_PREFIX.length)]} ${BAND_SUFFIX[rng.int(BAND_SUFFIX.length)]}`
+        : house
+          ? `Levies of ${house.name}`
+          : `${BAND_PREFIX[rng.int(BAND_PREFIX.length)]} ${BAND_SUFFIX[rng.int(BAND_SUFFIX.length)]}`
 
   const flavour =
     kind === 'boss'
@@ -432,7 +451,7 @@ export function generateEncounter(
         ? UNIT_TYPES[enemy.squads[0].typeId].blurb
         : kind === 'wasteland'
           ? WASTELAND_FLAVOUR[rng.int(WASTELAND_FLAVOUR.length)]
-          : FLAVOUR[rng.int(FLAVOUR.length)]
+          : (house?.blurb ?? FLAVOUR[rng.int(FLAVOUR.length)])
 
   return {
     index,

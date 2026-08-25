@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Rng, hashSeed } from '@salt/sim'
-import { OFFICER_RANKS_BY_ID, officerTitle, rollOfficer } from '@salt/game'
+import { HOUSES_BY_NAME, OFFICER_RANKS_BY_ID, officerTitle, rollOfficer } from '@salt/game'
 import type { Officer } from '@salt/game'
 
 export default function LeaderSelect({
@@ -56,6 +56,7 @@ export default function LeaderSelect({
             </div>
 
             <p className="preview-effect">{rank?.effect}</p>
+            <p className="house-blurb">{HOUSES_BY_NAME.get(selectedOfficer.house)?.blurb}</p>
 
             <div className="button-group">
               <button className="btn-quiet back-btn" onClick={() => setSelectedOfficer(null)}>
@@ -87,6 +88,7 @@ export default function LeaderSelect({
                     <span className="title">{officerTitle(officer)}</span>
                   </div>
                   <div className="leader-effect">{rank?.effect}</div>
+                  <p className="house-blurb">{HOUSES_BY_NAME.get(officer.house)?.blurb}</p>
                 </button>
               </li>
             )
