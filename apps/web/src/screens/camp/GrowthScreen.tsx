@@ -1,6 +1,7 @@
 import { MUTATIONS_BY_ID, unitType } from '@salt/game'
 import type { GrowthOffer, Prospect } from '@salt/game'
 import UnitShape from '../../components/UnitShape'
+import MutationIcon from '../../components/MutationIcon'
 
 /**
  * Growth picks, taking the whole screen.
@@ -64,6 +65,7 @@ export default function GrowthScreen({
                 className="growth-choice"
                 onClick={() => onChoose(prospect.id, i)}
               >
+                {def && <MutationIcon icon={def.icon} size={28} />}
                 <span className="gc-name">
                   {def?.name} <b>{choice.level}</b>
                 </span>

@@ -1,6 +1,6 @@
 export { UNIT_TYPES, MUTANT_TYPES, TRUEKIN_TYPES, MACHINE_TYPES, DISCIPLINE } from './units.js'
 export { MUTATIONS, MUTATIONS_BY_ID, describeRoll } from './mutations.js'
-export type { Mutation, MutationRoll } from './mutations.js'
+export type { Mutation, MutationRoll, MutationIconId } from './mutations.js'
 export {
   OFFICER_RANKS,
   OFFICER_RANKS_BY_ID,

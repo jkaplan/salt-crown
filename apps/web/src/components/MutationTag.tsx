@@ -1,5 +1,6 @@
 import { MUTATIONS_BY_ID } from '@salt/game'
 import type { MutationRoll } from '@salt/game'
+import MutationIcon from './MutationIcon'
 
 /**
  * A mutation chip with its definition on hover. The recruit screen is meant to
@@ -12,6 +13,7 @@ export default function MutationTag({ roll, hot }: { roll: MutationRoll; hot?: b
 
   return (
     <span className={`tag ${hot ? 'hot' : ''}`} tabIndex={0}>
+      <MutationIcon icon={def.icon} size={13} />
       {def.name} <b>{roll.level}</b>
       <span className="tip" role="tooltip">
         <span className="tip-name">
