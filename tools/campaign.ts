@@ -32,6 +32,18 @@
  * expedition: if sending three Prospects into a ruin every single camp is
  * strictly better than keeping them on the field, the cost side of V0-DESIGN
  * §9 is not being paid.
+ *
+ * --oncurve layers a third lever on top of thrifty spending: instead of
+ * buying whatever is best power-per-salvage regardless of the fight ahead, it
+ * reads the SAME scouting report the player sees (`scoutEnemy` on the next
+ * encounter, generated alongside that camp's offers, so this information is
+ * genuinely available before buying) and weights offers toward raw
+ * damage-per-hit the more armoured that report reads — the flat-reduction
+ * mechanic means a low-damage swarm loses proportionally more to armour than
+ * a hard-hitting squad does. Compared against plain --thrifty (same spending
+ * discipline, blind buying) to isolate ONE variable: does reacting to who
+ * you're about to fight change completion rate, the way spending discipline
+ * measurably did not (see the greedy/thrifty note above)?
  */
 import { Battle } from '@salt/sim'
 import {
@@ -55,8 +67,17 @@ import {
   installBionic,
   BIONICS_BY_ID,
   MAX_CREW,
+  scoutEnemy,
 } from '@salt/game'
 import type { Offer, RunState } from '@salt/game'
+
+/** How hard to chase raw damage-per-hit as the enemy's armour reads heavier. */
+const ARMOR_PRESSURE: Record<string, number> = {
+  'barely armoured': 0,
+  'lightly armoured': 0.3,
+  armoured: 0.7,
+  'heavily armoured': 1.2,
+}
 
 function arg(name: string, fallback: number): number {
   const i = process.argv.indexOf(`--${name}`)
@@ -70,8 +91,9 @@ function pad(s: string | number, w: number): string {
 }
 
 /** Buy whatever gives the most power per salvage, until broke. */
-function shop(state: RunState, thrifty: boolean): RunState {
+function shop(state: RunState, thrifty: boolean, onCurve: boolean): RunState {
   let s = state
+  const pressure = onCurve ? (ARMOR_PRESSURE[scoutEnemy(s.encounter.enemy).armorWord] ?? 0) : 0
   for (let guard = 0; guard < 8; guard++) {
     /*
      * A thrifty bot will not buy a body it cannot water.
@@ -114,7 +136,11 @@ function shop(state: RunState, thrifty: boolean): RunState {
         const power =
           squadPower({ id: o.id, typeId: o.typeId, count: o.count, leader: null }, null) +
           o.prospects.reduce((n, p) => n + prospectPower(p), 0)
-        return { id: o.id, value: power / o.cost }
+        // Reward for what a body swings with, not what it's carrying — the
+        // resolved squad damage already lives inside `power`, and doubling
+        // up on it would just re-count the same edge twice.
+        const bite = pressure > 0 ? 1 + pressure * (unitType(o.typeId).base.damage / 15) : 1
+        return { id: o.id, value: (power / o.cost) * bite }
       })
       .sort((a, b) => b.value - a.value)
 
@@ -204,6 +230,7 @@ function shop(state: RunState, thrifty: boolean): RunState {
 function playRun(
   seedText: string,
   thrifty: boolean,
+  onCurve: boolean,
   verb: 'scavenge' | 'delve' | null,
   origin: 'scion' | 'firstborn',
 ) {
@@ -231,7 +258,7 @@ function playRun(
     if (state.phase === 'camp') {
       peakFirstborn = Math.max(peakFirstborn, state.warband.prospects.filter(isFirstborn).length)
       peakProspects = Math.max(peakProspects, state.warband.prospects.length)
-      state = shop(state, thrifty)
+      state = shop(state, thrifty, onCurve)
       if (verb) {
         // Bluntly greedy: always send the maximum crew. This is the upper
         // bound on how much expeditions can be exploited, not a good player.
@@ -275,6 +302,7 @@ function playRun(
 
 const runs = arg('runs', 200)
 const thrifty = process.argv.includes('--thrifty')
+const onCurve = process.argv.includes('--oncurve')
 const origin = process.argv.includes('--firstborn')
   ? ('firstborn' as const)
   : ('scion' as const)
@@ -285,7 +313,8 @@ const verb = process.argv.includes('--delve')
     : null
 console.log('Salt Crown — campaign harness')
 console.log(
-  `${runs} runs, ${thrifty ? 'thrifty' : 'greedy'} buyer, ${ENCOUNTERS_PER_RUN} encounters each\n`,
+  `${runs} runs, ${thrifty ? 'thrifty' : 'greedy'}${onCurve ? '+oncurve' : ''} buyer, ` +
+    `${ENCOUNTERS_PER_RUN} encounters each\n`,
 )
 
 let won = 0
@@ -300,7 +329,7 @@ const finalBodies: number[] = []
 
 const started = Date.now()
 for (let i = 1; i <= runs; i++) {
-  const r = playRun(`seed-${i}`, thrifty, verb, origin)
+  const r = playRun(`seed-${i}`, thrifty, onCurve, verb, origin)
   deserted += r.deserted
   shortMarches += r.shortMarches
   if (r.outcome === 'won') runTicks.push(r.ticks)
