@@ -120,6 +120,7 @@ export {
 } from './machines.js'
 export type { Machine } from './machines.js'
 export { FAUNA_TYPES, BOSS_TYPES } from './wasteland.js'
+export { LEGENDARY_TYPES, LEGENDARY_IDS } from './legendaries.js'
 export {
   ORIGINS,
   ORIGINS_BY_ID,
@@ -142,6 +143,7 @@ export {
   isBossIndex,
   encounterBudget,
   generateEncounter,
+  encounterLegendaryId,
 } from './encounters.js'
 export type { Encounter, EncounterKind } from './encounters.js'
 export {

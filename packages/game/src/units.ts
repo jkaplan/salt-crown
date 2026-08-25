@@ -1,5 +1,6 @@
 import type { UnitType } from '@salt/sim'
 import { BOSS_TYPES, FAUNA_TYPES } from './wasteland.js'
+import { LEGENDARY_TYPES } from './legendaries.js'
 
 /**
  * M1 content: 10 unit types, 5 mutant and 5 True Kin. Machines arrive in M3
@@ -267,16 +268,20 @@ export const MACHINE_TYPES: readonly UnitType[] = [
 
 /**
  * Indexed by id — unitType(typeId) is UNIT_TYPES[typeId], so order matters and
- * machines, fauna and bosses have to live in here. None of them are in either
- * purchasable pool: the shop and the rival-band generator both build from
- * MUTANT_TYPES and TRUEKIN_TYPES, so none of them can ever be offered for sale
- * or turn up in somebody else's levy.
+ * machines, fauna, bosses and legendaries all have to live in here. None of
+ * them are in either purchasable pool: the shop and the rival-band generator
+ * both build from MUTANT_TYPES and TRUEKIN_TYPES, so none of them can ever be
+ * offered for sale or turn up in somebody else's levy. MUTANT_TYPES and
+ * TRUEKIN_TYPES filter RECRUITABLE specifically, not this table, for exactly
+ * that reason — see the note on those two below; the difference used to be
+ * academic and then wasn't (a real bug shipped from getting it backwards).
  */
 export const UNIT_TYPES: readonly UnitType[] = [
   ...RECRUITABLE,
   ...MACHINE_TYPES,
   ...FAUNA_TYPES,
   ...BOSS_TYPES,
+  ...LEGENDARY_TYPES,
 ]
 
 /*

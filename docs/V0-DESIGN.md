@@ -670,7 +670,7 @@ mutation on an exceptional body climb past the normal ceiling (tying into the
 accelerant trait above), is still open — worth resolving together rather than
 guessing which.
 
-### Legendary creatures with backstory, and more factions
+### Legendary creatures with backstory ✅ built — factions still open
 
 *"Coming across a legendary creature like in Qud with some bit of backstory
 to them... I think it might require more factions like Qud has as well to
@@ -678,13 +678,29 @@ really add story to make the world feel more alive but there is a sense of
 awe there and legendary creatures need to be highlighted as they possess much
 strength."*
 
-Two connected asks. Unique, named, lore-bearing wasteland encounters are a
-natural extension of the existing `wasteland` encounter kind (§10) — rare,
-strong, memorable, distinct from the three act-bosses. Expanded factions is
-larger: §14 already marks per-House sub-origins as V0.1, and this asks for
-more than that — faction identity and rivalry as a storytelling layer, not
-just a start-of-run price modifier. Track together since a legendary creature
-usually belongs to *somebody*.
+Two connected asks; only the first is built. Four legendaries (Widowsalt, The
+Ungraded, Glasskeeper, The Standing Debt — `legendaries.ts`), each with a real
+backstory paragraph, rolled as a low-probability sub-roll inside an ordinary
+`wasteland` encounter rather than as a fourth boss tier: unpredictable rather
+than a checkpoint, and most runs will only ever meet one or two. Never repeats
+within a run. Highlighted on screen with the same "named individual" system
+Officers/Prospects/Machines already had — HP bar, name banner, larger sprite —
+plus a gold march-card border distinct from a boss's red one.
+
+The first tuning pass was wrong the same way the act-1 boss's first pass was:
+sized by feel, not measurement, and all four lost to an early Chaff swarm at
+any size because their damage one-shot cheap fodder before numbers could
+matter. Retuned against the same probe used for the boss; see the full account
+in `legendaries.ts`'s own module comment, including a real, measured, and
+un-fully-closed gap in how hard this content hits the Freed Firstborn origin
+specifically — flagged there for M5's eventual larger balance pass rather than
+chased to zero here.
+
+Expanded factions remains open and unbuilt. §14 already marks per-House
+sub-origins as V0.1, and this asks for more than that — faction identity and
+rivalry as a storytelling layer, not just a start-of-run price modifier. The
+natural next connection: giving a legendary creature an owner, a faction it
+belongs to, is likely how the two asks were meant to reinforce each other.
 
 ### Relics and synergistic perks
 

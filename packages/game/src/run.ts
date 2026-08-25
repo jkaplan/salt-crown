@@ -1,6 +1,6 @@
 import { COLLAPSE_THRESHOLD, Rng, TEAM_A, TEAM_B, hashSeed } from '@salt/sim'
 import type { BattleConfig, GroupResult, SimGroup, Winner } from '@salt/sim'
-import { ENCOUNTERS_PER_RUN, generateEncounter } from './encounters.js'
+import { ENCOUNTERS_PER_RUN, encounterLegendaryId, generateEncounter } from './encounters.js'
 import type { Encounter } from './encounters.js'
 import { rollOffers } from './shop.js'
 import type { Offer } from './shop.js'
@@ -121,6 +121,9 @@ export interface RunState {
   event: GameEvent | null
   /** Events already fired, so a run never repeats one. */
   seenEvents: string[]
+  /** Legendary type ids already encountered, so a run never repeats one — see
+   * docs/V0-DESIGN.md §15 and encounters.ts's buildLegendary. */
+  seenLegendaries: number[]
   /**
    * What the last march cost, and who walked because of it. Cleared when the
    * next camp opens. Desertion happens on the march, so this is how the
@@ -144,6 +147,8 @@ export function newRun(seedText: string, choice: StartChoice = { origin: 'scion'
   const rng = new Rng(hashSeed(seedText))
   const warband = startingWarband(rng, choice)
   const origin = ORIGINS_BY_ID.get(choice.origin) ?? ORIGINS[0]
+  const encounter = generateEncounter(rng, 0)
+  const legendaryId = encounterLegendaryId(encounter)
 
   return {
     seedText,
@@ -153,12 +158,13 @@ export function newRun(seedText: string, choice: StartChoice = { origin: 'scion'
     encounterIndex: 0,
     warband,
     offers: rollOffers(rng, 0, origin.truekinPremium),
-    encounter: generateEncounter(rng, 0),
+    encounter,
     report: null,
     growth: [],
     promoted: [],
     event: null,
     seenEvents: [],
+    seenLegendaries: legendaryId === null ? [] : [legendaryId],
     lastUpkeep: null,
     expedition: null,
     expeditionResult: null,
@@ -910,13 +916,17 @@ export function advance(state: RunState): RunState {
   }
 
   const home = returnExpedition(state)
+  const encounter = generateEncounter(state.rng, next, state.seenLegendaries)
+  const legendaryId = encounterLegendaryId(encounter)
 
   return {
     ...home,
     phase: 'camp',
     encounterIndex: next,
     offers: rollOffers(state.rng, next, ORIGINS_BY_ID.get(state.origin)?.truekinPremium ?? 1),
-    encounter: generateEncounter(state.rng, next),
+    encounter,
+    seenLegendaries:
+      legendaryId === null ? state.seenLegendaries : [...state.seenLegendaries, legendaryId],
     report: null,
     growth: rollGrowth(state.rng, home.warband, next),
     promoted: [],

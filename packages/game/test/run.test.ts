@@ -71,6 +71,8 @@ import {
   isBossIndex,
   encounterBudget,
   BOSS_TYPES,
+  LEGENDARY_TYPES,
+  LEGENDARY_IDS,
   FAUNA_TYPES,
   squadLabel,
   toSimGroups,
@@ -93,7 +95,7 @@ import {
   TREAT_COST,
   WOUND_PENALTY,
 } from '@salt/game'
-import type { Prospect, RunState, Warband, Wound } from '@salt/game'
+import type { Encounter, Prospect, RunState, Warband, Wound } from '@salt/game'
 import { TEAM_A, TEAM_B } from '@salt/sim'
 
 function start(seed = 'test-seed'): RunState {
@@ -1692,7 +1694,7 @@ describe('run structure', () => {
     expect(Math.max(...act(2))).toBeGreaterThan(90)
   })
 
-  it('draws from all three pools, and only the right one at a boss', () => {
+  it('draws from all four pools, and only the right one at a boss', () => {
     const rng = new Rng(hashSeed('pools'))
     const seen = new Set<string>()
     for (let s = 0; s < 200; s++) {
@@ -1703,7 +1705,7 @@ describe('run structure', () => {
         expect(e.act).toBe(actOf(i))
       }
     }
-    expect([...seen].sort()).toEqual(['boss', 'warband', 'wasteland'])
+    expect([...seen].sort()).toEqual(['boss', 'legendary', 'warband', 'wasteland'])
   })
 
   it('makes a boss one enormous problem, not a bigger crowd', () => {
@@ -1752,6 +1754,88 @@ describe('run structure', () => {
     // a banner now", it is specifically the boss.
     const ordinary = groups.find((g) => g !== bossGroup)
     expect(ordinary?.named).toBeFalsy()
+  })
+
+  it('finds a legendary sometimes, and gives it the same treatment a boss gets', () => {
+    const rng = new Rng(hashSeed('legendary-find'))
+    let found: Encounter | null = null
+    // A sub-roll inside ~34% wasteland x 16% legendary is under 6% of
+    // encounters — 300 tries is comfortably enough to hit one without the
+    // test itself becoming a coin flip.
+    for (let i = 0; i < 300 && !found; i++) {
+      const e = generateEncounter(rng, 1 + (i % 3)) // never the boss slot
+      if (e.kind === 'legendary') found = e
+    }
+    expect(found).not.toBeNull()
+    const e = found!
+
+    expect(e.enemy.squads).toHaveLength(1)
+    expect(e.enemy.squads[0].count).toBe(1)
+    expect(LEGENDARY_IDS.has(e.enemy.squads[0].typeId)).toBe(true)
+    expect(e.name).toBe(unitType(e.enemy.squads[0].typeId).name)
+    expect(e.flavour).toBe(unitType(e.enemy.squads[0].typeId).blurb)
+
+    const { groups } = toSimGroups(e.enemy, TEAM_B)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].named).toBe(true)
+    expect(groups[0].leaderLabel).toBe(unitType(e.enemy.squads[0].typeId).name)
+  })
+
+  it('never repeats a legendary within a run', () => {
+    // Same shape as events (rollEvent) and the same reason: meeting "the"
+    // Widowsalt twice undoes the entire word.
+    const rng = new Rng(hashSeed('legendary-repeat'))
+    const seenLegendaries: number[] = []
+    let repeats = 0
+    let finds = 0
+    for (let i = 0; i < 4000; i++) {
+      const index = 1 + (i % 3) // never the boss slot
+      const e = generateEncounter(rng, index, seenLegendaries)
+      if (e.kind !== 'legendary') continue
+      const id = e.enemy.squads[0].typeId
+      finds++
+      if (seenLegendaries.includes(id)) repeats++
+      else seenLegendaries.push(id)
+    }
+    expect(finds).toBeGreaterThan(0)
+    expect(repeats).toBe(0)
+    // Once every legendary has shown up, buildLegendary has nothing left to
+    // offer and the roll quietly falls back to an ordinary wasteland instead
+    // — it should not be possible to have SEEN more than exist.
+    expect(seenLegendaries.length).toBeLessThanOrEqual(LEGENDARY_TYPES.length)
+  })
+
+  it('never rolls a legendary in the first two encounters', () => {
+    /*
+     * A fixed-power body hits a warband that has had zero camps to build up
+     * harder than one with even a little slack in it — measured directly
+     * against the Freed Firstborn origin, which starts with no Officers at
+     * all. Cutting LEGENDARY_CHANCE alone did not meaningfully recover its
+     * campaign completion, because frequency does not fix a per-encounter
+     * mismatch. Every run gets at least one camp's worth of buildup first.
+     */
+    const rng = new Rng(hashSeed('legendary-early'))
+    for (let i = 0; i < 4000; i++) {
+      expect(generateEncounter(rng, 0).kind).not.toBe('legendary')
+      expect(generateEncounter(rng, 1).kind).not.toBe('legendary')
+    }
+  })
+
+  it('is never for sale, never fielded by a rival band, never a boss escort', () => {
+    // Same invariant the machine/boss test already holds the market and
+    // rival-band generator to, extended to the fourth pool.
+    const rng = new Rng(hashSeed('legendary-market'))
+    for (let i = 0; i < 200; i++) {
+      for (const offer of rollOffers(rng, i % ENCOUNTERS_PER_RUN)) {
+        if (offer.kind === 'squad') expect(LEGENDARY_IDS.has(offer.typeId)).toBe(false)
+      }
+    }
+    for (let i = 0; i < 300; i++) {
+      const e = generateEncounter(rng, i % ENCOUNTERS_PER_RUN)
+      if (e.kind === 'warband' || e.kind === 'boss') {
+        for (const sq of e.enemy.squads) expect(LEGENDARY_IDS.has(sq.typeId)).toBe(false)
+      }
+    }
   })
 
   it('escalates the three bosses rather than rolling them', () => {

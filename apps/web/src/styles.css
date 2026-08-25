@@ -1545,6 +1545,10 @@ button.install .price {
   color: var(--faint);
 }
 .boss-word { color: var(--danger); margin-left: var(--s2); }
+/* Gold, not danger-red — a legendary is a find, not a threat announcement.
+   Matches UX.md's own convention: gold means "capacity, things you covet",
+   and a legendary is exactly that, teeth included. */
+.legendary-word { color: #ffd77a; margin-left: var(--s2); }
 
 /* A boss is the thing the act has been building toward. It gets a different
    edge, not a different layout — the decision on the card is still "march". */
@@ -1554,6 +1558,13 @@ button.install .price {
 }
 .march-card.kind-wasteland {
   border-left: 3px solid #6f8455;
+}
+/* Distinct from a boss on purpose — a boss's red says "danger, guaranteed";
+   this has to read as "rare, worth noticing" before the player reads the
+   name, since most runs will only ever see this border a handful of times. */
+.march-card.kind-legendary {
+  border-left: 3px solid #ffd77a;
+  background: linear-gradient(90deg, rgba(255, 215, 122, 0.12), transparent 70%);
 }
 
 /* --------------------------------------------------------------- origins -- */

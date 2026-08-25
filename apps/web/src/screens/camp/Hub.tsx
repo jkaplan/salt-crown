@@ -185,6 +185,15 @@ export default function Hub({
             Act {encounter.act + 1}
             {encounter.kind === 'boss' && <b className="boss-word">— it is waiting</b>}
             {encounter.kind === 'wasteland' && <span className="dim"> — not a warband</span>}
+            {/*
+              Distinct from both. A boss is dreaded because it's coming; a
+              legendary is dreaded because it wasn't supposed to be here —
+              most runs never see one at all, so the word itself has to
+              carry that this is rare before the player reads anything else.
+            */}
+            {encounter.kind === 'legendary' && (
+              <b className="legendary-word">— this one has a name</b>
+            )}
           </p>
           <h1>{encounter.name}</h1>
           <p>{encounter.flavour}</p>

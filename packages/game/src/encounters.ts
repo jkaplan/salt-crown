@@ -5,6 +5,7 @@ import type { Warband } from './roster.js'
 import { squadCost } from './roster.js'
 import { MUTANT_TYPES, TRUEKIN_TYPES, UNIT_TYPES } from './units.js'
 import { BOSS_TYPES, FAUNA_TYPES } from './wasteland.js'
+import { LEGENDARY_TYPES } from './legendaries.js'
 
 /**
  * Fifteen encounters, three acts of five, boss at the end of each —
@@ -16,7 +17,7 @@ export const ENCOUNTERS_PER_RUN = 15
 export const ENCOUNTERS_PER_ACT = 5
 export const ACTS = 3
 
-export type EncounterKind = 'warband' | 'wasteland' | 'boss'
+export type EncounterKind = 'warband' | 'wasteland' | 'boss' | 'legendary'
 
 export function actOf(index: number): number {
   return Math.min(ACTS - 1, Math.floor(index / ENCOUNTERS_PER_ACT))
@@ -50,6 +51,32 @@ const ACT_BUDGET_STEP = [14, 61, 144]
  */
 const BOSS_BUDGET_MULT = 1.5
 const BOSS_ESCORT_SHARE = 0.12
+
+/**
+ * Legendaries — docs/V0-DESIGN.md §15. NOT a fourth boss tier: a boss is
+ * guaranteed, ordered, escalating; a legendary is a chance, taken inside an
+ * ordinary wasteland roll, that most runs will simply never hit. Dreaded for
+ * the opposite reason a boss is — you never see it coming.
+ *
+ * The chance is conditional on the wasteland roll already having happened,
+ * so it inherits wasteland's own placement rules for free (never the slot
+ * before a boss, roughly one wasteland encounter in three) rather than
+ * needing a second, separate placement rule to stay consistent with the
+ * first.
+ */
+/*
+ * A fixed-power body hits a structurally weaker warband harder than a
+ * stronger one in RELATIVE terms, whatever its absolute tuning — measured
+ * directly: at 0.16 the Freed Firstborn origin's campaign completion fell
+ * from its pre-legendary baseline (~7-9%) to ~3%, while the Scion barely
+ * moved. Softening the creatures further to compensate would have blunted
+ * them for the origin they were already working for, so the lever is
+ * frequency instead — exposure to the risk, not the risk itself.
+ */
+const LEGENDARY_CHANCE = 0.09
+/** A little richer than the budget alone would pay — the "awe" has to show
+ * up somewhere the player can see it, and a receipt is where. */
+const LEGENDARY_BUDGET_MULT = 1.2
 
 /**
  * M1 fights rival warbands only — built from the same unit pool you recruit
@@ -106,6 +133,17 @@ const emptyWarband = (): Warband => ({
 })
 
 const newId = (rng: Rng) => `e${rng.next().toString(36)}`
+
+/**
+ * Which legendary a 'legendary' encounter used, if any — so the caller can
+ * record it as seen. Not carried as its own Encounter field: the id is
+ * already sitting in enemy.squads[0].typeId, same as a boss's identity is
+ * read off the same slot, and a second field would just be a second place
+ * for the two to disagree.
+ */
+export function encounterLegendaryId(e: Encounter): number | null {
+  return e.kind === 'legendary' ? e.enemy.squads[0].typeId : null
+}
 
 /** Salvage-equivalent budget for an encounter, before the boss multiplier. */
 export function encounterBudget(index: number): number {
@@ -215,6 +253,32 @@ function buildBoss(rng: Rng, index: number, budget: number): Warband {
   return w
 }
 
+/**
+ * A legendary — one body, no escort, and never the same one twice in a run.
+ *
+ * No escort on purpose: a boss gets one so the field still looks like a
+ * battle around a siege; a legendary is the opposite kind of encounter, one
+ * dangerous individual met alone on the flats, and giving it a retinue would
+ * make it read as a smaller boss instead of its own thing.
+ *
+ * Falls back to `null` — and the caller falls back to an ordinary wasteland
+ * roll — once every legendary has already appeared this run, rather than
+ * repeating one. Meeting "the" Widowsalt twice in one run undoes the entire
+ * point of the word.
+ */
+function buildLegendary(
+  rng: Rng,
+  seenLegendaries: readonly number[],
+): { warband: Warband; typeId: number } | null {
+  const available = LEGENDARY_TYPES.filter((t) => !seenLegendaries.includes(t.id))
+  if (available.length === 0) return null
+
+  const type = available[rng.int(available.length)]
+  const w = emptyWarband()
+  w.squads.push({ id: newId(rng), typeId: type.id, count: 1, leader: null })
+  return { warband: w, typeId: type.id }
+}
+
 const WASTELAND_NAMES = [
   'A Pack on the Flats', 'Something in the Wash', 'The Drift',
   'Rooted in the Cut', 'What the Pipes Brought Up', 'A Bad Stretch of Road',
@@ -241,31 +305,63 @@ const BOSS_FLAVOUR = [
  * Difficulty is FIXED, never scaled to the player's warband. Rubber-banding
  * would kill the break-run pillar: if being strong doesn't trivialise fights,
  * breaking the game isn't a reward. See docs/V0-DESIGN.md §7.
+ *
+ * `seenLegendaries` defaults to empty so every existing call site — the
+ * harnesses, the tests, the opening camp — stays valid; a caller that never
+ * passes it simply never rules a legendary out.
  */
-export function generateEncounter(rng: Rng, index: number): Encounter {
+export function generateEncounter(
+  rng: Rng,
+  index: number,
+  seenLegendaries: readonly number[] = [],
+): Encounter {
   const act = actOf(index)
   const boss = isBossIndex(index)
   // Fauna are an interruption, not a rotation: about one in three, and never
   // in the slot before a boss, so the act builds toward the thing ending it.
-  const kind: EncounterKind = boss
-    ? 'boss'
-    : rng.float() < 0.34 && index % ENCOUNTERS_PER_ACT !== ENCOUNTERS_PER_ACT - 2
-      ? 'wasteland'
-      : 'warband'
+  const wasteland =
+    !boss &&
+    rng.float() < 0.34 &&
+    index % ENCOUNTERS_PER_ACT !== ENCOUNTERS_PER_ACT - 2
 
-  const budget = Math.round(encounterBudget(index) * (boss ? BOSS_BUDGET_MULT : 1))
+  /*
+   * A legendary is a sub-roll INSIDE a wasteland roll, not a fourth
+   * independent placement rule — it inherits wasteland's own restrictions
+   * this way rather than needing to be kept in sync with them by hand.
+   *
+   * Excluded from the first two encounters specifically. A fixed-power body
+   * hits a warband that has had zero camps to build up harder than one with
+   * even a little slack in it — measured directly against the Freed
+   * Firstborn origin, which starts with no Officers at all: campaign
+   * completion for that origin did not meaningfully recover from cutting
+   * LEGENDARY_CHANCE alone, because frequency does not fix a per-encounter
+   * mismatch, it only changes how often you roll the dice on one. This gives
+   * every run at least one camp's worth of buildup — a purchase, a growth
+   * pick, a leader assigned — before the roaming danger pool turns on.
+   */
+  const legendary =
+    wasteland && index >= 2 && rng.float() < LEGENDARY_CHANCE
+      ? buildLegendary(rng, seenLegendaries)
+      : null
+
+  const kind: EncounterKind = boss ? 'boss' : legendary ? 'legendary' : wasteland ? 'wasteland' : 'warband'
+
+  const budgetMult = boss ? BOSS_BUDGET_MULT : kind === 'legendary' ? LEGENDARY_BUDGET_MULT : 1
+  const budget = Math.round(encounterBudget(index) * budgetMult)
 
   const enemy =
     kind === 'boss'
       ? buildBoss(rng, index, budget)
-      : kind === 'wasteland'
-        ? buildWasteland(rng, index, budget)
-        : buildWarband(rng, index, budget)
+      : kind === 'legendary'
+        ? legendary!.warband
+        : kind === 'wasteland'
+          ? buildWasteland(rng, index, budget)
+          : buildWarband(rng, index, budget)
 
   const bodies = enemy.squads.reduce((n, s) => n + s.count, 0) + enemy.prospects.length
 
   const name =
-    kind === 'boss'
+    kind === 'boss' || kind === 'legendary'
       ? UNIT_TYPES[enemy.squads[0].typeId].name
       : kind === 'wasteland'
         ? WASTELAND_NAMES[rng.int(WASTELAND_NAMES.length)]
@@ -274,9 +370,11 @@ export function generateEncounter(rng: Rng, index: number): Encounter {
   const flavour =
     kind === 'boss'
       ? BOSS_FLAVOUR[Math.min(BOSS_FLAVOUR.length - 1, act)]
-      : kind === 'wasteland'
-        ? WASTELAND_FLAVOUR[rng.int(WASTELAND_FLAVOUR.length)]
-        : FLAVOUR[rng.int(FLAVOUR.length)]
+      : kind === 'legendary'
+        ? UNIT_TYPES[enemy.squads[0].typeId].blurb
+        : kind === 'wasteland'
+          ? WASTELAND_FLAVOUR[rng.int(WASTELAND_FLAVOUR.length)]
+          : FLAVOUR[rng.int(FLAVOUR.length)]
 
   return {
     index,

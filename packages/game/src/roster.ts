@@ -17,19 +17,21 @@ import {
 import type { Prospect } from './prospects.js'
 import { DISCIPLINE, UNIT_TYPES } from './units.js'
 import { BOSS_TYPES } from './wasteland.js'
+import { LEGENDARY_TYPES } from './legendaries.js'
 import { applyWoundPenalty, officerBonusMultiplier } from './wounds.js'
 
 /**
  * Three tiers, in descending order of how much the player should care:
  *
  *   Officers    True Kin, named, recruited. Lead a squad and grant it a flat
- *               bonus plus discipline.
+ *               bonus plus discipline (plus any fitted implants).
  *   Prospects  Mutants that came out of the vats with something useful.
  *               Individually tracked, individually simulated, permanently
- *               dead when killed. Lead a squad by leaking their mutations to
- *               it at half level — so a Horns 5 standout gives its whole
- *               squad Horns 3. This is what makes mutations an army-wide
- *               multiplier rather than one fighter's stat line.
+ *               dead when killed. Lead a squad by steadying it — discipline
+ *               only, same mechanism an Officer uses. Their own mutations
+ *               stay their own; see resolveSquadStats for why that changed
+ *               from an earlier "leak" mechanic that let them apply to the
+ *               whole squad.
  *   Squads      Anonymous fodder, by unit type. A number, not a list of people.
  *
  * Fodder itself carries no mutations. Mutation is individual and rare, which
@@ -77,20 +79,21 @@ export interface Warband {
 }
 
 /**
- * Bosses are the closest thing to a "legendary" body currently in the game —
- * one enormous problem, escorted, meant to read as a spectacle (§10). But
- * they arrive as an ordinary count-1 Squad, same as any rival levy's single
- * straggler, and toSimGroups only flags Prospects and Machines as named
- * individuals. Nothing marked a boss as one, so it got no HP bar in the
- * roster HUD, no name banner, no larger sprite on the canvas — every system
- * built for "legendary" already existed and simply never saw a boss.
+ * Bosses and legendaries both arrive as an ordinary count-1 Squad, same as
+ * any rival levy's single straggler, and toSimGroups only flagged Prospects
+ * and Machines as named individuals. Nothing marked either as one, so a boss
+ * got no HP bar in the roster HUD, no name banner, no larger sprite on the
+ * canvas — every system built for "legendary" already existed and simply
+ * never saw one. Legendaries (docs/V0-DESIGN.md §15) get exactly the same
+ * treatment for exactly the same reason; a legendary that looked like an
+ * ordinary fauna squad would not read as one.
  *
- * Checked by id here rather than adding a field to Squad: a boss is
- * identifiable from its typeId alone, so there is nothing to forget at any
- * of Squad's several construction sites (buy, buildWarband, buildBoss,
+ * Checked by id here rather than adding a field to Squad: both are
+ * identifiable from typeId alone, so there is nothing to forget at any of
+ * Squad's several construction sites (buy, buildWarband, buildBoss,
  * startingWarband) the way a settable flag could be.
  */
-const BOSS_IDS = new Set(BOSS_TYPES.map((t) => t.id))
+const NAMED_SQUAD_IDS = new Set([...BOSS_TYPES, ...LEGENDARY_TYPES].map((t) => t.id))
 
 const BODY_SHAPE_COUNT = 8
 
@@ -332,11 +335,11 @@ export function toSimGroups(
       // A Prospect leader carries its own banner on its own group below, so
       // an ordinary squad is labelled by its officer or not at all — except
       // a boss, which IS the banner regardless of who is or isn't leading it.
-      leaderLabel: officer ? officerTitle(officer) : BOSS_IDS.has(sq.typeId) ? unitType(sq.typeId).name : null,
+      leaderLabel: officer ? officerTitle(officer) : NAMED_SQUAD_IDS.has(sq.typeId) ? unitType(sq.typeId).name : null,
       // Same treatment Prospects and Machines get: HP bar and name in the
       // battle HUD, bigger sprite on the canvas, team-coloured throughout —
       // see BattleScreen's roster HUD and BattleView's leaderScale.
-      named: BOSS_IDS.has(sq.typeId),
+      named: NAMED_SQUAD_IDS.has(sq.typeId),
     })
     sources.push({ kind: 'squad', id: sq.id })
   }
