@@ -14,6 +14,7 @@ import {
   treatOfficer,
   installBionic,
   assignRelic,
+  rerollOffers,
   chooseMutation,
   march,
   moveSquad,
@@ -192,6 +193,7 @@ export default function App() {
                   onTreatOfficer={(oid) => setRun(treatOfficer(run, oid))}
                   onInstall={(oid, bid) => setRun(installBionic(run, oid, bid))}
                   onAssignRelic={(sid, rid) => setRun(assignRelic(run, sid, rid))}
+                  onReroll={() => setRun(rerollOffers(run))}
                   onSetFielded={(pid, f) => setRun(setFielded(run, pid, f))}
                   onSell={(pid) => setRun(sellProspect(run, pid))}
                   onSendExpedition={(verb, crew) => setRun(sendExpedition(run, verb, crew))}

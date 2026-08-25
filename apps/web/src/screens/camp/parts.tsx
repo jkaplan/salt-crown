@@ -85,6 +85,7 @@ export interface CampProps {
   onTreatOfficer: (officerId: string) => void
   onInstall: (officerId: string, bionicId: string) => void
   onAssignRelic: (squadId: string, relicId: string) => void
+  onReroll: () => void
   onSetFielded: (prospectId: string, fielded: boolean) => void
   onSell: (prospectId: string) => void
   onSendExpedition: (verb: Verb, crew: string[]) => void

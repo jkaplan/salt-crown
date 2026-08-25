@@ -1333,6 +1333,8 @@ select option {
 /* Quiet, but in the unknown-capacity blue — it answers that question. */
 button.assay { align-self: flex-start; color: #8fa8d3; }
 button.assay .price { color: var(--gold); margin-left: var(--s1); font-variant-numeric: tabular-nums; }
+button.reroll { align-self: flex-start; color: #8fa8d3; margin-top: var(--s2); }
+button.reroll .price { color: var(--gold); margin-left: var(--s1); font-variant-numeric: tabular-nums; }
 
 /* Wound ladder — docs/V0-DESIGN.md §7. --danger already means "loss,
    permanence" (UX.md §5); a wound is exactly that until it's paid off. */

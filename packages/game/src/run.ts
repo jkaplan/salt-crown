@@ -115,6 +115,8 @@ export interface RunState {
   encounterIndex: number
   warband: Warband
   offers: Offer[]
+  /** Times this camp's offers have been rerolled. Resets to 0 at the next camp. */
+  rerollCount: number
   encounter: Encounter
   report: BattleReport | null
   /** Growth picks waiting at this camp. Rolled once so they cannot be rerolled. */
@@ -162,6 +164,7 @@ export function newRun(seedText: string, choice: StartChoice = { origin: 'scion'
     encounterIndex: 0,
     warband,
     offers: rollOffers(rng, 0, origin.truekinPremium),
+    rerollCount: 0,
     encounter,
     report: null,
     growth: [],
@@ -620,6 +623,36 @@ export function buy(state: RunState, offerId: string): RunState {
 }
 
 /**
+ * Salvage to reroll THIS camp's four offers, escalating within the same
+ * visit — the on-curve buying measurement showed composition choice is a
+ * real lever, but a player who scouts a fight and gets four useless offers
+ * has no way to act on what they now know. This is that lever.
+ *
+ * Escalates per reroll, reset at the next camp, so it stays "pay to fix a
+ * genuinely bad draw" rather than "pay to keep drawing until the market
+ * stops being a lottery" — the market's whole point (§8: buying blind is
+ * roughly break-even in expectation) would collapse if a rich player could
+ * just reroll to a guaranteed-good set for a flat fee.
+ */
+export function rerollCost(index: number, rerollCount: number): number {
+  return 20 + 5 * index + 25 * rerollCount
+}
+
+export function rerollOffers(state: RunState): RunState {
+  const cost = rerollCost(state.encounterIndex, state.rerollCount)
+  if (state.warband.salvage < cost) return state
+
+  return {
+    ...state,
+    warband: { ...state.warband, salvage: state.warband.salvage - cost },
+    offers: rollOffers(
+      state.rng, state.encounterIndex, ORIGINS_BY_ID.get(state.origin)?.truekinPremium ?? 1,
+    ),
+    rerollCount: state.rerollCount + 1,
+  }
+}
+
+/**
  * One leader per squad, of either kind, so assigning is genuinely a choice
  * between an Officer's flat bonus and a Prospect's discipline bonus. A
  * Prospect can only lead its own kind — a mutant does not command True Kin.
@@ -1012,6 +1045,7 @@ export function advance(state: RunState): RunState {
     phase: 'camp',
     encounterIndex: next,
     offers: rollOffers(state.rng, next, ORIGINS_BY_ID.get(state.origin)?.truekinPremium ?? 1),
+    rerollCount: 0,
     encounter,
     seenLegendaries:
       legendaryId === null ? state.seenLegendaries : [...state.seenLegendaries, legendaryId],

@@ -9,6 +9,8 @@ import {
   assignLeader,
   buildBattle,
   buy,
+  rerollOffers,
+  rerollCost,
   moveSquad,
   newRun,
   advance,
@@ -200,6 +202,48 @@ describe('recruiting', () => {
   it('ignores an unknown offer id', () => {
     const run = start()
     expect(buy(run, 'nope')).toBe(run)
+  })
+})
+
+describe('rerolling', () => {
+  it('replaces the offers for salvage and remembers how many times this camp', () => {
+    const run = { ...start(), warband: { ...start().warband, salvage: 5000 } }
+    const before = run.offers.map((o) => o.id)
+
+    const once = rerollOffers(run)
+    expect(once.rerollCount).toBe(1)
+    expect(once.offers.map((o) => o.id)).not.toEqual(before)
+    expect(once.warband.salvage).toBe(5000 - rerollCost(run.encounterIndex, 0))
+
+    const twice = rerollOffers(once)
+    expect(twice.rerollCount).toBe(2)
+    // Escalates within the same camp — a second reroll costs more than the first.
+    expect(rerollCost(run.encounterIndex, 1)).toBeGreaterThan(rerollCost(run.encounterIndex, 0))
+    expect(twice.warband.salvage).toBe(once.warband.salvage - rerollCost(run.encounterIndex, 1))
+  })
+
+  it('refuses a reroll the player cannot afford', () => {
+    const cost = rerollCost(0, 0)
+    const run = { ...start(), warband: { ...start().warband, salvage: cost - 1 } }
+    expect(rerollOffers(run)).toBe(run)
+  })
+
+  it('resets the count at the next camp', () => {
+    const run = { ...start(), warband: { ...start().warband, salvage: 5000 } }
+    const rerolled = rerollOffers(run)
+    expect(rerolled.rerollCount).toBe(1)
+
+    // Hand-built win, same pattern as the machine/bionic tests above — a
+    // real simulated battle isn't guaranteed to go the player's way, and
+    // advance() only opens a fresh camp (with a fresh rerollCount) on one.
+    const marched = march(rerolled)
+    const results = marched.setup.playerSources.map(() => ({
+      label: 'x', started: 1, dead: 0, survived: 1, endEffectiveness: 1,
+      damageDealt: 0, damageTaken: 0, damageBlocked: 0, swings: 0, hits: 0, team: TEAM_A,
+    })) as never as GroupResult[]
+    const resolved = resolveBattle(marched.state, results, TEAM_A, 100, marched.setup.playerSources)
+    const next = advance(resolved)
+    expect(next.rerollCount).toBe(0)
   })
 })
 

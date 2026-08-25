@@ -831,3 +831,16 @@ because a body that used to die outright now sometimes doesn't. Worth a
 real tuning pass once there's more data than one comparison — flagged here
 rather than adjusted by feel, same discipline as the boss and legendaries
 needed the first time.
+
+### A liquids system, not just a water system
+
+*"We should have a liquids system not just a water system."*
+
+Raised in passing, not built. Water (`water.ts`) is currently the only
+liquid resource — upkeep scaled superlinearly by roster size, the one thing
+Water exists to punish. What "liquids" (plural) would actually add on top —
+a second liquid resource with its own economy, fuel or coolant for
+Machines, something narrower like a rare cistern find — is undecided.
+§14 already lists Coolant as a named, explicitly-cut V0.1 system, which may
+be exactly this ask under a different name — worth checking that
+connection before scoping anything new.

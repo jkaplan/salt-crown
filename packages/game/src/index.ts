@@ -157,6 +157,8 @@ export type { Encounter, EncounterKind } from './encounters.js'
 export {
   newRun,
   buy,
+  rerollOffers,
+  rerollCost,
   assignLeader,
   chooseMutation,
   appraise,
