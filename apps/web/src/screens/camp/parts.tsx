@@ -18,6 +18,7 @@ import {
   MAX_FIELDED_PROSPECTS,
   BIONICS_BY_ID,
   BIONIC_SLOTS,
+  RELICS_BY_ID,
   MACHINE_CONDITION_MAX,
   MACHINE_RUN_COST,
   conditionWord,
@@ -83,6 +84,7 @@ export interface CampProps {
   onTreatWound: (prospectId: string) => void
   onTreatOfficer: (officerId: string) => void
   onInstall: (officerId: string, bionicId: string) => void
+  onAssignRelic: (squadId: string, relicId: string) => void
   onSetFielded: (prospectId: string, fielded: boolean) => void
   onSell: (prospectId: string) => void
   onSendExpedition: (verb: Verb, crew: string[]) => void
@@ -172,25 +174,33 @@ export function SquadRow({
   index,
   total,
   warband,
+  salvage,
   dragging,
   insertBefore,
   onAssign,
   onMoveSquad,
   onGripDown,
+  onAssignRelic,
 }: {
   squad: Squad
   index: number
   total: number
   warband: Warband
+  salvage: number
   dragging: boolean
   insertBefore: boolean
   onAssign: CampProps['onAssign']
   onMoveSquad: CampProps['onMoveSquad']
   onGripDown: (e: React.PointerEvent, squadId: string) => void
+  onAssignRelic: CampProps['onAssignRelic']
 }) {
   const officer = findOfficer(warband, squad)
   const prospect = findLeadingProspect(warband, squad)
   const stats = resolveSquadStats(squad, officer, prospect)
+  const relic = squad.relicId ? RELICS_BY_ID.get(squad.relicId) : null
+  // Only what is actually in stock, same reasoning as an Officer's bionic
+  // picker — the row is a decision, never a wishlist.
+  const relicStock = [...new Set(warband.relics)]
 
   const className = [
     'row',
@@ -233,6 +243,38 @@ export function SquadRow({
         <span className="row-pos">{index + 1}</span>
       </div>
       <LeaderSelect squad={squad} warband={warband} onAssign={onAssign} />
+      {/*
+        A relic is the squad's own, independent of who leads it — carried,
+        not biological (docs/ROADMAP.md's post-M4 note). One per squad, so a
+        second find is a decision about which OTHER squad gets it, not an
+        upgrade to this one.
+      */}
+      {relic ? (
+        <div className="relics">
+          <span className="relic" title={relic.blurb}>
+            {relic.name} <i>{relic.effect}</i>
+          </span>
+        </div>
+      ) : (
+        relicStock.length > 0 && (
+          <div className="row-actions">
+            {relicStock.map((id) => {
+              const r = RELICS_BY_ID.get(id)!
+              return (
+                <button
+                  key={id}
+                  className="btn-quiet install relic-bind"
+                  disabled={salvage < r.cost}
+                  title={`${r.effect}. ${r.blurb}`}
+                  onClick={() => onAssignRelic(squad.id, id)}
+                >
+                  Bind {r.name} <span className="price">{r.cost}</span>
+                </button>
+              )
+            })}
+          </div>
+        )
+      )}
     </li>
   )
 }

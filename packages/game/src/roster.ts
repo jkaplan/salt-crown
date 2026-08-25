@@ -3,6 +3,7 @@ import type { ResolvedStats, SimGroup, UnitType } from '@salt/sim'
 import { MUTATIONS_BY_ID } from './mutations.js'
 import type { MutationRoll } from './mutations.js'
 import { applyBionics } from './bionics.js'
+import { applyRelic } from './relics.js'
 import { applyCondition, machineTitle } from './machines.js'
 import type { Machine } from './machines.js'
 import { OFFICER_RANKS_BY_ID, officerTitle } from './officers.js'
@@ -48,6 +49,13 @@ export interface Squad {
   typeId: number
   count: number
   leader: SquadLeader | null
+  /**
+   * A bound relic — see relics.ts. Optional (not `| null`) so the several
+   * places that build a Squad don't all need to remember it, the same reason
+   * Prospect's `titled` is optional. Only ever set on the PLAYER's own
+   * squads; a rival warband's squads never carry one.
+   */
+  relicId?: string | null
 }
 
 export interface Warband {
@@ -76,6 +84,8 @@ export interface Warband {
    * reason delving exists for a True Kin warband (V0-DESIGN §3).
    */
   bionics: string[]
+  /** Relics found and not yet bound to a squad — see relics.ts. Ruin-only. */
+  relics: string[]
 }
 
 /**
@@ -172,6 +182,8 @@ export function resolveSquadStats(
   // A leading Prospect contributes nothing to the squad's STATS — only to its
   // discipline, in resolveDiscipline. Leadership steadies a line; it does not
   // rewrite anyone's biology.
+  // A relic is the squad's own, independent of who leads it (or doesn't).
+  applyRelic(s, squad.relicId, { lineage: unitType(squad.typeId).lineage, count: squad.count })
   return clamp(s)
 }
 

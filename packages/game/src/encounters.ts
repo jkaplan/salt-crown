@@ -128,6 +128,7 @@ const emptyWarband = (): Warband => ({
   salvage: 0,
   water: 0,
   bionics: [],
+  relics: [],
   machines: [],
   morale: 0,
 })

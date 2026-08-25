@@ -112,6 +112,8 @@ export {
   bionicValue,
 } from './bionics.js'
 export type { Bionic } from './bionics.js'
+export { RELICS, RELICS_BY_ID, applyRelic } from './relics.js'
+export type { Relic, RelicContext } from './relics.js'
 export {
   MACHINE_CONDITION_MAX,
   MACHINE_RUN_COST,
@@ -164,6 +166,7 @@ export {
   treatWound,
   treatOfficer,
   installBionic,
+  assignRelic,
   sendExpedition,
   recallExpedition,
   moveSquad,

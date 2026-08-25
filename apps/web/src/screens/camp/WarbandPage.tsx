@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import {
   BIONICS_BY_ID,
+  RELICS_BY_ID,
   MACHINE_RUN_COST,
   MAX_FIELDED_PROSPECTS,
   fieldedCount,
@@ -33,6 +34,7 @@ export default function WarbandPage({
   onTreatWound,
   onTreatOfficer,
   onInstall,
+  onAssignRelic,
   onSetFielded,
   onSell,
   onMoveSquad,
@@ -98,11 +100,13 @@ export default function WarbandPage({
               index={i}
               total={warband.squads.length}
               warband={warband}
+              salvage={warband.salvage}
               dragging={dragId === sq.id}
               insertBefore={dragId !== null && dropAt === i}
               onAssign={onAssign}
               onMoveSquad={onMoveSquad}
               onGripDown={onGripDown}
+              onAssignRelic={onAssignRelic}
             />
           ))}
         </ul>
@@ -199,6 +203,26 @@ export default function WarbandPage({
               ? 'Nothing to fit them to. A mutant body cannot carry an implant.'
               : 'Fit them from an Officer above.'}
           </p>
+        </Section>
+      )}
+
+      {warband.relics.length > 0 && (
+        <Section title="Found relics" meta={warband.relics.length}>
+          <ul className="rows tight">
+            {warband.relics.map((id, i) => {
+              const r = RELICS_BY_ID.get(id)!
+              return (
+                <li key={`${id}-${i}`} className="row inline">
+                  <span className="row-name">
+                    <b>{r.name}</b>
+                    <span className="dim">{r.effect}</span>
+                  </span>
+                  <span className="row-pos">{r.cost}</span>
+                </li>
+              )
+            })}
+          </ul>
+          <p className="note">Bind them from a squad in the battle line above.</p>
         </Section>
       )}
     </div>

@@ -118,6 +118,9 @@ export default function Hub({
   if (warband.bionics.length > 0 && warband.officers.length > 0) {
     notes.push({ text: `${warband.bionics.length} implant(s) not fitted`, page: 'warband' })
   }
+  if (warband.relics.length > 0) {
+    notes.push({ text: `${warband.relics.length} relic(s) not bound to a squad`, page: 'warband' })
+  }
   if (!run.expedition) {
     notes.push({ text: 'No crew out', page: 'ruins' })
   }

@@ -46,6 +46,8 @@ export interface ExpeditionResult {
   found: Prospect[]
   /** Bionic ids pulled out of the ruin. Delve only — see bionics.ts. */
   salvaged: string[]
+  /** Relic ids pulled out of the ruin. Delve only — see relics.ts. */
+  relics: string[]
   /** Machines walked out of the ruin. Delve only, and rare — see machines.ts. */
   machines: Machine[]
   /** Crew who came back hurt, by name. */
@@ -131,6 +133,14 @@ const DELVE_PROSPECT_CHANCE = 0.3
 const DELVE_BIONIC_CHANCE = 0.34
 
 /**
+ * Chance a delve turns up a relic.
+ *
+ * Rarer than a bionic on purpose — a relic is meant to read as a genuine
+ * find, "carrying a totem", not routine salvage the way an implant is.
+ */
+const DELVE_RELIC_CHANCE = 0.2
+
+/**
  * Chance a delve wakes something up and it follows them home.
  *
  * The rarest outcome in the game, and it has to be: machines are strictly
@@ -187,6 +197,7 @@ export function resolveExpedition(
   rollFound: (rng: Rng, index: number) => Prospect,
   rollBionic: (rng: Rng) => string,
   rollMachine: (rng: Rng) => Machine,
+  rollRelic: (rng: Rng) => string,
 ): { result: ExpeditionResult; crew: Prospect[] } {
   const isDelve = verb === 'delve'
   const mult = isDelve ? delveMultiplier(rng) : 0.9 + rng.float() * 0.2
@@ -221,10 +232,12 @@ export function resolveExpedition(
   const found: Prospect[] = []
   const salvaged: string[] = []
   const machines: Machine[] = []
+  const relics: string[] = []
   if (isDelve && crew.length > 0) {
     if (rng.float() < DELVE_PROSPECT_CHANCE) found.push(rollFound(rng, encounterIndex))
     if (rng.float() < DELVE_BIONIC_CHANCE) salvaged.push(rollBionic(rng))
     if (rng.float() < DELVE_MACHINE_CHANCE) machines.push(rollMachine(rng))
+    if (rng.float() < DELVE_RELIC_CHANCE) relics.push(rollRelic(rng))
   }
 
   return {
@@ -236,6 +249,7 @@ export function resolveExpedition(
       found,
       salvaged,
       machines,
+      relics,
       injured,
       lost,
       flavour: flavourPool[rng.int(flavourPool.length)],

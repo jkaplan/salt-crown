@@ -68,6 +68,8 @@ import {
   BIONICS_BY_ID,
   MAX_CREW,
   scoutEnemy,
+  assignRelic,
+  RELICS_BY_ID,
 } from '@salt/game'
 import type { Offer, RunState } from '@salt/game'
 
@@ -169,6 +171,28 @@ function shop(state: RunState, thrifty: boolean, onCurve: boolean): RunState {
   }
 
   /*
+   * Bind whatever relics turned up to the biggest squad still carrying none,
+   * cheapest first. Same crude reasoning as bionics above: an unbound relic
+   * is worth exactly nothing, so this is the only way to measure whether the
+   * system does anything at all.
+   */
+  for (let guard = 0; guard < 12 && s.warband.relics.length > 0; guard++) {
+    const stock = [...new Set(s.warband.relics)].sort(
+      (a, b) => (RELICS_BY_ID.get(a)?.cost ?? 0) - (RELICS_BY_ID.get(b)?.cost ?? 0),
+    )
+    const target = [...s.warband.squads]
+      .filter((sq) => !sq.relicId)
+      .sort((a, b) => b.count - a.count)[0]
+    if (!target) break
+    const before = s.warband.relics.length
+    for (const id of stock) {
+      s = assignRelic(s, target.id, id)
+      if (s.warband.relics.length < before) break
+    }
+    if (s.warband.relics.length === before) break
+  }
+
+  /*
    * Claim every growth pick on offer.
    *
    * rollGrowth only OFFERS a mutation; chooseMutation is what takes it. The
@@ -254,12 +278,15 @@ function playRun(
   let peakFirstborn = 0
   let peakProspects = 0
   let maimed = 0
+  let relicsBound = 0
 
   while (state.phase !== 'over') {
     if (state.phase === 'camp') {
       peakFirstborn = Math.max(peakFirstborn, state.warband.prospects.filter(isFirstborn).length)
       peakProspects = Math.max(peakProspects, state.warband.prospects.length)
+      const boundBefore = state.warband.squads.filter((sq) => sq.relicId).length
       state = shop(state, thrifty, onCurve)
+      relicsBound += state.warband.squads.filter((sq) => sq.relicId).length - boundBefore
       if (verb) {
         // Bluntly greedy: always send the maximum crew. This is the upper
         // bound on how much expeditions can be exploited, not a good player.
@@ -299,6 +326,7 @@ function playRun(
     shortMarches,
     ticks,
     maimed,
+    relicsBound,
   }
 }
 
@@ -326,6 +354,7 @@ let marches = 0
 let firstborn = 0
 let prospects = 0
 let maimed = 0
+let relicsBound = 0
 const runTicks: number[] = []
 const reachedHist = new Array(ENCOUNTERS_PER_RUN + 1).fill(0)
 const finalBodies: number[] = []
@@ -339,6 +368,7 @@ for (let i = 1; i <= runs; i++) {
   firstborn += r.firstborn
   prospects += r.prospects
   maimed += r.maimed
+  relicsBound += r.relicsBound
   marches += r.reached + 1
   if (r.outcome === 'won') {
     won++
@@ -358,6 +388,7 @@ console.log(
 `,
 )
 console.log(`maimed      ${maimed} across ${runs} runs (both sides), ${(maimed / runs).toFixed(2)} per run\n`)
+console.log(`relics      ${relicsBound} bound across ${runs} runs, ${(relicsBound / runs).toFixed(2)} per run\n`)
 console.log('  encounters won    runs')
 console.log('  ----------------------')
 for (let i = 0; i <= ENCOUNTERS_PER_RUN; i++) {

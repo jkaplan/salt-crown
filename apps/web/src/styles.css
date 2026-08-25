@@ -1541,6 +1541,19 @@ button.treat .price { color: var(--gold); margin-left: var(--s1); font-variant-n
   color: var(--faint);
 }
 button.install { color: var(--truekin); }
+.relics { display: flex; flex-wrap: wrap; gap: var(--s1); }
+.relic {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s1);
+  font-size: var(--t-label);
+  padding: 2px var(--s2);
+  border-radius: var(--radius);
+  background: rgba(200, 170, 100, 0.12);
+  color: var(--gold);
+}
+.relic i { font-style: normal; color: var(--dim); }
+.row-actions button.install.relic-bind { color: var(--gold); }
 button.install .price {
   color: var(--gold);
   margin-left: var(--s1);

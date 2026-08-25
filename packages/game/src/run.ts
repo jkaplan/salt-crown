@@ -24,6 +24,7 @@ import type { Machine } from './machines.js'
 import { clampMorale, rollEvent } from './events.js'
 import { MORALE_PER_DESERTER, payWater } from './water.js'
 import { BIONICS, BIONICS_BY_ID, BIONIC_SLOTS } from './bionics.js'
+import { RELICS, RELICS_BY_ID } from './relics.js'
 import { postmortem } from './postmortem.js'
 import type { Postmortem } from './postmortem.js'
 import {
@@ -477,6 +478,7 @@ function returnExpedition(state: RunState): RunState {
     (rng, index) => rollProspect(rng, MUTANT_TYPES[rng.int(MUTANT_TYPES.length)].id, index),
     (rng) => BIONICS[rng.int(BIONICS.length)].id,
     rollMachine,
+    (rng) => RELICS[rng.int(RELICS.length)].id,
   )
 
   const byId = new Map(returned.map((p) => [p.id, p]))
@@ -503,6 +505,7 @@ function returnExpedition(state: RunState): RunState {
       water: state.warband.water + result.water,
       bionics: [...state.warband.bionics, ...result.salvaged],
       machines: [...state.warband.machines, ...result.machines],
+      relics: [...state.warband.relics, ...result.relics],
     },
   }
 }
@@ -542,6 +545,37 @@ export function installBionic(state: RunState, officerId: string, bionicId: stri
       bionics: stock,
       officers: state.warband.officers.map((o) =>
         o.id === officerId ? { ...o, bionics: [...o.bionics, bionicId] } : o,
+      ),
+    },
+  }
+}
+
+/**
+ * Bind a found relic to a squad — the relic answer to installBionic above.
+ *
+ * One per squad, and binding over an existing one is refused rather than
+ * silently discarding it: a relic came out of a ruin, not a shop, so losing
+ * one to a misclick should not be possible.
+ */
+export function assignRelic(state: RunState, squadId: string, relicId: string): RunState {
+  const squad = state.warband.squads.find((sq) => sq.id === squadId)
+  const relic = RELICS_BY_ID.get(relicId)
+  if (!squad || !relic) return state
+  if (squad.relicId) return state
+  if (!state.warband.relics.includes(relicId)) return state
+  if (state.warband.salvage < relic.cost) return state
+
+  const stock = [...state.warband.relics]
+  stock.splice(stock.indexOf(relicId), 1)
+
+  return {
+    ...state,
+    warband: {
+      ...state.warband,
+      salvage: state.warband.salvage - relic.cost,
+      relics: stock,
+      squads: state.warband.squads.map((sq) =>
+        sq.id === squadId ? { ...sq, relicId } : sq,
       ),
     },
   }

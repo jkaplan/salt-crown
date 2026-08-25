@@ -702,15 +702,37 @@ rivalry as a storytelling layer, not just a start-of-run price modifier. The
 natural next connection: giving a legendary creature an owner, a faction it
 belongs to, is likely how the two asks were meant to reinforce each other.
 
-### Relics and synergistic perks
+### Relics and synergistic perks ✅ built
 
 *"Finding relics. Choosing perks that synergize. All the synergies."*
 
-Already the documented landing spot for squad-wide buffs — see ROADMAP.md's
+Built as the documented landing spot for squad-wide buffs — see ROADMAP.md's
 post-M4 entry on cutting the mutation leak: *"Squad-wide buffs are deferred
 to V0.1 relics/perks, which can explain themselves — carrying a totem or a
-banner leaking effect to a formation has a mechanism a body's own biology does
-not."* This request confirms that direction rather than adding a new one.
+banner leaking effect to a formation has a mechanism a body's own biology
+does not."*
+
+A relic binds to a SQUAD, not a leader — the deliberate opposite of a
+bionic, which installs into an Officer and is True-Kin-only by construction.
+Any squad can carry one, fodder included, which makes it the first thing in
+the game that can strengthen a bare mutant squad without a Prospect leading
+it or a mutation roll landing well. Found on expeditions only (`relics.ts`),
+same door bionics come through, and rarer (0.2 chance per delve vs bionics'
+0.34) so it reads as a genuine find rather than routine salvage.
+
+"Perks that synergize" turned out to mean the effect should sometimes read
+the squad it's bound to rather than apply a flat number: Vat-Brand only
+helps a mutant squad (the one lineage with no other equipment path at all);
+Iron Ward multiplies EXISTING armour rather than adding a flat amount, so
+it's worthless on a Chaff squad and real on a Thornback line. The choice
+these create is which squad should carry a scarce find, not whether to take
+it — the same shape "install" already has for bionics, just answered by
+composition instead of availability.
+
+Measured with `npm run sim:campaign --delve`: about 0.24 relics bound per
+run at the current find rate, next to roughly 1 maiming per run at
+MAIM_CHANCE. PLACEHOLDER numbers, same as every other new system this
+session — a real tuning pass wants more data than one measurement.
 
 ### Point-buy growth instead of choosing 1 of 3
 

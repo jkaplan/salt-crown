@@ -172,6 +172,7 @@ export function startingWarband(rng: Rng, choice: StartChoice): Warband {
     salvage: origin.startingSalvage,
     water: origin.startingWater,
     bionics: [] as string[],
+    relics: [] as string[],
     machines: [],
     morale: 0,
   }

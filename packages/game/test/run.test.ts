@@ -44,6 +44,8 @@ import {
   BIONICS,
   BIONICS_BY_ID,
   BIONIC_SLOTS,
+  assignRelic,
+  RELICS,
   rollMachine,
   MACHINE_CONDITION_MAX,
   MACHINE_RUN_COST,
@@ -116,6 +118,7 @@ const ids = (run: RunState) => run.warband.squads.map((s) => s.id)
 /** Stand-in for the ruin-find roller resolveExpedition takes. */
 const rollProspect0 = (rng: Rng, index: number) => rollProspect(rng, 0, index)
 const rollBionic0 = (rng: Rng) => BIONICS[rng.int(BIONICS.length)].id
+const rollRelic0 = (rng: Rng) => RELICS[rng.int(RELICS.length)].id
 
 describe('run setup', () => {
   it('starts with a warband, salvage, offers and an encounter', () => {
@@ -1099,6 +1102,7 @@ describe('water and upkeep', () => {
     salvage: 0,
     water: 0,
     bionics: [],
+    relics: [],
     machines: [],
     morale: 0,
   })
@@ -1293,7 +1297,7 @@ describe('expeditions', () => {
     for (let i = 0; i < runs; i++) {
       const rng = new Rng(hashSeed(`scav-${i}`))
       const crew = [rollProspect(rng, 0, 3), rollProspect(rng, 0, 3)]
-      const { result } = resolveExpedition(rng, 'scavenge', crew, 3, rollProspect0, rollBionic0, rollMachine)
+      const { result } = resolveExpedition(rng, 'scavenge', crew, 3, rollProspect0, rollBionic0, rollMachine, rollRelic0)
       expect(result.salvage).toBe(0)
       expect(result.lost).toHaveLength(0)
       expect(result.found).toHaveLength(0)
@@ -1329,7 +1333,7 @@ describe('expeditions', () => {
     for (let i = 0; i < runs; i++) {
       const rng = new Rng(hashSeed(`delve-${i}`))
       const crew = [rollProspect(rng, 0, 3), rollProspect(rng, 0, 3)]
-      const { result } = resolveExpedition(rng, 'delve', crew, 3, rollProspect0, rollBionic0, rollMachine)
+      const { result } = resolveExpedition(rng, 'delve', crew, 3, rollProspect0, rollBionic0, rollMachine, rollRelic0)
       hauls.push(result.salvage)
       lost += result.lost.length
       found += result.found.length
@@ -1482,13 +1486,115 @@ describe('bionics', () => {
     for (let i = 0; i < 300; i++) {
       const rng = new Rng(hashSeed(`bio-${i}`))
       const crew = [rollProspect(rng, 0, 2)]
-      const scav = resolveExpedition(rng, 'scavenge', crew, 2, rollProspect0, rollBionic0, rollMachine)
+      const scav = resolveExpedition(rng, 'scavenge', crew, 2, rollProspect0, rollBionic0, rollMachine, rollRelic0)
       expect(scav.result.salvaged).toEqual([])
 
-      const delve = resolveExpedition(rng, 'delve', crew, 2, rollProspect0, rollBionic0, rollMachine)
+      const delve = resolveExpedition(rng, 'delve', crew, 2, rollProspect0, rollBionic0, rollMachine, rollRelic0)
       salvaged += delve.result.salvaged.length
     }
     expect(salvaged).toBeGreaterThan(50)
+  })
+})
+
+describe('relics', () => {
+  const rich = (relics: string[]) => {
+    const run = start()
+    return {
+      ...run,
+      warband: { ...run.warband, salvage: 5000, relics },
+    }
+  }
+
+  it('binds a found relic to a squad for salvage', () => {
+    const r = RELICS[0]
+    const run = rich([r.id])
+    const squad = run.warband.squads[0]
+
+    const after = assignRelic(run, squad.id, r.id)
+    expect(after.warband.squads.find((sq) => sq.id === squad.id)?.relicId).toBe(r.id)
+    expect(after.warband.salvage).toBe(5000 - r.cost)
+    // Finding it is free; binding it consumes the piece.
+    expect(after.warband.relics).toEqual([])
+  })
+
+  it('refuses what it cannot bind', () => {
+    const r = RELICS[0]
+    const squad = start().warband.squads[0]
+
+    // Nothing in stock.
+    const empty = rich([])
+    expect(assignRelic(empty, squad.id, r.id)).toBe(empty)
+
+    // Cannot afford it.
+    const broke = { ...rich([r.id]), warband: { ...rich([r.id]).warband, salvage: 0 } }
+    expect(assignRelic(broke, squad.id, r.id)).toBe(broke)
+
+    // No such squad, no such relic.
+    const run = rich([r.id])
+    expect(assignRelic(run, 'nobody', r.id)).toBe(run)
+    expect(assignRelic(run, squad.id, 'no-such-relic')).toBe(run)
+  })
+
+  it('never overwrites an existing relic, even to swap it for a better one', () => {
+    const [a, b] = RELICS
+    const run = rich([a.id, b.id])
+    const squad = run.warband.squads[0]
+
+    const once = assignRelic(run, squad.id, a.id)
+    expect(once.warband.squads.find((sq) => sq.id === squad.id)?.relicId).toBe(a.id)
+
+    const twice = assignRelic(once, squad.id, b.id)
+    expect(twice).toBe(once)
+    // The relic that couldn't be bound is still in stock, not discarded.
+    expect(twice.warband.relics).toEqual([b.id])
+  })
+
+  it('applies to the squad directly, independent of who leads it', () => {
+    const officerLed = start().warband.squads.find((sq) => sq.leader?.kind === 'officer')!
+    const bare = resolveSquadStats(officerLed, null)
+    const boosted = resolveSquadStats({ ...officerLed, relicId: 'salt-idol' }, null)
+    expect(boosted.armor).toBeGreaterThan(bare.armor)
+  })
+
+  it("Vat-Brand only helps a mutant squad — a True Kin squad sees no effect", () => {
+    const mutant = { id: 'x', typeId: MUTANT_TYPES[0].id, count: 10, leader: null }
+    const truekin = { id: 'y', typeId: TRUEKIN_TYPES[0].id, count: 10, leader: null }
+
+    const mutantBare = resolveSquadStats(mutant, null)
+    const mutantWithRelic = resolveSquadStats({ ...mutant, relicId: 'vat-brand' }, null)
+    expect(mutantWithRelic.damage).toBeGreaterThan(mutantBare.damage)
+
+    const truekinBare = resolveSquadStats(truekin, null)
+    const truekinWithRelic = resolveSquadStats({ ...truekin, relicId: 'vat-brand' }, null)
+    expect(truekinWithRelic.damage).toBe(truekinBare.damage)
+  })
+
+  it('Iron Ward multiplies existing armour — nothing to multiply is nothing gained', () => {
+    const unarmoured = { id: 'x', typeId: 0, count: 10, leader: null } // Chaff, 0 armour
+    const armoured = { id: 'y', typeId: 4, count: 10, leader: null } // Thornback, real armour
+
+    expect(resolveSquadStats({ ...unarmoured, relicId: 'iron-ward' }, null).armor).toBe(
+      resolveSquadStats(unarmoured, null).armor,
+    )
+    expect(resolveSquadStats({ ...armoured, relicId: 'iron-ward' }, null).armor).toBeGreaterThan(
+      resolveSquadStats(armoured, null).armor,
+    )
+  })
+
+  it('is the only way relics enter a run', () => {
+    expect(start().warband.relics).toEqual([])
+
+    let found = 0
+    for (let i = 0; i < 300; i++) {
+      const rng = new Rng(hashSeed(`relic-${i}`))
+      const crew = [rollProspect(rng, 0, 2)]
+      const scav = resolveExpedition(rng, 'scavenge', crew, 2, rollProspect0, rollBionic0, rollMachine, rollRelic0)
+      expect(scav.result.relics).toEqual([])
+
+      const delve = resolveExpedition(rng, 'delve', crew, 2, rollProspect0, rollBionic0, rollMachine, rollRelic0)
+      found += delve.result.relics.length
+    }
+    expect(found).toBeGreaterThan(30)
   })
 })
 
@@ -2173,6 +2279,7 @@ describe('scouting', () => {
     salvage: 0,
     water: 0,
     bionics: [],
+    relics: [],
     machines: [],
     morale: 0,
   })
