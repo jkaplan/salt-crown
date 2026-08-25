@@ -711,3 +711,35 @@ post-M4 entry on cutting the mutation leak: *"Squad-wide buffs are deferred
 to V0.1 relics/perks, which can explain themselves — carrying a totem or a
 banner leaking effect to a formation has a mechanism a body's own biology does
 not."* This request confirms that direction rather than adding a new one.
+
+### Point-buy growth instead of choosing 1 of 3
+
+*"They should each have a relative cost / value. I think I'd rather it be a
+point and buy system instead of choosing 3."*
+
+Two changes bundled together, not one:
+
+1. Give every row in `MUTATIONS` (`mutations.ts`) an explicit relative
+   cost/value. There's an implicit one today — `PROSPECT_COST_PER_LEVEL` in
+   `prospects.ts` prices a held mutation flat-per-level at purchase time,
+   treating Horns and Flaming Ray as equally valuable per point. They aren't:
+   some carry a drawback (Serrated Claws' accuracy loss, Flaming Ray's own
+   -20% damage, Dense Bone's move penalty), some are strictly additive.
+   Costing them for real is prerequisite work either way, purchase price and
+   growth would then both read from the same table.
+2. Replace `rollGrowthChoices`' "3 random offers, pick 1" (`GROWTH_CHOICES` in
+   `prospects.ts`) with a budget the Prospect spends across the open
+   `MUTATIONS` pool, rather than picking from whatever three the roll
+   happened to surface.
+
+Open, not decided here: what the budget *is* — points per growth tick
+(replacing "one mutation" as the unit entirely), or points layered on top of
+today's capacity-slot system. Whether points can also buy level within one
+mutation, which would fold in the still-open "levels scaling past the cap"
+ask above — a point-buy naturally lets a player choose one deep mutation over
+several shallow ones, which is a different shape of choice than a fixed level
+roll. And whether losing the lottery framing at growth time (today's
+"survive, and you *choose*" contrast against the shop's blind buy) is a
+tradeoff worth taking for the added control, or works against the market
+already built around scarcity and appraisal. Needs a real design pass before
+implementation, not just a mechanical swap.
