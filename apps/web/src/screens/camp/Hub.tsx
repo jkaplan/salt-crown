@@ -5,6 +5,7 @@ import {
   fieldedCount,
   moraleWord,
   payWater,
+  scoutEnemy,
   waterState,
   waterUpkeep,
 } from '@salt/game'
@@ -44,6 +45,7 @@ export default function Hub({
   const cistern = waterState(warband.water, upkeep)
   const willDesert = payWater(warband).deserted
   const machineBill = warband.machines.length * MACHINE_RUN_COST
+  const scouting = scoutEnemy(encounter.enemy)
   const coldCount = Math.max(
     0,
     warband.machines.length - Math.floor(warband.salvage / MACHINE_RUN_COST),
@@ -197,6 +199,22 @@ export default function Hub({
           </p>
           <h1>{encounter.name}</h1>
           <p>{encounter.flavour}</p>
+          {/*
+            Requested directly: "it does feel like I'm a bit lost going into
+            a battle." Only body count was shown before this — armour is the
+            single most impactful, least visible stat in the whole game (see
+            postmortem.ts), and a warband can be nearly worthless against the
+            wrong opponent no matter its size. Skipped for boss/legendary:
+            both are always pure mutant by construction, so mixWord would be
+            the same uninformative line every time, and their own name and
+            flavour already say what they are.
+          */}
+          {(encounter.kind === 'warband' || encounter.kind === 'wasteland') && (
+            <p className="march-facts scouting">
+              {scouting.mixWord}, {scouting.armorWord}
+              {scouting.led && ', led by an officer'}
+            </p>
+          )}
           <p className="march-facts">
             <b>{encounter.bodies}</b> enemy bodies · <b className="salvage">{encounter.reward}</b>{' '}
             salvage and <b className="water">{encounter.waterReward}</b> water if you win · losing

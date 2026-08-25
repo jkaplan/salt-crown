@@ -62,6 +62,9 @@ import {
   rollOfficer,
   rollOffers,
   postmortem,
+  scoutEnemy,
+  armorWord,
+  mixWord,
   ORIGINS_BY_ID,
   foundingLevel,
   generateEncounter,
@@ -2152,5 +2155,95 @@ describe('postmortem discrimination', () => {
       battle.winner === TEAM_A,
     )
     expect(['morale', 'armour']).toContain(why.cause)
+  })
+})
+
+describe('scouting', () => {
+  const emptyWarband = (): Warband => ({
+    squads: [],
+    prospects: [],
+    officers: [],
+    salvage: 0,
+    water: 0,
+    bionics: [],
+    machines: [],
+    morale: 0,
+  })
+
+  it('reads armour and lineage mix from what the sim will actually fight', () => {
+    // Chaff (id 0): armour 0, mutant. Shieldbearer (id 8): real armour, truekin.
+    const w: Warband = {
+      ...emptyWarband(),
+      squads: [
+        { id: 's1', typeId: 0, count: 40, leader: null },
+        { id: 's2', typeId: 8, count: 10, leader: null },
+      ],
+    }
+    const report = scoutEnemy(w)
+    expect(report.bodies).toBe(50)
+    // Weighted toward the unarmoured majority, but pulled up by the ten
+    // Shieldbearers — not zero, not "heavily armoured".
+    expect(report.armorWord).not.toBe(armorWord(0))
+    expect(report.mixWord).toBe(mixWord(10 / 50))
+    expect(report.led).toBe(false)
+  })
+
+  it('names "no True Kin" plainly rather than folding it into "mostly mutant"', () => {
+    // 62% of real generated encounters carry zero True Kin (measured against
+    // sim:campaign's own generator) — common enough, and different enough
+    // from "a few True Kin mixed in", to deserve its own word.
+    const w: Warband = {
+      ...emptyWarband(),
+      squads: [{ id: 's1', typeId: 0, count: 30, leader: null }],
+    }
+    expect(scoutEnemy(w).mixWord).toBe('all mutant, no True Kin')
+    expect(mixWord(0)).not.toBe(mixWord(0.15))
+  })
+
+  it('reports an officer leading the line', () => {
+    const rng = new Rng(hashSeed('scout-officer'))
+    const officer = rollOfficer(rng, 'eo1')
+    const w: Warband = {
+      ...emptyWarband(),
+      officers: [officer],
+      squads: [{ id: 's1', typeId: 0, count: 20, leader: { kind: 'officer', id: officer.id } }],
+    }
+    expect(scoutEnemy(w).led).toBe(true)
+    expect(scoutEnemy(emptyWarband()).led).toBe(false)
+  })
+
+  it('folds Prospects into the body count without them skewing the armour read', () => {
+    const p = rollProspect(new Rng(hashSeed('scout-prospect')), 0, 0)
+    const w: Warband = {
+      ...emptyWarband(),
+      prospects: [p],
+      squads: [{ id: 's1', typeId: 0, count: 20, leader: null }],
+    }
+    const withoutProspect = scoutEnemy({ ...w, prospects: [] })
+    const withProspect = scoutEnemy(w)
+    expect(withProspect.bodies).toBe(withoutProspect.bodies + 1)
+    // A Prospect's own body isn't a squad — the armour read describes the
+    // line, not this one individual, so adding one should not move it.
+    expect(withProspect.armorWord).toBe(withoutProspect.armorWord)
+  })
+
+  it('never crashes on an empty warband', () => {
+    expect(() => scoutEnemy(emptyWarband())).not.toThrow()
+    expect(scoutEnemy(emptyWarband()).bodies).toBe(0)
+  })
+
+  it('produces a real spread of armour words across generated encounters', () => {
+    // Pinned against actual measurement (tools/_scout.ts): weighted average
+    // armour across warband/wasteland encounters splits roughly 29/36/22/13
+    // across the four bands. If a future content change collapsed that
+    // spread to one dominant band, this is what would catch it.
+    const rng = new Rng(hashSeed('scout-spread'))
+    const seen = new Set<string>()
+    for (let i = 0; i < 400; i++) {
+      const e = generateEncounter(rng, i % ENCOUNTERS_PER_RUN)
+      if (e.kind !== 'warband' && e.kind !== 'wasteland') continue
+      seen.add(scoutEnemy(e.enemy).armorWord)
+    }
+    expect(seen.size).toBeGreaterThan(1)
   })
 })
