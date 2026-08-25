@@ -1394,6 +1394,13 @@ button.treat .price { color: var(--gold); margin-left: var(--s1); font-variant-n
   text-transform: uppercase;
   color: #ffd77a;
 }
+.quickened-tag {
+  font-size: var(--t-label);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7ad9e0;
+  cursor: help;
+}
 
 /* --------------------------------------------------------- reserve ------ */
 

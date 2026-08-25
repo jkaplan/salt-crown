@@ -33,6 +33,10 @@ export {
   earnedGrowth,
   rollGrowthChoices,
   BATTLES_PER_MUTATION,
+  QUICKENED_BATTLES_PER_MUTATION,
+  QUICKENED_CHANCE,
+  MAX_MUTATION_LEVEL,
+  QUICKENED_MAX_MUTATION_LEVEL,
   FIRSTBORN_AT_MUTATIONS,
 } from './prospects.js'
 export type { Prospect } from './prospects.js'

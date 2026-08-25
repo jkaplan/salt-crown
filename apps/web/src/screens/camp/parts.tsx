@@ -547,6 +547,14 @@ export function ProspectRow({
               <UnitName typeId={prospect.typeId} resolved={stats} />
             </span>
           )}
+          {prospect.appraised && prospect.quickened && (
+            <span
+              className="quickened-tag"
+              title="Grows twice as fast, and can carry mutations past the usual ceiling."
+            >
+              Quickened
+            </span>
+          )}
         </span>
         {wound && (
           <WoundTag

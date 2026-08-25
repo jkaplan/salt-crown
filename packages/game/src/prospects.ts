@@ -84,6 +84,15 @@ export interface Prospect {
    * important character has... and who they dismember."
    */
   dismemberments: { victim: string; encounterIndex: number }[]
+  /**
+   * Quickened — docs/V0-DESIGN.md §15: "an 'excited genome' that increases
+   * the mutation level at a rapid speed." A rare trait, not a roll in
+   * MUTATIONS: it changes how fast and how deep growth reaches, not what a
+   * body already has. Optional, same reason `titled` is — most Prospects
+   * never carry it, so there is nothing to remember at any construction
+   * site. Hidden until appraised, same as `capacity`.
+   */
+  quickened?: boolean
 }
 
 /**
@@ -133,6 +142,27 @@ export function capacityGrade(capacity: number): string {
 /** Battles a Prospect must survive to earn each new mutation. */
 export const BATTLES_PER_MUTATION = 2
 
+/** A Quickened body earns growth in half the time. */
+export const QUICKENED_BATTLES_PER_MUTATION = 1
+
+/**
+ * How rare Quickened is. Roughly capacity-6-or-better rare (§14's own
+ * CAPACITY_TABLE puts that at ~0.7%) — this is meant to be found, not
+ * expected, same as a deep capacity roll is.
+ */
+export const QUICKENED_CHANCE = 0.02
+
+/** The ordinary level ceiling every mutation roll is bound by. */
+export const MAX_MUTATION_LEVEL = 6
+
+/**
+ * A Quickened body's own ceiling climbs past the ordinary one — "mutation
+ * levels could scale past" the cap, tied directly to the same trait rather
+ * than raised for everyone, which would just move the cap and change
+ * nothing about what makes a roll exceptional.
+ */
+export const QUICKENED_MAX_MUTATION_LEVEL = 8
+
 /** Mutations offered to choose between when one is earned. */
 export const GROWTH_CHOICES = 3
 
@@ -149,7 +179,8 @@ export const FIRSTBORN_AT_MUTATIONS = 5
  * keeping fodder alive pay off instead of just being cheaper than dying.
  */
 export function earnedGrowth(p: Prospect): number {
-  return Math.floor(p.battles / BATTLES_PER_MUTATION)
+  const per = p.quickened ? QUICKENED_BATTLES_PER_MUTATION : BATTLES_PER_MUTATION
+  return Math.floor(p.battles / per)
 }
 
 /** Growth stops at the body's own ceiling, not a universal one. */
@@ -212,7 +243,7 @@ export function rollProspect(rng: Rng, typeId: number, encounterIndex: number): 
   const capacity = rollCapacity(rng)
   // A body already at its ceiling arrives finished — which is most of them.
   const howMany = Math.min(capacity, rng.float() < 0.28 ? 2 : 1)
-  const maxLevel = Math.min(6, 2 + Math.floor(encounterIndex / 1.6))
+  const maxLevel = Math.min(MAX_MUTATION_LEVEL, 2 + Math.floor(encounterIndex / 1.6))
 
   const mutations: MutationRoll[] = []
   for (let i = 0; i < howMany; i++) {
@@ -234,6 +265,7 @@ export function rollProspect(rng: Rng, typeId: number, encounterIndex: number): 
     wound: null,
     permanentInjuries: [],
     dismemberments: [],
+    quickened: rng.float() < QUICKENED_CHANCE,
   }
 }
 
@@ -290,7 +322,11 @@ export function rollGrowthChoices(rng: Rng, p: Prospect, encounterIndex: number)
   const pool = MUTATIONS.filter((m) => !held.has(m.id))
   const choices: MutationRoll[] = []
 
-  const maxLevel = Math.min(6, 3 + Math.floor(encounterIndex / 2))
+  // A Quickened body's own ceiling climbs past the ordinary one — the "one
+  // exceptional mutation on an exceptional body" reading of raising the cap,
+  // rather than raising it for everyone and moving what "exceptional" means.
+  const cap = p.quickened ? QUICKENED_MAX_MUTATION_LEVEL : MAX_MUTATION_LEVEL
+  const maxLevel = Math.min(cap, 3 + Math.floor(encounterIndex / 2))
   const minLevel = Math.min(maxLevel, 2)
 
   for (let i = 0; i < GROWTH_CHOICES && pool.length > 0; i++) {

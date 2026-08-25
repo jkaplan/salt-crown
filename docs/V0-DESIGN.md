@@ -647,28 +647,34 @@ tabs was easy to miss. Whether that is enough — versus wanting rarer growth,
 more ceremony (animation, sound, framing), or both — is unresolved. Revisit by
 asking whether the takeover alone reads as an event once played again.
 
-### An "excited genome" — a rare trait that accelerates growth
+### An "excited genome" — a rare trait that accelerates growth ✅ built
 
 *"I like the idea of an 'excited genome' that increases the mutation level at
 a rapid speed. Need a different name for it."*
 
-Not a stat mutation like the rest of the MUTATIONS table — a meta-trait that
-changes the RATE a body earns growth (`BATTLES_PER_MUTATION` in
-`prospects.ts`, currently a flat constant for every Prospect). Needs its own
-mechanism: either a special roll a Prospect can carry, or an effect a growth
-choice itself can grant. Naming: keep it in-world register with the rest of
-the mutation table (`Horns`, `Carapace`, `Twitch Reflex`) rather than a
-biology-textbook term like "genome."
+Named Quickened, in-world register with the rest of the mutation table
+(`Horns`, `Carapace`, `Twitch Reflex`) rather than a biology-textbook term.
+Not a stat mutation like the rest of MUTATIONS — a meta-trait
+(`Prospect.quickened`, `prospects.ts`) rolled at the same moment `capacity`
+is, hidden until appraised the same way. Changes the RATE a body earns
+growth: `BATTLES_PER_MUTATION` halves for a Quickened body
+(`QUICKENED_BATTLES_PER_MUTATION`). Rare on purpose — `QUICKENED_CHANCE`
+0.02, roughly in the same territory as a genuinely deep capacity roll — so
+it reads as a find, not a build-around.
 
-### Mutation levels scaling past the current cap
+### Mutation levels scaling past the current cap ✅ built
 
 *"It'd be nice if mutation levels could scale past 10."*
 
-MUTATIONS levels currently run 1-6 (Qud-style — see mutations.ts). Whether
-this means raising the general cap, or specifically letting ONE exceptional
-mutation on an exceptional body climb past the normal ceiling (tying into the
-accelerant trait above), is still open — worth resolving together rather than
-guessing which.
+Resolved the open question the same session it was raised: tied to
+Quickened above rather than a universal raise, which the entry itself
+flagged as the two live options. A Quickened body's own growth-level
+ceiling climbs from 6 to 8 (`MAX_MUTATION_LEVEL` / `QUICKENED_MAX_MUTATION_LEVEL`,
+`rollGrowthChoices`) — "one exceptional mutation on an exceptional body,"
+not a cap raised for everyone, which would just move the ceiling and change
+nothing about what makes a roll exceptional. Scoped to EARNED growth only;
+a shop-rolled Prospect's own starting mutations stay capped at 6 regardless,
+so the market's own numbers didn't need retuning alongside this.
 
 ### Legendary creatures with backstory ✅ built — factions ✅ built (identity only)
 
