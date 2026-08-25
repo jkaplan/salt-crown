@@ -232,8 +232,10 @@ export default function App() {
                     </h2>
                     <p className="enc">
                       {run.outcome === 'won'
-                        ? `Eight fields held. ${totalBodies(run.warband)} still standing.`
-                        : 'Nothing left to field. Attrition got there first.'}
+                        ? `The column held all the way through. ${totalBodies(run.warband)} still ` +
+                          "standing — the wasteland doesn't usually let that many walk away."
+                        : "Nothing left to field. Attrition got there first, same as it gets " +
+                          'everyone eventually.'}
                     </p>
                     <button className="btn-primary" onClick={restart}>
                       New run

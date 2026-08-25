@@ -878,6 +878,12 @@ button.buy:hover:not(:disabled) { background: var(--gold); color: #17120a; }
   line-height: 1.6;
   margin: 0;
 }
+.camp-flavor {
+  font-style: italic;
+  color: var(--faint);
+  font-size: var(--t-meta);
+  margin: 0;
+}
 
 
 .seed-input-group { display: flex; gap: var(--s2); flex-wrap: wrap; }

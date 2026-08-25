@@ -15,6 +15,30 @@ import type { CampPage } from './pages'
 import { CAMP_PAGES } from './pages'
 
 /**
+ * Ambient camp-life lines — texture, not information. Nothing here is ever
+ * worth reading twice in the same run, so it rotates by encounter index
+ * rather than repeating the same sentence at every camp. Deterministic
+ * rather than Math.random() so the same seed shows the same camp at the same
+ * point, matching how everything else in a run reproduces.
+ */
+const CAMP_FLAVOR = [
+  'Dust settles on everything by midday. No one bothers sweeping it off anymore.',
+  "Somewhere past the ridge, one of the Houses is burning something. It isn't your problem tonight.",
+  'The mutants keep to their own fires. Nobody told them to. Nobody needs to.',
+  'A machine idles at the edge of camp, patient as a held breath, waiting for orders no one alive gave it.',
+  'The water ration gets measured twice before anyone drinks it.',
+  'Somewhere under the salt flat, something shifts. No one goes to look.',
+  "The column is quiet tonight. Quiet doesn't mean safe.",
+  "New recruits don't ask what happened to the last batch. They already know.",
+  'Salt crusts the tent stakes white by morning, same as every morning.',
+  'Nobody sings anymore. Singing carries.',
+]
+
+function campFlavor(encounterIndex: number): string {
+  return CAMP_FLAVOR[encounterIndex % CAMP_FLAVOR.length]
+}
+
+/**
  * Camp, as a hub rather than a page.
  *
  * The old screen stacked seven systems and asked the player to find the one
@@ -133,6 +157,8 @@ export default function Hub({
           <b className={moraleTone(warband.morale)}>{moraleWord(warband.morale)}</b> column
         </span>
       </div>
+
+      <p className="camp-flavor">{campFlavor(run.encounterIndex)}</p>
 
       {/* The rarest thing in a run. Announced, not left to be noticed. */}
       {run.promoted.length > 0 && (
