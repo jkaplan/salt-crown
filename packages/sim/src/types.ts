@@ -70,6 +70,15 @@ export interface SimGroup {
    * identity to report on, so only named groups generate Hit/Died events.
    */
   named?: boolean
+  /**
+   * True only for a Prospect's own group — never a squad (even one an
+   * Officer leads: an Officer has no body of its own, so there's nothing to
+   * maim) and never a Machine (its permanent-loss story is already condition
+   * decay, docs/V0-DESIGN.md §3 — a second one would fight it, not add to
+   * it). A maimable body that would die instead rolls to survive maimed;
+   * see MAIM_CHANCE and Battle.resolveDeath.
+   */
+  maimable?: boolean
 }
 
 /**
@@ -87,7 +96,18 @@ export const enum BattleEventType {
   Died = 1,
   /** A group's effectiveness crossed below COLLAPSE_THRESHOLD. */
   Collapsed = 2,
+  /** A maimable individual would have died and rolled to survive maimed instead. */
+  Maimed = 3,
 }
+
+/**
+ * Chance a maimable body rolls to survive, maimed, instead of dying outright
+ * — checked at the moment it would otherwise die. Uncommon by design: this is
+ * meant to read as a real event in a Prospect's history, not a soft floor
+ * under ordinary deaths. PLACEHOLDER, see docs/V0-DESIGN §14 — tune with the
+ * batch-sim harness once there's data on how often it actually fires.
+ */
+export const MAIM_CHANCE = 0.12
 
 /**
  * One notable thing that happened, for a battle log and a leader HUD to
@@ -101,8 +121,16 @@ export interface BattleEvent {
   team: typeof TEAM_A | typeof TEAM_B
   groupIndex: number
   label: string
-  /** Hit: damage dealt. Collapsed: effectiveness at the crossing. Died: unused (0). */
+  /** Hit: damage dealt. Collapsed: effectiveness at the crossing. Died/Maimed: unused (0). */
   value: number
+  /**
+   * Died/Maimed only: the group index of whoever landed the fatal-or-would-be
+   * fatal blow, or -1 if nothing did (e.g. a draw's timeout). -1 by default
+   * for every other event type — Hit and Collapsed never set this.
+   */
+  sourceGroupIndex: number
+  /** Same moment, already resolved to a label — '' when sourceGroupIndex is -1. */
+  sourceLabel: string
 }
 
 export interface BattleConfig {

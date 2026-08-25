@@ -10,6 +10,7 @@ export {
   TEAM_B,
   MELEE_RANGE,
   COLLAPSE_THRESHOLD,
+  MAIM_CHANCE,
   BattleEventType,
 } from './types.js'
 export type {

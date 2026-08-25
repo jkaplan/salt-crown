@@ -743,3 +743,47 @@ roll. And whether losing the lottery framing at growth time (today's
 tradeoff worth taking for the added control, or works against the market
 already built around scarcity and appraisal. Needs a real design pass before
 implementation, not just a mechanical swap.
+
+### Permanent injuries — dismemberment ✅ built
+
+*"What is the effort to add an injury system? Dismemberment, maiming,
+decapitation? Could just be for important fighters"* — followed by *"I think
+it would be uncommon but maybe dependent on what they are attacked by...
+Also, I think it's important enough to have a visual tell"* and *"I would
+like to track who did the dismembering and track how many dismembers each
+important character has... an who they dismember."*
+
+The existing wound ladder (§7) turned out to fully heal end to end, so this
+needed something the game didn't have anywhere: a body permanently down
+something. A Prospect's own body — the only named tier with one, see §4 —
+rolls once at the moment it would otherwise die in the sim (`MAIM_CHANCE`,
+currently 0.12, PLACEHOLDER) to survive maimed instead. Officers have no
+body of their own and stay on the existing collapse-proxy wound; Machines
+already have condition decay as their permanent-loss story and don't get a
+second one.
+
+Attribution is real, not composition-approximated: the sim tracks which
+group last landed the blow (`Battle.resolveDeath`, extends the existing
+Hit/Died event system with a `Maimed` type and a `sourceGroupIndex`/
+`sourceLabel` pair) and hands it back through `resolveBattle`. Harm kind
+(blade/pierce/blunt/burn — what the injury reads as, "a hand taken clean
+off" vs "a wound that never closed right") is guessed from the attacker's
+label rather than threaded through as a real type, because the sim is
+deliberately lineage-blind and never knew what a Halberdier was in the
+first place — see `wounds.ts`'s `harmKindFromLabel` for the actual
+constraint this worked around.
+
+The trophy side: a Prospect whose own body dealt the blow (not a squad it
+merely leads) accumulates `dismemberments` — who, and which encounter.
+Visual tell is a small permanent glyph on the roster row, same technique as
+the mutation icons two requests earlier, plus a `×N dismembered` badge.
+
+Measured, not assumed: `npm run sim:campaign` now reports a `maimed` line.
+At MAIM_CHANCE 0.12 it fires about once per run across both sides — rare
+per encounter, but the cumulative effect over a full campaign is real:
+thrifty completion rose from 31/150 to 42/150 runs against the same seeds
+used for the water/oncurve measurements earlier in this doc's history,
+because a body that used to die outright now sometimes doesn't. Worth a
+real tuning pass once there's more data than one comparison — flagged here
+rather than adjusted by feel, same discipline as the boss and legendaries
+needed the first time.

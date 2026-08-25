@@ -22,7 +22,7 @@ import {
   totalBodies,
 } from '@salt/game'
 import type { BattleSetup, Officer, OriginId, RunState } from '@salt/game'
-import type { GroupResult, Winner } from '@salt/sim'
+import type { BattleEvent, GroupResult, Winner } from '@salt/sim'
 import Camp from './screens/Camp'
 import BattleScreen from './screens/BattleScreen'
 import Report from './screens/Report'
@@ -67,11 +67,11 @@ export default function App() {
   }, [run])
 
   const onDone = useCallback(
-    (results: GroupResult[], winner: Winner, ticks: number) => {
+    (results: GroupResult[], winner: Winner, ticks: number, events: BattleEvent[]) => {
       if (!setup) return
       setRun((r) =>
         r && r.phase === 'battle'
-          ? resolveBattle(r, results, winner, ticks, setup.playerSources)
+          ? resolveBattle(r, results, winner, ticks, setup.playerSources, events)
           : r,
       )
     },

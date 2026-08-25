@@ -18,7 +18,7 @@ import type { Prospect } from './prospects.js'
 import { DISCIPLINE, UNIT_TYPES } from './units.js'
 import { BOSS_TYPES } from './wasteland.js'
 import { LEGENDARY_TYPES } from './legendaries.js'
-import { applyWoundPenalty, officerBonusMultiplier } from './wounds.js'
+import { applyPermanentInjuries, applyWoundPenalty, officerBonusMultiplier } from './wounds.js'
 
 /**
  * Three tiers, in descending order of how much the player should care:
@@ -187,6 +187,7 @@ export function resolveProspectStats(p: Prospect): ResolvedStats {
     MUTATIONS_BY_ID.get(roll.id)?.apply(s, roll.level)
   }
   applyWoundPenalty(s, p.wound)
+  applyPermanentInjuries(s, p.permanentInjuries)
   return clamp(s)
 }
 
@@ -369,6 +370,8 @@ export function toSimGroups(
       discipline: 1,
       leaderLabel: p.name,
       named: true,
+      // The only lineage-blind trigger the sim owns — see SimGroup.maimable.
+      maimable: true,
     })
     sources.push({ kind: 'prospect', id: p.id })
   }

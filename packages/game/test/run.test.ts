@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { Battle, MAX_BODY_RADIUS, Rng, hashSeed } from '@salt/sim'
-import type { GroupResult, SimGroup } from '@salt/sim'
+import { Battle, BattleEventType, MAX_BODY_RADIUS, Rng, hashSeed } from '@salt/sim'
+import type { BattleEvent, GroupResult, SimGroup } from '@salt/sim'
 import {
   ENCOUNTERS_PER_RUN,
   MUTATIONS,
@@ -97,6 +97,11 @@ import {
   officerBonusMultiplier,
   TREAT_COST,
   WOUND_PENALTY,
+  WOUND_ZONES,
+  harmKindFromLabel,
+  describeInjury,
+  applyPermanentInjuries,
+  PERMANENT_INJURY_PENALTY,
 } from '@salt/game'
 import type { Encounter, Prospect, RunState, Warband, Wound } from '@salt/game'
 import { TEAM_A, TEAM_B } from '@salt/sim'
@@ -283,6 +288,8 @@ describe('leadership', () => {
       appraised: true,
       fielded: true,
       wound: null,
+      permanentInjuries: [],
+      dismemberments: [],
     }
     expect(resolveSquadStats(mutant, null, heavy)).toEqual(bare)
     expect(resolveSquadStats(mutant, null, { ...heavy, titled: true })).toEqual(bare)
@@ -2245,5 +2252,104 @@ describe('scouting', () => {
       seen.add(scoutEnemy(e.enemy).armorWord)
     }
     expect(seen.size).toBeGreaterThan(1)
+  })
+})
+
+describe('permanent injuries', () => {
+  // The sim decides WHO gets maimed (Battle.resolveDeath, MAIM_CHANCE) and
+  // hands back Maimed events with group indices; resolveBattle's job is only
+  // to turn those back into Prospect ids and apply the consequence — so
+  // these tests drive that translation directly with hand-built events
+  // rather than hoping a real battle rolls one, same approach as the
+  // existing 'only degrades' machine test above.
+
+  function maimedEvent(groupIndex: number, label: string, sourceGroupIndex: number, sourceLabel: string): BattleEvent {
+    return {
+      tick: 10, type: BattleEventType.Maimed, team: TEAM_A, groupIndex, label, value: 0,
+      sourceGroupIndex, sourceLabel,
+    }
+  }
+
+  it('turns a Maimed event into a permanent injury on the right Prospect', () => {
+    const run = start()
+    const prospect = run.warband.prospects[0]
+    const marched = march(run)
+    const state = marched.state
+    const setup = marched.setup
+    const groupIndex = setup.playerSources.findIndex((s) => s.kind === 'prospect' && s.id === prospect.id)
+    expect(groupIndex).toBeGreaterThanOrEqual(0)
+
+    const results = setup.playerSources.map(() => ({
+      label: 'x', started: 1, dead: 0, survived: 1, endEffectiveness: 1,
+      damageDealt: 0, damageTaken: 0, damageBlocked: 0, swings: 0, hits: 0, team: TEAM_A,
+    })) as never as GroupResult[]
+
+    const events = [maimedEvent(groupIndex, 'x', 99, 'Halberdier ×12')]
+    const resolved = resolveBattle(state, results, TEAM_A, 100, setup.playerSources, events)
+    const after = resolved.warband.prospects.find((p) => p.id === prospect.id)
+
+    expect(after?.permanentInjuries).toHaveLength(1)
+    const injury = after!.permanentInjuries[0]
+    expect(injury.attacker).toBe('Halberdier ×12')
+    expect(injury.harmKind).toBe(harmKindFromLabel('Halberdier ×12'))
+    expect(injury.encounterIndex).toBe(state.encounterIndex)
+    expect(describeInjury(injury)).toBeTruthy()
+  })
+
+  it('credits a dismemberment to the Prospect whose own body dealt it, not to the squad it might lead', () => {
+    const run = start()
+    const prospect = run.warband.prospects[0]
+    const marched = march(run)
+    const state = marched.state
+    const setup = marched.setup
+    const groupIndex = setup.playerSources.findIndex((s) => s.kind === 'prospect' && s.id === prospect.id)
+
+    const results = setup.playerSources.map(() => ({
+      label: 'x', started: 1, dead: 0, survived: 1, endEffectiveness: 1,
+      damageDealt: 0, damageTaken: 0, damageBlocked: 0, swings: 0, hits: 0, team: TEAM_A,
+    })) as never as GroupResult[]
+
+    // My Prospect (groupIndex) is the SOURCE here — it dealt the maiming to
+    // some enemy body at a higher, out-of-range groupIndex.
+    const events = [maimedEvent(999, 'Vex the Chaff', groupIndex, 'x')]
+    const resolved = resolveBattle(state, results, TEAM_A, 100, setup.playerSources, events)
+    const after = resolved.warband.prospects.find((p) => p.id === prospect.id)
+
+    expect(after?.dismemberments).toHaveLength(1)
+    expect(after?.dismemberments[0].victim).toBe('Vex the Chaff')
+  })
+
+  it('gives no credit when a squad, not a Prospect, was the source', () => {
+    const run = start()
+    const marched = march(run)
+    const state = marched.state
+    const setup = marched.setup
+    const squadIndex = setup.playerSources.findIndex((s) => s.kind === 'squad')
+    expect(squadIndex).toBeGreaterThanOrEqual(0)
+
+    const results = setup.playerSources.map(() => ({
+      label: 'x', started: 1, dead: 0, survived: 1, endEffectiveness: 1,
+      damageDealt: 0, damageTaken: 0, damageBlocked: 0, swings: 0, hits: 0, team: TEAM_A,
+    })) as never as GroupResult[]
+
+    const events = [maimedEvent(999, 'Vex the Chaff', squadIndex, 'x')]
+    const resolved = resolveBattle(state, results, TEAM_A, 100, setup.playerSources, events)
+    const total = resolved.warband.prospects.reduce((n, p) => n + p.dismemberments.length, 0)
+    expect(total).toBe(0)
+  })
+
+  it('applies a permanent penalty on top of, not instead of, an active wound', () => {
+    const bare = { hp: 100, armor: 0, damage: 10, attackInterval: 1, range: 1, moveSpeed: 1, accuracy: 1, evade: 0, radius: 1, regen: 0, quills: 0, frenzy: 0 }
+    const withInjury = { ...bare }
+    applyPermanentInjuries(withInjury, [{ zone: 'core', harmKind: 'blade', attacker: 'x', encounterIndex: 0 }])
+    expect(withInjury.hp).toBeCloseTo(bare.hp * (1 - PERMANENT_INJURY_PENALTY), 5)
+  })
+
+  it('describes every zone/harmKind pair without falling through', () => {
+    for (const zone of WOUND_ZONES) {
+      for (const harmKind of ['blade', 'pierce', 'blunt', 'burn'] as const) {
+        expect(describeInjury({ zone, harmKind, attacker: 'x', encounterIndex: 0 })).toBeTruthy()
+      }
+    }
   })
 })

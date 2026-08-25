@@ -48,8 +48,12 @@ export {
   recoverWound,
   applyWoundPenalty,
   officerBonusMultiplier,
+  PERMANENT_INJURY_PENALTY,
+  harmKindFromLabel,
+  describeInjury,
+  applyPermanentInjuries,
 } from './wounds.js'
-export type { Wound, WoundZone, WoundRung } from './wounds.js'
+export type { Wound, WoundZone, WoundRung, HarmKind, PermanentInjury } from './wounds.js'
 export {
   unitType,
   squadLabel,

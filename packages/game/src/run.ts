@@ -1,5 +1,5 @@
-import { COLLAPSE_THRESHOLD, Rng, TEAM_A, TEAM_B, hashSeed } from '@salt/sim'
-import type { BattleConfig, GroupResult, SimGroup, Winner } from '@salt/sim'
+import { BattleEventType, COLLAPSE_THRESHOLD, Rng, TEAM_A, TEAM_B, hashSeed } from '@salt/sim'
+import type { BattleConfig, BattleEvent, GroupResult, SimGroup, Winner } from '@salt/sim'
 import { ENCOUNTERS_PER_RUN, encounterLegendaryId, generateEncounter } from './encounters.js'
 import type { Encounter } from './encounters.js'
 import { rollOffers } from './shop.js'
@@ -46,7 +46,10 @@ import {
   OFFICER_WOUND_CHANCE_ON_COLLAPSE,
   recoverWound,
   TREAT_COST,
+  WOUND_ZONES,
+  harmKindFromLabel,
 } from './wounds.js'
+import type { PermanentInjury } from './wounds.js'
 
 export type Phase = 'camp' | 'battle' | 'report' | 'over'
 
@@ -745,6 +748,7 @@ export function resolveBattle(
   winner: Winner,
   ticks: number,
   playerSources: GroupSource[],
+  events: BattleEvent[] = [],
 ): RunState {
   const playerResults = results.slice(0, playerSources.length)
   const enemyResults = results.slice(playerSources.length)
@@ -758,6 +762,48 @@ export function resolveBattle(
     else if (src.kind === 'machine') machineResult.set(src.id, playerResults[i])
     else prospectResult.set(src.id, playerResults[i])
   })
+
+  /*
+   * Permanent injuries — docs/V0-DESIGN.md §15. The sim already decided WHO
+   * survived maimed instead of dying (Battle.resolveDeath, MAIM_CHANCE); all
+   * that's left is turning its group-index events back into Prospect ids,
+   * which only this layer can do (the sim is lineage-blind — see wounds.ts's
+   * harmKindFromLabel comment for why harm kind is guessed from a label
+   * instead of threaded through as a real type).
+   */
+  const newInjuries = new Map<string, PermanentInjury[]>()
+  const newDismemberments = new Map<string, { victim: string; encounterIndex: number }[]>()
+  for (const e of events) {
+    if (e.type !== BattleEventType.Maimed) continue
+
+    // Victim: one of MY Prospects took the maiming.
+    if (e.groupIndex < playerSources.length) {
+      const src = playerSources[e.groupIndex]
+      if (src.kind === 'prospect') {
+        const injury: PermanentInjury = {
+          zone: WOUND_ZONES[state.rng.int(WOUND_ZONES.length)],
+          harmKind: harmKindFromLabel(e.sourceLabel),
+          attacker: e.sourceLabel,
+          encounterIndex: state.encounterIndex,
+        }
+        const list = newInjuries.get(src.id) ?? []
+        list.push(injury)
+        newInjuries.set(src.id, list)
+      }
+    }
+
+    // Attacker: one of MY Prospects dealt the maiming. Only a Prospect's own
+    // body earns the credit — an anonymous squad landing the same hit has no
+    // one specific to credit it to.
+    if (e.sourceGroupIndex >= 0 && e.sourceGroupIndex < playerSources.length) {
+      const src = playerSources[e.sourceGroupIndex]
+      if (src.kind === 'prospect') {
+        const list = newDismemberments.get(src.id) ?? []
+        list.push({ victim: e.label, encounterIndex: state.encounterIndex })
+        newDismemberments.set(src.id, list)
+      }
+    }
+  }
 
   const squadLosses: SquadLoss[] = []
   const squads = state.warband.squads
@@ -797,7 +843,15 @@ export function resolveBattle(
       // shrink before the player sees the report.
       let wound = r && r.damageTaken > 0 ? escalateWound(p.wound, state.rng) : p.wound
       wound = recoverWound(wound, FREE_RECOVERY_MUTANT)
-      return { ...p, battles: p.battles + 1, wound }
+      const injuries = newInjuries.get(p.id)
+      const dealt = newDismemberments.get(p.id)
+      return {
+        ...p,
+        battles: p.battles + 1,
+        wound,
+        permanentInjuries: injuries ? [...p.permanentInjuries, ...injuries] : p.permanentInjuries,
+        dismemberments: dealt ? [...p.dismemberments, ...dealt] : p.dismemberments,
+      }
     })
     .filter((p): p is NonNullable<typeof p> => p !== null)
 

@@ -1,7 +1,7 @@
 import { Rng } from '@salt/sim'
 import { MUTATIONS } from './mutations.js'
 import type { MutationRoll } from './mutations.js'
-import type { Wound } from './wounds.js'
+import type { PermanentInjury, Wound } from './wounds.js'
 
 /**
  * A Prospect: a mutant that came out of the vats with something useful.
@@ -68,6 +68,22 @@ export interface Prospect {
    * exactly as hard as it was.
    */
   titled?: boolean
+  /**
+   * Permanent maimings — docs/V0-DESIGN.md §15. Unlike `wound` above, these
+   * never heal; a body carries them for the rest of its career. Empty for
+   * almost every Prospect, same as capacity being 0 for almost every mutant —
+   * this is meant to read as a real event, not routine wear.
+   */
+  permanentInjuries: PermanentInjury[]
+  /**
+   * Every enemy Prospect this one has personally maimed rather than killed —
+   * the trophy side of the same roll. Only credited when THIS Prospect's own
+   * body threw the blow (an anonymous squad landing the same kind of hit
+   * credits no one; there's nobody specific to credit). Requested directly
+   * alongside the injuries themselves: "track how many dismembers each
+   * important character has... and who they dismember."
+   */
+  dismemberments: { victim: string; encounterIndex: number }[]
 }
 
 /**
@@ -216,6 +232,8 @@ export function rollProspect(rng: Rng, typeId: number, encounterIndex: number): 
     appraised: false,
     fielded: true,
     wound: null,
+    permanentInjuries: [],
+    dismemberments: [],
   }
 }
 

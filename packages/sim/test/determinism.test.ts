@@ -228,10 +228,71 @@ describe('Battle events', () => {
   })
 })
 
+describe('Maiming', () => {
+  // docs/V0-DESIGN.md §15: a maimable body that would die rolls once to
+  // survive instead. Gated on SimGroup.maimable specifically — named alone
+  // (Officers/Machines/boss squads) is not enough, per the 'Tallow' case
+  // above, which already proves a named-but-not-maimable body just dies.
+
+  it('never maims a body that is named but not maimable', () => {
+    // Same shape as 'emits Hit and Died for a named individual' above, just
+    // swept across enough seeds that a real MAIM_CHANCE roll (0.12) would
+    // almost certainly have shown up at least once if this weren't gated.
+    for (let seed = 1; seed <= 60; seed++) {
+      const lone = { ...makeGroup(TEAM_A, 0, 1), label: 'Tallow', named: true }
+      const battle = new Battle({ seed, groups: [lone, makeGroup(TEAM_B, 0, 20)] })
+      battle.run()
+      expect(battle.newEventsSince(0).some((e) => e.type === BattleEventType.Maimed)).toBe(false)
+    }
+  })
+
+  it('sometimes lets a maimable body survive at 1 HP instead of dying', () => {
+    // Checked tick-by-tick, at the moment Maimed fires — not after the whole
+    // battle, because a body maimed at 1 HP against 20 attackers is still
+    // extremely likely to die to the NEXT hit, same battle. That's correct
+    // (the roll is a save against one blow, not immunity), so asserting
+    // "maimed implies never later dead" would be testing for a behaviour
+    // this feature was never meant to have.
+    let sawMaimed = false
+    for (let seed = 1; seed <= 200 && !sawMaimed; seed++) {
+      const lone = { ...makeGroup(TEAM_A, 0, 1), label: 'Rust', named: true, maimable: true }
+      const battle = new Battle({ seed, groups: [lone, makeGroup(TEAM_B, 0, 20)] })
+      let seen = 0
+      while (!battle.finished && !sawMaimed) {
+        battle.step()
+        const fresh = battle.newEventsSince(seen)
+        seen = battle.eventCount
+        const m = fresh.find((e) => e.type === BattleEventType.Maimed)
+        if (!m) continue
+        sawMaimed = true
+        expect(battle.alive[0]).toBe(1)
+        expect(battle.hp[0]).toBe(1)
+        // The enemy squad is the only thing that could have landed it.
+        expect(m.sourceGroupIndex).toBe(1)
+        expect(m.sourceLabel).toBe(makeGroup(TEAM_B, 0, 20).label)
+      }
+    }
+    // ~12% chance per lethal hit — 200 seeds is generous headroom against flakiness.
+    expect(sawMaimed).toBe(true)
+  })
+
+  it('replays identically at a fixed seed, Maimed events included', () => {
+    const build = () => {
+      const lone = { ...makeGroup(TEAM_A, 0, 1), label: 'Rust', named: true, maimable: true }
+      return new Battle({ seed: 42, groups: [lone, makeGroup(TEAM_B, 0, 20)] })
+    }
+    const a = build()
+    a.run()
+    const b = build()
+    b.run()
+    expect(a.newEventsSince(0)).toEqual(b.newEventsSince(0))
+  })
+})
+
 describe('Stat resolution', () => {
   const prospect = (mutations: { id: string; level: number }[]) => ({
     id: 'x', typeId: 0, name: 'Test', mutations, battles: 0, growth: 0, capacity: 6, appraised: true, fielded: true,
-    wound: null, bionics: [] })
+    wound: null, bionics: [], permanentInjuries: [], dismemberments: [] })
 
   it('leaves fodder unmutated', () => {
     // Mutation is individual and rare. Squads are bodies, nothing more.

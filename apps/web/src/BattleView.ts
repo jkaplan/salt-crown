@@ -341,7 +341,9 @@ export class BattleView {
   speed = 1
   paused = false
   onStats: ((s: ViewStats) => void) | null = null
-  onFinished: ((results: GroupResult[], winner: Winner, ticks: number) => void) | null = null
+  onFinished:
+    | ((results: GroupResult[], winner: Winner, ticks: number, events: BattleEvent[]) => void)
+    | null = null
   private reported = false
 
   private parseColor(color: string): number | null {
@@ -687,7 +689,7 @@ export class BattleView {
 
     if (battle.finished && !this.reported) {
       this.reported = true
-      this.onFinished?.(battle.results(), battle.winner, battle.tick)
+      this.onFinished?.(battle.results(), battle.winner, battle.tick, battle.newEventsSince(0))
     }
   }
 

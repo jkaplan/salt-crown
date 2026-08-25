@@ -1,6 +1,6 @@
 import { Rng } from './rng.js'
 import { SpatialGrid } from './spatial.js'
-import { BattleEventType, COLLAPSE_THRESHOLD, MELEE_RANGE, TEAM_A, TEAM_B, WORLD_H, WORLD_W } from './types.js'
+import { BattleEventType, COLLAPSE_THRESHOLD, MAIM_CHANCE, MELEE_RANGE, TEAM_A, TEAM_B, WORLD_H, WORLD_W } from './types.js'
 import type { BattleConfig, BattleEvent, GroupResult, SimGroup, Winner } from './types.js'
 
 /** Ring buffer capacity. Past this, the oldest notable event is overwritten. */
@@ -224,6 +224,14 @@ export class Battle {
    * and isn't guaranteed to still be the one it just struck by render time.
    */
   readonly lastAttackTarget: Int32Array
+  /**
+   * Group index of whoever last landed a blow ON unit i, this tick or
+   * whenever the last one before it was — the reverse of lastAttackTarget.
+   * Only consulted at the moment a unit would die (Died/Maimed's source), so
+   * it doesn't need per-tick decay: a fatal blow always lands the same tick
+   * the damage that caused it did.
+   */
+  private readonly lastHitByGroup: Int32Array
   /** Damage accumulated this tick, applied in phase 2. */
   private readonly damage: Float32Array
 
@@ -285,6 +293,7 @@ export class Battle {
     this.sepY = new Float32Array(total)
     this.lastAttackTick = new Int32Array(total).fill(-999)
     this.lastAttackTarget = new Int32Array(total).fill(-1)
+    this.lastHitByGroup = new Int32Array(total).fill(-1)
     this.damage = new Float32Array(total)
 
     const gn = config.groups.length
@@ -301,7 +310,10 @@ export class Battle {
 
     this.events = new Array<BattleEvent>(EVENT_CAPACITY)
     for (let e = 0; e < EVENT_CAPACITY; e++) {
-      this.events[e] = { tick: 0, type: BattleEventType.Hit, team: TEAM_A, groupIndex: 0, label: '', value: 0 }
+      this.events[e] = {
+        tick: 0, type: BattleEventType.Hit, team: TEAM_A, groupIndex: 0, label: '', value: 0,
+        sourceGroupIndex: -1, sourceLabel: '',
+      }
     }
 
     this.grid = new SpatialGrid(this.worldW, this.worldH, CELL_SIZE, total)
@@ -494,6 +506,7 @@ export class Battle {
           const blocked = swung - dealt
           if (blocked > 0) this.groupDamageBlocked[gi] += blocked
           damage[t] += dealt
+          this.lastHitByGroup[t] = gi
 
           this.lastAttackTick[i] = this.tick
           this.lastAttackTarget[i] = t
@@ -502,6 +515,7 @@ export class Battle {
           this.groupDamageTaken[group[t]] += dealt
           if (tt.quills > 0 && st.range <= MELEE_RANGE) {
             damage[i] += dealt * tt.quills
+            this.lastHitByGroup[i] = group[t]
             this.groupDamageTaken[gi] += dealt * tt.quills
             this.groupDamageDealt[group[t]] += dealt * tt.quills
           }
@@ -515,7 +529,7 @@ export class Battle {
       const gi = group[i]
       if (groups[gi].named) this.pushEvent(BattleEventType.Hit, this.team[i], gi, damage[i])
       hp[i] -= damage[i]
-      if (hp[i] <= 0) this.kill(i)
+      if (hp[i] <= 0) this.resolveDeath(i)
     }
 
     this.separate()
@@ -557,10 +571,34 @@ export class Battle {
     }
   }
 
+  /**
+   * A body at 0 HP either dies or, if it's maimable, gets one roll not to.
+   * Checked here rather than in kill() itself so a normal death (the roll
+   * failed, or the body was never maimable — fodder, a squad, a Machine)
+   * still goes through the exact same path it always has.
+   */
+  private resolveDeath(t: number): void {
+    const gi = this.group[t]
+    if (this.groups[gi].maimable && this.rng.float() < MAIM_CHANCE) {
+      const src = this.lastHitByGroup[t]
+      this.hp[t] = 1
+      this.pushEvent(
+        BattleEventType.Maimed, this.team[t], gi, 0,
+        src, src >= 0 ? this.groups[src].label : '',
+      )
+      return
+    }
+    this.kill(t)
+  }
+
   private kill(t: number): void {
     const gi = this.group[t]
     if (this.groups[gi].named) {
-      this.pushEvent(BattleEventType.Died, this.team[t], gi, 0)
+      const src = this.lastHitByGroup[t]
+      this.pushEvent(
+        BattleEventType.Died, this.team[t], gi, 0,
+        src, src >= 0 ? this.groups[src].label : '',
+      )
     }
     this.alive[t] = 0
     this.hp[t] = 0
@@ -570,7 +608,10 @@ export class Battle {
   }
 
   /** Overwrites the next ring slot in place — no allocation once the ring exists. */
-  private pushEvent(type: BattleEventType, team: number, groupIndex: number, value: number): void {
+  private pushEvent(
+    type: BattleEventType, team: number, groupIndex: number, value: number,
+    sourceGroupIndex = -1, sourceLabel = '',
+  ): void {
     const e = this.events[this.eventCursor]
     e.tick = this.tick
     e.type = type
@@ -578,6 +619,8 @@ export class Battle {
     e.groupIndex = groupIndex
     e.label = this.groups[groupIndex].label
     e.value = value
+    e.sourceGroupIndex = sourceGroupIndex
+    e.sourceLabel = sourceLabel
     this.eventCursor = (this.eventCursor + 1) % EVENT_CAPACITY
     this.eventCount++
   }
@@ -598,7 +641,10 @@ export class Battle {
     for (let k = n - 1; k >= 0; k--) {
       const idx = (this.eventCursor - 1 - k + EVENT_CAPACITY * 2) % EVENT_CAPACITY
       const e = this.events[idx]
-      out.push({ tick: e.tick, type: e.type, team: e.team, groupIndex: e.groupIndex, label: e.label, value: e.value })
+      out.push({
+        tick: e.tick, type: e.type, team: e.team, groupIndex: e.groupIndex, label: e.label, value: e.value,
+        sourceGroupIndex: e.sourceGroupIndex, sourceLabel: e.sourceLabel,
+      })
     }
     return out
   }

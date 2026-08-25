@@ -17,6 +17,8 @@ function formatEvent(e: BattleEvent): string {
       return `${e.label} has fallen`
     case BattleEventType.Collapsed:
       return `${e.label} is collapsing`
+    case BattleEventType.Maimed:
+      return `${e.label} is maimed, but survives`
     default:
       return e.label
   }
@@ -27,7 +29,7 @@ interface Props {
   title: string
   playerColor?: string
   onStats?: (stats: ViewStats | null) => void
-  onDone: (results: GroupResult[], winner: Winner, ticks: number) => void
+  onDone: (results: GroupResult[], winner: Winner, ticks: number, events: BattleEvent[]) => void
 }
 
 /**
@@ -69,9 +71,9 @@ export default function BattleScreen({ config, title, playerColor = '#7fc7bb', o
           setLog((prev) => [...s.events].reverse().concat(prev).slice(0, LOG_CAPACITY))
         }
       }
-      view.onFinished = (results, winner, ticks) => {
+      view.onFinished = (results, winner, ticks, events) => {
         setFinished(true)
-        doneRef.current(results, winner, ticks)
+        doneRef.current(results, winner, ticks, events)
       }
       view.paused = true
       setPaused(true)

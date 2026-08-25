@@ -1330,6 +1330,23 @@ button.assay .price { color: var(--gold); margin-left: var(--s1); font-variant-n
   color: var(--danger);
   white-space: nowrap;
 }
+.injuries {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  color: var(--faint);
+  cursor: help;
+}
+.injury-icon { display: inline-flex; flex: none; align-items: center; justify-content: center; }
+.injury-icon-fill { fill: currentColor; }
+.dismemberments {
+  flex: none;
+  font-size: var(--t-label);
+  color: var(--gold);
+  white-space: nowrap;
+  cursor: help;
+}
 button.treat { align-self: flex-start; color: var(--danger); }
 button.treat .price { color: var(--gold); margin-left: var(--s1); font-variant-numeric: tabular-nums; }
 

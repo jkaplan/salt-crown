@@ -45,7 +45,7 @@
  * you're about to fight change completion rate, the way spending discipline
  * measurably did not (see the greedy/thrifty note above)?
  */
-import { Battle } from '@salt/sim'
+import { Battle, BattleEventType } from '@salt/sim'
 import {
   ENCOUNTERS_PER_RUN,
   advance,
@@ -253,6 +253,7 @@ function playRun(
   // so an end-of-run census of the named tier just measures how runs end.
   let peakFirstborn = 0
   let peakProspects = 0
+  let maimed = 0
 
   while (state.phase !== 'over') {
     if (state.phase === 'camp') {
@@ -277,9 +278,9 @@ function playRun(
         deserted += state.lastUpkeep.deserted
         shortMarches++
       }
-      state = resolveBattle(
-        state, battle.results(), battle.winner, battle.tick, setup.playerSources,
-      )
+      const events = battle.newEventsSince(0)
+      maimed += events.filter((e) => e.type === BattleEventType.Maimed).length
+      state = resolveBattle(state, battle.results(), battle.winner, battle.tick, setup.playerSources, events)
     } else if (state.phase === 'report') {
       if (state.report?.won) reached = state.encounterIndex + 1
       state = advance(state)
@@ -297,6 +298,7 @@ function playRun(
     deserted,
     shortMarches,
     ticks,
+    maimed,
   }
 }
 
@@ -323,6 +325,7 @@ let shortMarches = 0
 let marches = 0
 let firstborn = 0
 let prospects = 0
+let maimed = 0
 const runTicks: number[] = []
 const reachedHist = new Array(ENCOUNTERS_PER_RUN + 1).fill(0)
 const finalBodies: number[] = []
@@ -335,6 +338,7 @@ for (let i = 1; i <= runs; i++) {
   if (r.outcome === 'won') runTicks.push(r.ticks)
   firstborn += r.firstborn
   prospects += r.prospects
+  maimed += r.maimed
   marches += r.reached + 1
   if (r.outcome === 'won') {
     won++
@@ -353,6 +357,7 @@ console.log(
   `named tier  peak ${(prospects / runs).toFixed(1)} Prospects per run, ${(firstborn / runs).toFixed(2)} Firstborn
 `,
 )
+console.log(`maimed      ${maimed} across ${runs} runs (both sides), ${(maimed / runs).toFixed(2)} per run\n`)
 console.log('  encounters won    runs')
 console.log('  ----------------------')
 for (let i = 0; i <= ENCOUNTERS_PER_RUN; i++) {

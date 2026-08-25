@@ -34,7 +34,9 @@ import {
   TREAT_COST,
   WOUND_RUNG_NAMES,
   WOUND_ZONE_NAMES,
+  describeInjury,
 } from '@salt/game'
+import InjuryIcon from '../../components/InjuryIcon'
 import type {
   GrowthOffer,
   Officer,
@@ -505,6 +507,21 @@ export function ProspectRow({
             wound={wound}
             note={`${WOUND_ZONE_NAMES[wound.zone]} — costs ${TREAT_COST} salvage per rung to treat`}
           />
+        )}
+        {prospect.permanentInjuries.length > 0 && (
+          <span className="injuries" title={prospect.permanentInjuries.map(describeInjury).join(' · ')}>
+            {prospect.permanentInjuries.map((inj, i) => (
+              <InjuryIcon key={i} kind={inj.harmKind} />
+            ))}
+          </span>
+        )}
+        {prospect.dismemberments.length > 0 && (
+          <span
+            className="dismemberments"
+            title={`Personally maimed: ${prospect.dismemberments.map((d) => d.victim).join(', ')}`}
+          >
+            {prospect.dismemberments.length} dismembered
+          </span>
         )}
         <Capacity prospect={prospect} />
       </div>
