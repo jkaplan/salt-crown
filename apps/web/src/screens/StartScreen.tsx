@@ -39,6 +39,11 @@ export default function StartScreen({
     <div className="start-screen">
       <div className="start-card">
         <h1>Salt Crown</h1>
+        <p className="opening-flavor">
+          The Houses have warred with each other longer than anyone alive remembers, and it has
+          never once been about you. What they bred to fight it now outnumbers them beyond
+          counting. Something under the salt is stirring, and no one has explained what.
+        </p>
         <p className="tagline">A pure auto battler. Compose a warband. Watch it clash.</p>
 
         <form onSubmit={handleSubmit}>
