@@ -270,6 +270,15 @@ interface Banner {
   groupIndex: number
   ring: Sprite
   label: Text
+  /**
+   * The HP bar itself — a track plus a fill, redrawn every frame rather than
+   * scaled, since a scaled-down Graphics rect blurs at small widths in a way
+   * a redrawn one doesn't. Cheap: there are at most a handful of named
+   * individuals in any battle, nothing like per-body cost.
+   */
+  hpBar: Graphics
+  /** How far above the body's own centre the bar sits, in world units. */
+  barLift: number
 }
 
 /**
@@ -549,6 +558,7 @@ export class BattleView {
     for (const b of this.banners) {
       b.ring.destroy()
       b.label.destroy()
+      b.hpBar.destroy()
     }
     this.sprites = []
     this.banners = []
@@ -635,9 +645,16 @@ export class BattleView {
       })
       label.anchor.set(0.5, 1)
 
+      const hpBar = new Graphics()
+      // Lift scales with the body's own radius, so a boss (radius ~12, and
+      // LEADER_SCALE'd 1.55x on top) gets its bar clear of a body several
+      // times the size of an ordinary named Prospect's.
+      const barLift = group.stats.radius * LEADER_SCALE + 22
+
       this.haloLayer.addChild(ring)
+      this.world.addChild(hpBar)
       this.world.addChild(label)
-      this.banners.push({ groupIndex: gi, ring, label })
+      this.banners.push({ groupIndex: gi, ring, label, hpBar, barLift })
     })
     this.applyTheme()
   }
@@ -817,6 +834,7 @@ export class BattleView {
       if (carrier < 0) {
         banner.ring.visible = false
         banner.label.visible = false
+        banner.hpBar.visible = false
         continue
       }
 
@@ -826,6 +844,43 @@ export class BattleView {
       banner.ring.y = cy
       banner.label.x = cx
       banner.label.y = cy - 26
+
+      /*
+       * Directly on the battlefield, tracking the body — not the corner HUD.
+       * Team-coloured the same way every other body already is: the
+       * player's chosen colour for team A, the fixed rust tint for team B.
+       * Redrawn rather than scaled, because a scaled-down Graphics rect
+       * blurs at a few dozen pixels wide in a way a fresh draw doesn't.
+       */
+      const team = b.groups[banner.groupIndex].team
+      const barColor = team === TEAM_A ? this.playerColor : ENEMY_TINT
+      const health = clamp01(this.displayHealth[carrier])
+
+      /*
+       * Sized in SCREEN pixels, not world units — counter-scaled by the
+       * world container's current zoom. this.world.scale shrinks to fit
+       * whatever the host gives us (layout(), above) and shrinks further
+       * still for a large battle's expanded arena, so a fixed world-unit
+       * size was reading as a barely-visible sliver: 46 world units at a
+       * typical ~0.5-0.6 zoom is only ~25px wide and ~3px tall on screen,
+       * a dot at a glance. Dividing by zoom keeps the bar a constant,
+       * legible on-screen size regardless of how far out the camera is.
+       *
+       * barLift (the vertical gap above the body) stays in WORLD units on
+       * purpose — it should shrink and grow with the body itself so the bar
+       * stays anchored just above it, not drift away as the camera zooms.
+       */
+      const zoom = this.world.scale.x || 1
+      const barW = 64 / zoom
+      const barH = 7 / zoom
+      const barY = cy - banner.barLift
+      banner.hpBar.visible = true
+      banner.hpBar
+        .clear()
+        .rect(cx - barW / 2, barY, barW, barH)
+        .fill({ color: 0x0a0807, alpha: 0.65 })
+        .rect(cx - barW / 2, barY, barW * health, barH)
+        .fill(barColor)
     }
   }
 

@@ -16,6 +16,7 @@ import {
 } from './prospects.js'
 import type { Prospect } from './prospects.js'
 import { DISCIPLINE, UNIT_TYPES } from './units.js'
+import { BOSS_TYPES } from './wasteland.js'
 import { applyWoundPenalty, officerBonusMultiplier } from './wounds.js'
 
 /**
@@ -74,6 +75,22 @@ export interface Warband {
    */
   bionics: string[]
 }
+
+/**
+ * Bosses are the closest thing to a "legendary" body currently in the game —
+ * one enormous problem, escorted, meant to read as a spectacle (§10). But
+ * they arrive as an ordinary count-1 Squad, same as any rival levy's single
+ * straggler, and toSimGroups only flags Prospects and Machines as named
+ * individuals. Nothing marked a boss as one, so it got no HP bar in the
+ * roster HUD, no name banner, no larger sprite on the canvas — every system
+ * built for "legendary" already existed and simply never saw a boss.
+ *
+ * Checked by id here rather than adding a field to Squad: a boss is
+ * identifiable from its typeId alone, so there is nothing to forget at any
+ * of Squad's several construction sites (buy, buildWarband, buildBoss,
+ * startingWarband) the way a settable flag could be.
+ */
+const BOSS_IDS = new Set(BOSS_TYPES.map((t) => t.id))
 
 const BODY_SHAPE_COUNT = 8
 
@@ -313,8 +330,13 @@ export function toSimGroups(
       // see resolveSquadStats.
       discipline: resolveDiscipline(sq.typeId, officer, leader, w.morale),
       // A Prospect leader carries its own banner on its own group below, so
-      // only an officer labels the squad itself.
-      leaderLabel: officer ? officerTitle(officer) : null,
+      // an ordinary squad is labelled by its officer or not at all — except
+      // a boss, which IS the banner regardless of who is or isn't leading it.
+      leaderLabel: officer ? officerTitle(officer) : BOSS_IDS.has(sq.typeId) ? unitType(sq.typeId).name : null,
+      // Same treatment Prospects and Machines get: HP bar and name in the
+      // battle HUD, bigger sprite on the canvas, team-coloured throughout —
+      // see BattleScreen's roster HUD and BattleView's leaderScale.
+      named: BOSS_IDS.has(sq.typeId),
     })
     sources.push({ kind: 'squad', id: sq.id })
   }

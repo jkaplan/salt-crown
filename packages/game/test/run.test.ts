@@ -1728,6 +1728,32 @@ describe('run structure', () => {
     }
   })
 
+  it('gives a boss the same on-screen treatment as any other named individual', () => {
+    /*
+     * A boss used to be an anonymous count-1 squad — no HP bar in the battle
+     * HUD, no name banner, no larger sprite on the canvas. Every one of those
+     * systems already existed for Prospects and Machines; a boss simply never
+     * got flagged into them. Fixed in toSimGroups by checking typeId against
+     * BOSS_TYPES directly, so this test pins the actual output a player sees,
+     * not the internal flag alone.
+     */
+    const rng = new Rng(hashSeed('boss-named'))
+    const enc = generateEncounter(rng, 4) // encounters.ts: index 4 is always a boss
+    expect(enc.kind).toBe('boss')
+
+    const { groups } = toSimGroups(enc.enemy, TEAM_B)
+    const bossType = unitType(enc.enemy.squads[0].typeId)
+    const bossGroup = groups.find((g) => g.count === 1 && g.color === bossType.color)!
+
+    expect(bossGroup.named).toBe(true)
+    expect(bossGroup.leaderLabel).toBe(bossType.name)
+
+    // An ordinary escort squad is untouched — this is not "every squad gets
+    // a banner now", it is specifically the boss.
+    const ordinary = groups.find((g) => g !== bossGroup)
+    expect(ordinary?.named).toBeFalsy()
+  })
+
   it('escalates the three bosses rather than rolling them', () => {
     // Meeting the Long Gullet at encounter 5 would be a different game.
     const rng = new Rng(hashSeed('boss-order'))

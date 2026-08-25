@@ -744,19 +744,6 @@ button.buy:hover:not(:disabled) { background: var(--gold); color: #17120a; }
 .perf { color: var(--faint); font-size: var(--t-label); font-variant-numeric: tabular-nums; }
 .battle-done { position: absolute; inset: auto 0 24px; text-align: center; color: var(--dim); }
 
-.battle-momentum { display: flex; align-items: center; gap: var(--s2); width: 100%; }
-.battle-momentum-label { font-size: var(--t-label); color: var(--faint); white-space: nowrap; }
-.battle-momentum-track {
-  position: relative;
-  flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--surface-2);
-  overflow: hidden;
-}
-.battle-momentum-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); }
-.battle-momentum-center { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--hair); }
-
 .battle-hud {
   position: absolute;
   top: 10px;
@@ -1189,9 +1176,51 @@ select option {
 
 .infantry:hover { border-color: transparent; }
 
-/* Momentum: fills outward from the centre in the leading side's colour, so a
-   won battle leaves the bar completely full of that colour. */
-.battle-momentum-track { position: relative; overflow: hidden; height: 8px; }
+/*
+ * Momentum: fills outward from the centre in the leading side's colour, so a
+ * won battle leaves the bar completely full of that colour. Two bands —
+ * Bodies on top, Strength underneath — see BattleScreen's sideStats.
+ *
+ * This used to be three separate partial-override blocks scattered across
+ * the file, left behind as the component grew from one bar to two. The one
+ * that actually broke it: an early rule set `.battle-momentum-track` to
+ * `flex: 1` for the ORIGINAL single-bar layout, where the track was a flex
+ * ITEM filling leftover width next to its label in a ROW container. Once the
+ * component became a column of two stacked bars, that same `flex: 1` — with
+ * its implicit `flex-basis: 0%` — became a VERTICAL sizing directive instead,
+ * fighting the explicit `height` on the same selector for control of the
+ * track's main-axis size. With no extra vertical space to grow into, the
+ * bars rendered at whatever flex-basis computed to rather than their
+ * intended height — reading as "not really there" rather than a clean bar.
+ * Consolidated into one block so there is only one place this can drift.
+ */
+.battle-momentum {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  width: 100%;
+}
+.battle-momentum-label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s2);
+  font-size: var(--t-label);
+  color: var(--faint);
+  white-space: nowrap;
+}
+.battle-momentum-track + .battle-momentum-label { margin-top: var(--s1); }
+
+.battle-momentum-track {
+  position: relative;
+  overflow: hidden;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+/* The bodies band is deliberately quieter — it is the number that lies. */
+.battle-momentum-track:first-of-type { height: 4px; opacity: 0.75; }
+
 .battle-momentum-fill {
   position: absolute;
   top: 0;
@@ -1205,6 +1234,16 @@ select option {
   left: 50%;
   width: 1px;
   background: rgba(255, 255, 255, 0.28);
+}
+
+.battle-momentum-warn {
+  margin: var(--s1) 0 0;
+  font-size: var(--t-label);
+  color: var(--danger);
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: var(--radius);
+  padding: 2px var(--s2);
+  align-self: flex-start;
 }
 
 /* ------------------------------------------------------------- growth --- */
@@ -1619,29 +1658,6 @@ button.install .price {
 .why-morale { border-left-color: var(--danger); }
 .why-accuracy { border-left-color: #d8b46a; }
 .why-numbers { border-left-color: var(--a); }
-
-/* Two bands, same geometry, so the eye compares them without being told to.
-   Bodies is the flattering number; strength is the true one. */
-.battle-momentum { flex-direction: column; align-items: stretch; gap: 3px; }
-.battle-momentum .battle-momentum-label {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--s2);
-}
-.battle-momentum-track + .battle-momentum-label { margin-top: var(--s1); }
-
-/* The bodies band is deliberately quieter — it is the number that lies. */
-.battle-momentum-track:first-of-type { height: 4px; opacity: 0.75; }
-
-.battle-momentum-warn {
-  margin: var(--s1) 0 0;
-  font-size: var(--t-label);
-  color: var(--danger);
-  background: rgba(0, 0, 0, 0.45);
-  border-radius: var(--radius);
-  padding: 2px var(--s2);
-  align-self: flex-start;
-}
 
 /* ------------------------------------------------------------- camp hub -- */
 
