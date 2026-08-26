@@ -880,11 +880,14 @@ needed the first time.
 
 *"We should have a liquids system not just a water system."*
 
-Raised in passing, not built. Water (`water.ts`) is currently the only
-liquid resource — upkeep scaled superlinearly by roster size, the one thing
-Water exists to punish. What "liquids" (plural) would actually add on top —
-a second liquid resource with its own economy, fuel or coolant for
-Machines, something narrower like a rare cistern find — is undecided.
-§14 already lists Coolant as a named, explicitly-cut V0.1 system, which may
-be exactly this ask under a different name — worth checking that
-connection before scoping anything new.
+Raised in passing, not built. Checked the connection §14 already flags:
+Coolant already exists mechanically, just merged into Water rather than
+tracked as its own currency — `water.ts`'s own comment says so outright,
+and a Machine's 12× WATER_PER_BODY rate (next to a mutant's 1×) IS the
+Coolant cost, hidden inside one number. So the behavior this ask wants
+(Machines as a genuine logistics premium, not just an expensive body) is
+already there; what would be new is the DISPLAY — a second tracked
+resource, a second UI element, and a retune of upkeep/desertion/event
+costs that currently all assume one pool. Explicitly held off on building
+that split for now — the connection is understood and this stays here as
+the record of it, not carried forward as open work.
