@@ -33,11 +33,11 @@ import StartScreen from './screens/StartScreen'
 import LeaderSelect from './screens/LeaderSelect'
 import OriginSelect from './screens/OriginSelect'
 import FoundingMutations from './screens/FoundingMutations'
-import MutationLedger from './screens/MutationLedger'
+import Compendium from './screens/Compendium'
 import ParametersPanel from './components/ParametersPanel'
 import type { ViewStats } from './BattleView'
 
-type Mode = 'campaign' | 'skirmish' | 'mutations'
+type Mode = 'campaign' | 'skirmish' | 'compendium'
 /*
  * Setup is a three-step path whose middle step depends on the origin: a Scion
  * picks a commander, a Freed Firstborn picks what they are. §13 — "the True
@@ -162,8 +162,8 @@ export default function App() {
           <button className={mode === 'skirmish' ? 'on' : ''} onClick={() => setMode('skirmish')}>
             Skirmish
           </button>
-          <button className={mode === 'mutations' ? 'on' : ''} onClick={() => setMode('mutations')}>
-            Mutation Ledger
+          <button className={mode === 'compendium' ? 'on' : ''} onClick={() => setMode('compendium')}>
+            Compendium
           </button>
           {mode === 'campaign' && run && (
             <button className={panelOpen ? 'on' : ''} onClick={() => setPanelOpen(!panelOpen)}>
@@ -177,7 +177,7 @@ export default function App() {
         <div className="shell-main">
           {mode === 'skirmish' && <Skirmish />}
 
-          {mode === 'mutations' && <MutationLedger />}
+          {mode === 'compendium' && <Compendium run={run} />}
 
           {mode === 'campaign' && run && (
             <>

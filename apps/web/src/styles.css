@@ -86,7 +86,7 @@ button:hover:not(:disabled) { background: #2a2119; }
 button:disabled { opacity: 0.4; cursor: default; }
 button.on { background: var(--a); color: #10100c; }
 
-.mutation-ledger {
+.compendium {
   flex: 1;
   overflow-y: auto;
   padding: var(--s3) var(--s3) calc(var(--s4) + var(--s3));
@@ -95,8 +95,9 @@ button.on { background: var(--a); color: #10100c; }
   gap: var(--s4);
 }
 
-.mutation-ledger__header {
+.compendium__header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--s3);
   align-items: flex-end;
@@ -104,7 +105,7 @@ button.on { background: var(--a); color: #10100c; }
   border-bottom: 1px solid var(--hair);
 }
 
-.mutation-ledger__eyebrow {
+.compendium__eyebrow {
   margin: 0 0 var(--s1);
   font-size: var(--t-label);
   letter-spacing: 0.14em;
@@ -112,62 +113,128 @@ button.on { background: var(--a); color: #10100c; }
   color: var(--a);
 }
 
-.mutation-ledger__header h2 {
+.compendium__header h2 {
   font-size: clamp(1.7rem, 3vw, 2.5rem);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.mutation-ledger__copy {
+.compendium__copy {
   margin: 0;
   max-width: 36rem;
   color: var(--dim);
 }
 
-.mutation-ledger__toolbar {
+.compendium__toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: var(--s2);
 }
 
-.mutation-ledger__toolbar input {
+.compendium__toolbar input {
   max-width: 420px;
+}
+
+.compendium__search {
+  width: 100%;
+  margin-top: var(--s3);
+}
+
+/* The outer section tabs (Mutations/Squads/Relics/…) — horizontal, unlike
+   the vertical category sidebar a tab's own content may add underneath. */
+.compendium__section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.compendium__section-tabs button {
+  padding: var(--s2) var(--s3);
+  background: var(--surface-2);
+  color: var(--dim);
+  border: 1px solid var(--hair);
+}
+.compendium__section-tabs button.on {
+  background: var(--a);
+  color: #10100c;
+  border-color: transparent;
+}
+
+.unlock-all-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--t-meta);
+  color: var(--dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.unlock-all-toggle input { accent-color: var(--a); }
+
+.compendium-card--locked {
+  cursor: default;
+  opacity: 0.55;
+}
+.compendium-card--locked h3 {
+  letter-spacing: 0.2em;
+  color: var(--faint);
+}
+
+.glossary-list {
+  display: grid;
+  gap: var(--s3);
+  margin: 0;
+}
+.glossary-entry {
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  padding: var(--s3);
+}
+.glossary-entry dt {
+  font-weight: var(--w-bold);
+  color: var(--a);
+  margin-bottom: var(--s1);
+}
+.glossary-entry dd {
+  margin: 0;
+  color: var(--dim);
+  line-height: 1.5;
 }
 
 /* One column by default. The 220px + 300px sidebars were unconditional, so
    the ledger demanded 520px of grid before any content and blew out every
    phone; the three-column reading layout is a thing you get when it fits. */
-.mutation-ledger__body {
+.compendium__body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--s3);
   align-items: start;
 }
 
-.mutation-ledger__sidebar,
-.mutation-detail {
+.compendium__sidebar,
+.compendium-detail {
   background: var(--surface);
   border: 1px solid var(--hair);
   border-radius: var(--radius);
   padding: var(--s3);
 }
 
-.mutation-ledger__panel-header,
-.mutation-detail__label {
+.compendium__panel-header,
+.compendium-detail__label {
   font-size: var(--t-label);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--faint);
 }
 
-.mutation-ledger__tabs {
+.compendium__tabs {
   display: flex;
   flex-direction: column;
   gap: var(--s2);
   margin-top: var(--s3);
 }
 
-.mutation-ledger__tabs button {
+.compendium__tabs button {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -180,7 +247,7 @@ button.on { background: var(--a); color: #10100c; }
   text-align: left;
 }
 
-.mutation-ledger__tabs button em {
+.compendium__tabs button em {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -194,30 +261,30 @@ button.on { background: var(--a); color: #10100c; }
   font-style: normal;
 }
 
-.mutation-ledger__tabs button.on {
+.compendium__tabs button.on {
   background: var(--a);
   color: #10100c;
   border-color: transparent;
 }
 
-.mutation-ledger__tabs button.on em {
+.compendium__tabs button.on em {
   background: rgba(16, 16, 12, 0.15);
   color: inherit;
 }
 
-.mutation-ledger__content {
+.compendium__content {
   display: flex;
   flex-direction: column;
   gap: var(--s3);
 }
 
-.mutation-ledger__stats {
+.compendium__stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: var(--s2);
 }
 
-.mutation-stat {
+.compendium-stat {
   display: flex;
   flex-direction: column;
   gap: var(--s1);
@@ -227,17 +294,17 @@ button.on { background: var(--a); color: #10100c; }
   padding: var(--s3);
 }
 
-.mutation-stat strong {
+.compendium-stat strong {
   font-size: clamp(1.4rem, 2vw, 2rem);
 }
 
-.mutation-grid {
+.compendium-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: var(--s3);
 }
 
-.mutation-card {
+.compendium-card {
   position: relative;
   background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
   border: 1px solid var(--hair);
@@ -252,7 +319,7 @@ button.on { background: var(--a); color: #10100c; }
   cursor: pointer;
 }
 
-.mutation-card::before {
+.compendium-card::before {
   content: "";
   position: absolute;
   inset: 0 auto auto 0;
@@ -261,36 +328,36 @@ button.on { background: var(--a); color: #10100c; }
   background: linear-gradient(90deg, var(--a), transparent 70%);
 }
 
-.mutation-card:hover {
+.compendium-card:hover {
   border-color: rgba(127, 199, 187, 0.5);
 }
 
-.mutation-card--selected {
+.compendium-card--selected {
   border-color: var(--a);
   box-shadow: inset 0 0 0 1px rgba(127, 199, 187, 0.45), 0 0 0 1px rgba(127, 199, 187, 0.15);
 }
 
-.mutation-card__top {
+.compendium-card__top {
   display: flex;
   justify-content: space-between;
   gap: var(--s2);
   align-items: flex-start;
 }
 
-.mutation-card__eyebrow {
+.compendium-card__eyebrow {
   font-size: var(--t-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--faint);
 }
 
-.mutation-card h3 {
+.compendium-card h3 {
   font-size: 1.15rem;
   margin-top: var(--s1);
 }
 
-.mutation-card__tag,
-.mutation-detail__tag {
+.compendium-card__tag,
+.compendium-detail__tag {
   display: inline-flex;
   align-items: center;
   padding: var(--s1) var(--s2);
@@ -304,14 +371,14 @@ button.on { background: var(--a); color: #10100c; }
   white-space: nowrap;
 }
 
-.mutation-card__blurb,
-.mutation-detail__blurb {
+.compendium-card__blurb,
+.compendium-detail__blurb {
   margin: 0;
   color: var(--dim);
   font-style: italic;
 }
 
-.mutation-card__meta {
+.compendium-card__meta {
   display: flex;
   align-items: center;
   gap: var(--s2);
@@ -329,33 +396,33 @@ button.on { background: var(--a); color: #10100c; }
   background: var(--gold);
 }
 
-.mutation-card__effect {
+.compendium-card__effect {
   margin: 0;
   line-height: 1.5;
 }
 
-.mutation-card__effect--secondary {
+.compendium-card__effect--secondary {
   color: var(--dim);
 }
 
-.mutation-detail {
+.compendium-detail {
   display: flex;
   flex-direction: column;
   gap: var(--s3);
 }
 
-.mutation-detail__header {
+.compendium-detail__header {
   display: flex;
   justify-content: space-between;
   gap: var(--s2);
   align-items: center;
 }
 
-.mutation-detail h3 {
+.compendium-detail h3 {
   font-size: 1.6rem;
 }
 
-.mutation-detail__stat-block {
+.compendium-detail__stat-block {
   display: grid;
   gap: var(--s2);
   background: var(--surface-2);
@@ -364,23 +431,23 @@ button.on { background: var(--a); color: #10100c; }
   padding: var(--s3);
 }
 
-.mutation-detail__stat-block strong {
+.compendium-detail__stat-block strong {
   display: block;
   margin-top: var(--s1);
   line-height: 1.5;
 }
 
-.mutation-detail__rule {
+.compendium-detail__rule {
   border-top: 1px solid var(--hair);
   padding-top: var(--s3);
 }
 
-.mutation-detail__rule p {
+.compendium-detail__rule p {
   margin: var(--s2) 0 0;
   color: var(--dim);
 }
 
-.mutation-empty {
+.compendium-empty {
   border: 1px dashed var(--hair);
   border-radius: var(--radius);
   padding: var(--s3);
@@ -1003,7 +1070,7 @@ tr.collapsing td:first-child { color: var(--danger); }
 }
 
 @media (min-width: 1100px) {
-  .mutation-ledger__body { grid-template-columns: 220px minmax(0, 1fr) 300px; }
+  .compendium__body { grid-template-columns: 220px minmax(0, 1fr) 300px; }
   .camp-body { flex-direction: row; align-items: flex-start; gap: var(--s4); }
   .camp-col { flex: 1; }
   /* Panel moves from a bottom drawer to a proper side dock. */
