@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import CrossroadsScreen from './camp/CrossroadsScreen'
 import EventScreen from './camp/EventScreen'
 import GrowthScreen from './camp/GrowthScreen'
 import Hub from './camp/Hub'
@@ -43,7 +44,13 @@ export default function Camp(props: CampProps) {
   /*
    * Takeovers pre-empt everything, in the order the run produced them. There
    * is no navigation while one is up — that is the whole point of the shape.
+   * The crossroads comes first: it has to resolve into a real event before
+   * EventScreen has anything to show.
    */
+  if (run.campOptions.length > 0) {
+    return <CrossroadsScreen options={run.campOptions} onChoose={props.onChooseCampOption} />
+  }
+
   if (run.event) {
     return (
       <EventScreen

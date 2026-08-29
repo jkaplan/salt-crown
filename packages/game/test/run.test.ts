@@ -35,10 +35,13 @@ import {
   prospectCost,
   appraise,
   resolveEvent,
-  rollEvent,
+  chooseCampOption,
+  rollCampOptions,
+  rollCampEvent,
   EVENTS,
   CARAVAN,
   MARKET_CHANCE,
+  RECRUITMENT_CHANCE,
   MORALE_MIN,
   MORALE_MAX,
   DISCIPLINE,
@@ -1091,9 +1094,16 @@ describe('reserve and market', () => {
 })
 
 describe('events and morale', () => {
-  const withEvent = (event: import('@salt/game').GameEvent): RunState => {
+  // Category never affects resolveEvent's behaviour, so tests that only care
+  // about a choice's effects default to 'flavor' rather than naming it every
+  // time.
+  const withEvent = (
+    event: Omit<import('@salt/game').GameEvent, 'category'> & {
+      category?: import('@salt/game').EventCategory
+    },
+  ): RunState => {
     const base = start()
-    return { ...base, event, seenEvents: [] }
+    return { ...base, event: { category: 'flavor', ...event }, seenEvents: [] }
   }
 
   it('applies both salvage and morale from the chosen branch', () => {
@@ -1132,7 +1142,10 @@ describe('events and morale', () => {
     run = resolveEvent(run, 0)
     expect(run.warband.morale).toBe(MORALE_MAX)
 
-    run = { ...run, event: { id: 'b', title: 't', body: 'b', choices: [{ label: 'a', detail: 'd', morale: -5 }] } }
+    run = {
+      ...run,
+      event: { id: 'b', category: 'flavor', title: 't', body: 'b', choices: [{ label: 'a', detail: 'd', morale: -5 }] },
+    }
     expect(resolveEvent(run, 0).warband.morale).toBe(MORALE_MIN)
   })
 
@@ -1185,46 +1198,52 @@ describe('events and morale', () => {
     expect(after.warband.officers.length).toBe(before + 1)
   })
 
-  it('never repeats a table event within a run, aside from the repeatable caravan', () => {
+  it('never repeats a table event within a run, in either category', () => {
     const rng = new Rng(hashSeed('events'))
     const seen: string[] = []
     const all = new Set<'machine'>(['machine'])
-    const drawn = new Set<string>()
-    // The caravan can come up any number of times in between, so this has to
-    // keep drawing until every table entry has actually turned up rather
-    // than assuming one draw per entry.
-    for (let guard = 0; guard < 2000 && drawn.size < EVENTS.length; guard++) {
-      const e = rollEvent(rng, seen, all)
-      expect(e).not.toBeNull()
-      if (e!.id === CARAVAN.id) continue
-      expect(seen).not.toContain(e!.id)
-      seen.push(e!.id)
-      drawn.add(e!.id)
+    const table = EVENTS.filter((e) => e.category !== 'market')
+
+    // Draw every category down to exhaustion, same rng throughout — a real
+    // run would interleave categories, but exhaustion only cares that no id
+    // ever comes back twice regardless of which category it came from.
+    for (const category of ['recruitment', 'flavor'] as const) {
+      const inCategory = EVENTS.filter((e) => e.category === category).length
+      for (let i = 0; i < inCategory; i++) {
+        const e = rollCampEvent(rng, seen, all, category)
+        expect(e).not.toBeNull()
+        expect(seen).not.toContain(e!.id)
+        seen.push(e!.id)
+      }
+      // Exhausted — nothing left to draw from this category.
+      expect(rollCampEvent(rng, seen, all, category)).toBeNull()
     }
-    expect(drawn.size).toBe(EVENTS.length)
-    // Table exhausted — a run stops getting NEW events; only the caravan (or
-    // nothing) comes back from here.
-    for (let guard = 0; guard < 100; guard++) {
-      const e = rollEvent(rng, seen, all)
-      expect(e === null || e!.id === CARAVAN.id).toBe(true)
-    }
+    expect(seen.length).toBe(table.length)
+
+    // The caravan is the one category that never exhausts.
+    expect(rollCampEvent(rng, seen, all, 'market')).toBe(CARAVAN)
   })
 
-  it('rolls the caravan roughly at MARKET_CHANCE, independent of the table', () => {
-    const rng = new Rng(hashSeed('caravan-rate'))
+  it('offers market and recruitment roughly at their own rates, independent of each other', () => {
+    const rng = new Rng(hashSeed('crossroads-rate'))
     const all = new Set<'machine'>(['machine'])
-    let caravans = 0
+    let markets = 0
+    let recruitments = 0
     const n = 20000
     for (let i = 0; i < n; i++) {
-      // Empty `seen` every draw — isolates the caravan's own odds from the
-      // table running dry, which is covered by the test above.
-      if (rollEvent(rng, [], all)!.id === CARAVAN.id) caravans++
+      // Empty `seen` every draw — isolates each rate from the table running
+      // dry, which is covered by the test above.
+      const options = rollCampOptions(rng, [], all)
+      if (options.some((o) => o.category === 'market')) markets++
+      if (options.some((o) => o.category === 'recruitment')) recruitments++
     }
-    expect(caravans / n).toBeGreaterThan(MARKET_CHANCE - 0.02)
-    expect(caravans / n).toBeLessThan(MARKET_CHANCE + 0.02)
+    expect(markets / n).toBeGreaterThan(MARKET_CHANCE - 0.02)
+    expect(markets / n).toBeLessThan(MARKET_CHANCE + 0.02)
+    expect(recruitments / n).toBeGreaterThan(RECRUITMENT_CHANCE - 0.02)
+    expect(recruitments / n).toBeLessThan(RECRUITMENT_CHANCE + 0.02)
   })
 
-  it('never offers an event the warband cannot act on', () => {
+  it('never offers a flavor event the warband cannot act on', () => {
     // The Tinkerer turning up for a warband with no machine reads as a bug,
     // not as flavour.
     const gated = EVENTS.filter((e) => e.needs)
@@ -1233,9 +1252,25 @@ describe('events and morale', () => {
     const rng = new Rng(hashSeed('gate'))
     const none = new Set<'machine'>()
     for (let i = 0; i < 200; i++) {
-      const e = rollEvent(rng, [], none)
+      const e = rollCampEvent(rng, [], none, 'flavor')
       expect(e!.needs).toBeUndefined()
     }
+  })
+
+  it('rolls the crossroads at advance, and resolves whichever category is chosen', () => {
+    const rng = new Rng(hashSeed('crossroads-choose'))
+    const run = { ...start(), campOptions: rollCampOptions(rng, [], new Set()), rng }
+    for (const option of run.campOptions) {
+      const chosen = chooseCampOption(run, option.category)
+      expect(chosen.campOptions).toEqual([])
+      expect(chosen.event).not.toBeNull()
+      expect(chosen.event!.category).toBe(option.category)
+    }
+  })
+
+  it('ignores a category that was not actually offered', () => {
+    const run = { ...start(), campOptions: [{ category: 'market' as const, hint: 'x' }] }
+    expect(chooseCampOption(run, 'recruitment')).toBe(run)
   })
 
   it('feeds morale into every squad’s discipline', () => {
@@ -2197,7 +2232,7 @@ describe('run structure', () => {
   })
 
   it('never repeats a legendary within a run', () => {
-    // Same shape as events (rollEvent) and the same reason: meeting "the"
+    // Same shape as events (rollCampEvent) and the same reason: meeting "the"
     // Widowsalt twice undoes the entire word.
     const rng = new Rng(hashSeed('legendary-repeat'))
     const seenLegendaries: number[] = []

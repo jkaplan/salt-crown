@@ -40,6 +40,7 @@ import {
 } from '@salt/game'
 import InjuryIcon from '../../components/InjuryIcon'
 import type {
+  EventCategory,
   GrowthOffer,
   Officer,
   Offer,
@@ -80,6 +81,7 @@ export interface CampProps {
   onBuy: (offerId: string) => void
   onAssign: (squadId: string, leader: SquadLeader | null) => void
   onChooseMutation: (prospectId: string, choiceIndex: number) => void
+  onChooseCampOption: (category: EventCategory) => void
   onResolveEvent: (choiceIndex: number) => void
   onAppraise: (prospectId: string) => void
   onTreatWound: (prospectId: string) => void

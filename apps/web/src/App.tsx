@@ -6,6 +6,7 @@ import {
   buy,
   appraise,
   setFielded,
+  chooseCampOption,
   resolveEvent,
   sellProspect,
   sendExpedition,
@@ -187,6 +188,7 @@ export default function App() {
                   onBuy={(id) => setRun(buy(run, id))}
                   onAssign={(sq, leader) => setRun(assignLeader(run, sq, leader))}
                   onChooseMutation={(pid, i) => setRun(chooseMutation(run, pid, i))}
+                  onChooseCampOption={(category) => setRun(chooseCampOption(run, category))}
                   onResolveEvent={(i) => setRun(resolveEvent(run, i))}
                   onAppraise={(pid) => setRun(appraise(run, pid))}
                   onTreatWound={(pid) => setRun(treatWound(run, pid))}

@@ -87,13 +87,15 @@ export {
   EVENTS,
   CARAVAN,
   MARKET_CHANCE,
+  RECRUITMENT_CHANCE,
   MORALE_MIN,
   MORALE_MAX,
   clampMorale,
   moraleWord,
-  rollEvent,
+  rollCampOptions,
+  rollCampEvent,
 } from './events.js'
-export type { GameEvent, EventChoice } from './events.js'
+export type { GameEvent, EventChoice, EventCategory, CampOption } from './events.js'
 export {
   WATER_PER_BODY,
   ROSTER_SCALE_DIVISOR,
@@ -170,6 +172,7 @@ export {
   chooseMutation,
   appraise,
   setFielded,
+  chooseCampOption,
   resolveEvent,
   sellProspect,
   treatWound,

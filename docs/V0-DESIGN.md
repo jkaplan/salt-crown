@@ -968,3 +968,48 @@ eventually (more encounters), which would raise the total number of
 recruitment opportunities per run even at the same per-camp odds — a
 reason to leave `MARKET_CHANCE` alone if that's revisited later rather
 than a reason to change it now.
+
+### A crossroads: the rumor, not the roll ✅ built
+
+Raised directly, same session, alongside researching what Guildrun (a
+well-reviewed genre peer, ex-Hearthstone/Bazaar designers) does with its
+own between-fight structure: *"I'd like to talk about a map system.
+Something like FTL or Slay the Spire."* Guildrun's own "map" turned out to
+be smaller than its marketing suggests — a fixed linear sequence of
+floors, with a "crossroads" step at most of them offering 2-3 named
+options (event / challenge fight / guild banner / campfire) rather than a
+multi-floor lookahead graph. That's the shape adopted here, over a real
+Slay-the-Spire branching node map: it delivers the actual FTL/StS feel —
+a moment of player-read agency between fights — without the much larger
+rework a visible multi-camp graph would have needed, and without pulling
+run structure toward the kind of scope CLAUDE.md already flags as the
+main risk.
+
+The single silent `rollEvent` draw (built for the recruitment-cadence
+feature directly above) became a two-step crossroads instead: `advance()`
+now rolls 1-3 `CampOption`s — a fixed hint per category ("wagon tracks in
+the salt," "voices on the wind," "something's wrong, and it isn't out on
+the horizon" for market/recruitment/flavor respectively), never the
+specific event — and a new takeover screen
+(`apps/web/src/screens/camp/CrossroadsScreen.tsx`) lets the player pick
+one before it resolves into a real `GameEvent` via `chooseCampOption`.
+Nothing about `resolveEvent` or the grant machinery from the recruitment
+feature changed — the crossroads only decides WHICH event gets rolled, a
+clean seam between "what kind of thing is this" and "what does the thing
+actually do." Hints are fixed per category rather than per specific event
+on purpose, so a player can learn to read "dust on the horizon" as
+"probably the market" over a run, the same way scouting's armour words
+become legible with repetition, without the game ever naming which of
+the four recruitment events or nine flavour events is actually behind it.
+
+Recruitment needed a second constant, `RECRUITMENT_CHANCE`, because
+exposing the choice explicitly changed its own economics: recruitment
+events used to have to win a roughly 1-in-13 draw against the flavour
+table whenever the caravan didn't fire; now they get their own
+independent roll, which measurably made recruitment MORE available at
+the same nominal MARKET_CHANCE. Measured (300 runs, Scion, MARKET_CHANCE
+0.5 held fixed): RECRUITMENT_CHANCE 0.5 → 9.7%/8.7% (greedy/thrifty),
+0.3 → 7.3%/7.0%. Landed at **0.3** — within noise of the 6.7%/7.3% the
+recruitment-cadence feature had already shipped at, so the UI change
+doesn't quietly re-inflate difficulty that was already agreed and
+measured once.

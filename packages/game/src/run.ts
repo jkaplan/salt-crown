@@ -22,7 +22,8 @@ import {
 import type { MutationRoll } from './mutations.js'
 import type { Prospect } from './prospects.js'
 import type { Machine } from './machines.js'
-import { clampMorale, rollEvent } from './events.js'
+import { clampMorale, rollCampEvent, rollCampOptions } from './events.js'
+import type { CampOption, EventCategory } from './events.js'
 import { MORALE_PER_DESERTER, payWater } from './water.js'
 import { BIONICS, BIONICS_BY_ID, BIONIC_SLOTS } from './bionics.js'
 import { RELICS, RELICS_BY_ID } from './relics.js'
@@ -124,6 +125,12 @@ export interface RunState {
   growth: GrowthOffer[]
   /** Prospects promoted to Firstborn since the last camp. Announced, then cleared. */
   promoted: string[]
+  /**
+   * The crossroads: 1-3 rumors of what the next stop might be, none of them
+   * naming it outright. Blocks the march the same way `event` does, and
+   * resolves into one via `chooseCampOption` — never both set at once.
+   */
+  campOptions: CampOption[]
   /** The camp's pending event. Blocks the march — a skippable choice is not one. */
   event: GameEvent | null
   /** Events already fired, so a run never repeats one. */
@@ -170,6 +177,7 @@ export function newRun(seedText: string, choice: StartChoice = { origin: 'scion'
     report: null,
     growth: [],
     promoted: [],
+    campOptions: [],
     event: null,
     seenEvents: [],
     seenLegendaries: legendaryId === null ? [] : [legendaryId],
@@ -361,6 +369,19 @@ export function sellProspect(state: RunState, prospectId: string): RunState {
       ),
     },
   }
+}
+
+/**
+ * Answer the crossroads: pick which rumor to follow. Rolls the real event
+ * fresh, right now — nothing was decided when the rumor was only a hint, so
+ * this is the first moment the RNG has any opinion about which of the
+ * category's events it actually is.
+ */
+export function chooseCampOption(state: RunState, category: EventCategory): RunState {
+  if (!state.campOptions.some((o) => o.category === category)) return state
+  const has = new Set<'machine'>(state.warband.machines.length > 0 ? (['machine'] as const) : [])
+  const event = rollCampEvent(state.rng, state.seenEvents, has, category)
+  return { ...state, campOptions: [], event }
 }
 
 /**
@@ -1105,11 +1126,14 @@ export function advance(state: RunState): RunState {
     promoted: [],
     // The gate is read from the warband AFTER the crew comes home, so a
     // machine that walked out of a ruin this camp can be worked on this camp.
-    event: rollEvent(
+    // Only the rumors are rolled here — the real event waits for the player
+    // to pick one, in chooseCampOption below.
+    campOptions: rollCampOptions(
       state.rng,
       state.seenEvents,
       new Set(home.warband.machines.length > 0 ? (['machine'] as const) : []),
     ),
+    event: null,
     // The report has already said what the last march cost. Carrying it into
     // the next camp would put a stale number next to the live one.
     lastUpkeep: null,

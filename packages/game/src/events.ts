@@ -52,11 +52,21 @@ export interface EventChoice {
 /** An event that only makes sense when the warband has something to act on. */
 export type EventGate = 'machine'
 
+/**
+ * What kind of stop this is, before the player has any idea which specific
+ * event it turns out to be — the crossroads screen offers a choice of
+ * category, never the event itself directly. 'market' has exactly one
+ * member, CARAVAN; 'recruitment' and 'flavor' each draw from a pool.
+ */
+export type EventCategory = 'market' | 'recruitment' | 'flavor'
+
 export interface GameEvent {
   id: string
   title: string
   body: string
   choices: EventChoice[]
+  /** Which crossroads bucket this is drawn from. See `EventCategory`. */
+  category: EventCategory
   /**
    * Only offered when the warband has one of these. Without it the Tinkerer
    * would turn up for a warband with no machine and read as a bug.
@@ -119,6 +129,7 @@ export const MARKET_CHANCE = 0.5
  */
 export const CARAVAN: GameEvent = {
   id: 'caravan',
+  category: 'market',
   title: 'A column comes up out of the haze',
   body:
     'Wagons, water barrels lashed down, outriders keeping their distance until you signal. Not a raiding line. Traders, or something close enough to it out here.',
@@ -153,6 +164,7 @@ export const CARAVAN: GameEvent = {
 export const EVENTS: readonly GameEvent[] = [
   {
     id: 'house-buyer',
+    category: 'flavor',
     title: 'A House factor makes an offer',
     body:
       'He has a ledger, a clean coat, and a standing order for graded stock. He does not ask which of them you have been feeding.',
@@ -172,6 +184,7 @@ export const EVENTS: readonly GameEvent[] = [
   },
   {
     id: 'water-short',
+    category: 'flavor',
     title: 'The cistern is lower than it should be',
     body:
       'Either somebody has been drinking their fill or the seals have gone. Both answers cost you.',
@@ -192,6 +205,7 @@ export const EVENTS: readonly GameEvent[] = [
   },
   {
     id: 'the-hanging',
+    category: 'flavor',
     title: 'One of them killed another over food',
     body: 'Nobody disputes what happened. They are waiting to see what you do about it.',
     choices: [
@@ -215,6 +229,7 @@ export const EVENTS: readonly GameEvent[] = [
   },
   {
     id: 'assayer-favour',
+    category: 'flavor',
     title: 'An Assayer wants passage',
     body:
       'She has a case of callipers and no escort, and the next stretch is not walkable alone. She can pay in the only currency she has.',
@@ -238,6 +253,7 @@ export const EVENTS: readonly GameEvent[] = [
   },
   {
     id: 'deserters',
+    category: 'flavor',
     title: 'Three of them are gone by morning',
     body: 'They took water and left the pens open behind them. Their tracks go south, away from the fighting.',
     choices: [
@@ -256,6 +272,7 @@ export const EVENTS: readonly GameEvent[] = [
   },
   {
     id: 'salt-cache',
+    category: 'flavor',
     title: 'A cache under a fallen span',
     body:
       'Sealed, dry, and forgotten. Getting into it means putting bodies under something that has already come down once.',
@@ -275,6 +292,7 @@ export const EVENTS: readonly GameEvent[] = [
   },
   {
     id: 'the-noise',
+    category: 'flavor',
     title: 'Something moved under the flats last night',
     body:
       'Not an animal. The sound came up through the salt for most of an hour and then stopped. Two of them will not go back to sleep.',
@@ -293,6 +311,7 @@ export const EVENTS: readonly GameEvent[] = [
   },
   {
     id: 'firstborn-question',
+    category: 'flavor',
     title: 'They want to know what happens to the ones who last',
     body:
       'It is not really a question about policy. Somebody in the pens has started counting their own battles.',
@@ -311,6 +330,7 @@ export const EVENTS: readonly GameEvent[] = [
   },
   {
     id: 'the-tinkerer',
+    category: 'flavor',
     title: 'Someone at the edge of the firelight wants to look at it',
     body:
       'No House marks, no lineage anybody recognises, and a roll of tools that should not still exist. They have been watching the machine walk since midday and they have opinions about the noise it is making.',
@@ -337,6 +357,7 @@ export const EVENTS: readonly GameEvent[] = [
   },
   {
     id: 'slavers-coffle',
+    category: 'recruitment',
     title: 'A coffle, chained wrist to wrist',
     body:
       'The trader running them is not proud of the work and not ashamed of it either. He wants this off his hands more than he wants the fair price for it.',
@@ -365,6 +386,7 @@ export const EVENTS: readonly GameEvent[] = [
   },
   {
     id: 'wanderers',
+    category: 'recruitment',
     title: 'A splinter band asks to fall in behind you',
     body:
       "What's left of somebody else's warband — no banner, no officer, just people who decided marching with you beats marching alone.",
@@ -384,6 +406,7 @@ export const EVENTS: readonly GameEvent[] = [
   },
   {
     id: 'house-recruiter',
+    category: 'recruitment',
     title: 'A House agent is recruiting, and willing to talk to you',
     body:
       'He has papers, a standing commission, and no particular loyalty beyond whoever is paying this season.',
@@ -404,6 +427,7 @@ export const EVENTS: readonly GameEvent[] = [
   },
   {
     id: 'deserting-garrison',
+    category: 'recruitment',
     title: 'A garrison walks off its own post',
     body:
       "Whatever House they served stopped paying them somewhere back down the line. Two squads' worth, still armed, asking who is in charge here.",
@@ -428,14 +452,84 @@ export const EVENTS: readonly GameEvent[] = [
   },
 ]
 
+const RECRUITMENT_EVENTS = EVENTS.filter((e) => e.category === 'recruitment')
+const FLAVOR_EVENTS = EVENTS.filter((e) => e.category === 'flavor')
+
 /**
- * One event for the camp, weighted toward the caravan first — see
- * `MARKET_CHANCE` — and otherwise never the same table entry twice in a run,
- * and never an impossible one.
+ * Chance, when at least one recruitment event remains unseen, that it's
+ * offered as a crossroads option at all. Needed its own measurement:
+ * turning the old single silent `rollEvent` draw into an explicit crossroads
+ * choice meant recruitment stopped having to compete with the nine flavour
+ * events for the one slot, and started getting its own independent roll —
+ * which measurably made it MORE available at the same nominal number.
+ * `npm run sim:campaign`, 300 runs, Scion, at MARKET_CHANCE 0.5:
+ *
+ *   RECRUITMENT_CHANCE   greedy   thrifty
+ *   0.5                   9.7%     8.7%
+ *   0.3                   7.3%     7.0%
+ *
+ * Landed at 0.3 — it lands within noise of the MARKET_CHANCE-only numbers
+ * the recruitment-cadence feature originally shipped at (6.7%/7.3%), so the
+ * crossroads UI change doesn't quietly re-inflate the difficulty that was
+ * already agreed.
  */
-export function rollEvent(rng: Rng, seen: string[], has: Set<EventGate>): GameEvent | null {
-  if (rng.float() < MARKET_CHANCE) return CARAVAN
-  const pool = EVENTS.filter((e) => !seen.includes(e.id) && (!e.needs || has.has(e.needs)))
+export const RECRUITMENT_CHANCE = 0.3
+
+/** A rumor of what the next stop might be — not the stop itself. */
+export interface CampOption {
+  category: EventCategory
+  hint: string
+}
+
+/**
+ * Fixed per category, not per specific event — so a player can learn to
+ * read "dust on the horizon" as "probably the market" over a run, the same
+ * way scouting's armour words become legible with repetition, without ever
+ * spelling out which of the four recruitment events or nine flavour events
+ * is actually waiting on the other side of the choice.
+ */
+const CATEGORY_HINTS: Record<EventCategory, string> = {
+  market: "Wagon tracks in the salt, and they're fresh.",
+  recruitment: 'Voices on the wind — more of them than your own column makes.',
+  flavor: "Something's wrong, and it isn't out on the horizon.",
+}
+
+/**
+ * The crossroads: 1-3 rumors, rolled fresh every camp, none of them naming
+ * what's actually behind it. Replaces the old single silent `rollEvent`
+ * draw — the player picks the category; `rollCampEvent` below resolves
+ * whichever one they chose into a real event, at the moment they choose it.
+ */
+export function rollCampOptions(rng: Rng, seen: string[], has: Set<EventGate>): CampOption[] {
+  const options: CampOption[] = []
+  if (rng.float() < MARKET_CHANCE) options.push({ category: 'market', hint: CATEGORY_HINTS.market })
+
+  const recruitable = RECRUITMENT_EVENTS.some((e) => !seen.includes(e.id))
+  if (recruitable && rng.float() < RECRUITMENT_CHANCE) {
+    options.push({ category: 'recruitment', hint: CATEGORY_HINTS.recruitment })
+  }
+
+  const tellable = FLAVOR_EVENTS.some((e) => !seen.includes(e.id) && (!e.needs || has.has(e.needs)))
+  if (tellable) options.push({ category: 'flavor', hint: CATEGORY_HINTS.flavor })
+
+  return options
+}
+
+/**
+ * Resolve a chosen category into its real event. Market has exactly one
+ * member; recruitment and flavor draw uniformly from whatever in that
+ * table is still unseen and ungated — never the same entry twice in a run.
+ */
+export function rollCampEvent(
+  rng: Rng,
+  seen: string[],
+  has: Set<EventGate>,
+  category: EventCategory,
+): GameEvent | null {
+  if (category === 'market') return CARAVAN
+  const pool = (category === 'recruitment' ? RECRUITMENT_EVENTS : FLAVOR_EVENTS).filter(
+    (e) => !seen.includes(e.id) && (!e.needs || has.has(e.needs)),
+  )
   if (pool.length === 0) return null
   return pool[rng.int(pool.length)]
 }

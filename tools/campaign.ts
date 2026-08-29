@@ -71,6 +71,7 @@ import {
   assignRelic,
   RELICS_BY_ID,
   resolveEvent,
+  chooseCampOption,
 } from '@salt/game'
 import type { Offer, RunState } from '@salt/game'
 
@@ -91,6 +92,20 @@ function arg(name: string, fallback: number): number {
 
 function pad(s: string | number, w: number): string {
   return String(s).padStart(w)
+}
+
+/**
+ * Answer the crossroads the way a greedy player would: always chase market
+ * over recruitment over flavour, whichever categories actually came up. A
+ * real player might skip market for a flavour event they want more, but the
+ * bot exists to measure whether recruitment access gets used, not to play
+ * preference.
+ */
+function chooseCrossroads(state: RunState): RunState {
+  if (state.campOptions.length === 0) return state
+  const order = ['market', 'recruitment', 'flavor'] as const
+  const pick = order.find((c) => state.campOptions.some((o) => o.category === c))
+  return chooseCampOption(state, pick ?? state.campOptions[0].category)
 }
 
 /**
@@ -304,6 +319,7 @@ function playRun(
 
   while (state.phase !== 'over') {
     if (state.phase === 'camp') {
+      state = chooseCrossroads(state)
       state = answerEvent(state)
       peakFirstborn = Math.max(peakFirstborn, state.warband.prospects.filter(isFirstborn).length)
       peakProspects = Math.max(peakProspects, state.warband.prospects.length)
