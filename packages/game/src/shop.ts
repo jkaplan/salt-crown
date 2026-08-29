@@ -35,22 +35,29 @@ export interface OfficerOffer {
 
 export type Offer = SquadOffer | OfficerOffer
 
-function newId(rng: Rng, prefix: string): string {
+export function newId(rng: Rng, prefix: string): string {
   return `${prefix}${rng.next().toString(36)}`
 }
 
-function rollSquadOffer(rng: Rng, encounterIndex: number, truekinPremium: number): SquadOffer {
-  // True Kin get commoner later, when you can actually afford them.
-  const truekinChance = 0.2 + encounterIndex * 0.05
-  const isTrueKin = rng.float() < truekinChance
-  const pool = isTrueKin ? TRUEKIN_TYPES : MUTANT_TYPES
-  const type = pool[rng.int(pool.length)]
-
-  const count = isTrueKin ? 4 + rng.int(7) : 10 + rng.int(13)
+/**
+ * Roll one batch of bodies from a given pool — the recruit lottery itself,
+ * with no price attached. `rollSquadOffer` below wraps this with a cost for
+ * the standing market; an event that hands a batch over directly (a coffle,
+ * a splinter band falling in behind you) calls this the same way and prices
+ * it however the event's own copy says to, if it charges for it at all.
+ */
+export function rollSquadBatch(
+  rng: Rng,
+  encounterIndex: number,
+  pool: 'mutant' | 'truekin',
+): { typeId: number; count: number; prospects: Prospect[] } {
+  const types = pool === 'truekin' ? TRUEKIN_TYPES : MUTANT_TYPES
+  const type = types[rng.int(types.length)]
+  const count = pool === 'truekin' ? 4 + rng.int(7) : 10 + rng.int(13)
 
   // Roughly one standout per dozen bodies, sometimes two, sometimes none.
   const prospects: Prospect[] = []
-  if (!isTrueKin) {
+  if (pool === 'mutant') {
     const howMany = rng.float() < 0.18 ? 0 : rng.float() < 0.3 ? 2 : 1
     for (let i = 0; i < howMany; i++) {
       const p = rollProspect(rng, type.id, encounterIndex)
@@ -61,9 +68,23 @@ function rollSquadOffer(rng: Rng, encounterIndex: number, truekinPremium: number
     }
   }
 
-  let cost = squadCost(type.id, count)
+  return { typeId: type.id, count, prospects }
+}
+
+function rollSquadOffer(rng: Rng, encounterIndex: number, truekinPremium: number): SquadOffer {
+  // True Kin get commoner later, when you can actually afford them.
+  const truekinChance = 0.2 + encounterIndex * 0.05
+  const isTrueKin = rng.float() < truekinChance
+  const { typeId, count, prospects } = rollSquadBatch(
+    rng,
+    encounterIndex,
+    isTrueKin ? 'truekin' : 'mutant',
+  )
+
+  let cost = squadCost(typeId, count)
   // A standout is priced on what it can become, not just what it is.
-  for (const p of prospects) cost += prospectCost(p, type.cost)
+  const baseCost = (isTrueKin ? TRUEKIN_TYPES : MUTANT_TYPES).find((t) => t.id === typeId)!.cost
+  for (const p of prospects) cost += prospectCost(p, baseCost)
   /*
    * True Kin will not readily serve under a mutant, and price accordingly.
    *
@@ -78,7 +99,7 @@ function rollSquadOffer(rng: Rng, encounterIndex: number, truekinPremium: number
   return {
     kind: 'squad',
     id: newId(rng, 'o'),
-    typeId: type.id,
+    typeId,
     count,
     prospects,
     cost: Math.round(cost),

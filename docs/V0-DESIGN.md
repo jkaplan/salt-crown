@@ -891,3 +891,80 @@ resource, a second UI element, and a retune of upkeep/desertion/event
 costs that currently all assume one pool. Explicitly held off on building
 that split for now — the connection is understood and this stays here as
 the record of it, not carried forward as open work.
+
+### A field reference, locked until you've seen it ✅ built
+
+Not from the original wishlist — raised fresh mid-session: *"I think this
+needs a help menu of some kind that has a few different tabs. Glossary,
+factions, and squads with stats and description about them... they would
+all show up as locked or a '?' until you unlock them. That should persist
+between runs."*
+
+Built as the Compendium (`apps/web/src/screens/Compendium.tsx`), replacing
+the old standalone Mutation Ledger screen: six tabs (Mutations, Squads,
+Relics, Bionics, Factions, Glossary), five of them lock-gated behind
+`UnlockSets` derived from whatever a run has actually put in front of the
+player — recruited, carried, found, bound, or met by name — never from
+what was merely offered. Glossary stays always-visible; it's the rulebook,
+not a discovery. Bosses, legendaries and fauna are deliberately excluded
+from every tab, on purpose — the fiction spends real effort on "you never
+see it coming," and a spoiler tab would undercut the one thing that
+design is for.
+
+Persistence needed its own decision: **IndexedDB, local-only, no
+backend, no cross-device sync** — `apps/web/src/persistence/db.ts`, a
+hand-rolled dozen-line key-value wrapper rather than a new dependency.
+Chosen over `localStorage` specifically because more things are coming
+that want the same treatment (run scores were named directly), and
+IndexedDB doesn't have localStorage's ~5MB ceiling or one-string-blob
+shape. Chosen over a real backend because nothing else in the stack needs
+one yet and cross-device was explicitly not a current goal — revisit only
+if that changes. A durable dev override (`unlockAll`, a checkbox in the
+Compendium's own header) sits in the same store, for seeing everything
+without having to earn it in play.
+
+### Recruitment should feel like an event, not a standing shop ✅ built
+
+*"I think recruitment should not happen between each fight. Feels like it
+should happen less often. I want the event system to feel more like FTL.
+Where maybe there are slaver events or random recruitment events or
+whatever but just randomly having them available I'm not so sure about."*
+
+The market — 4 squad offers and one officer, rerolled automatically —
+used to be a standing fixture at every camp, entirely independent of the
+event system next to it. It's now folded into that same system instead of
+sitting beside it. A repeatable "caravan" event (`events.ts`) competes
+with the existing one-time flavour events for each camp's single slot;
+trading with it reveals the same market as before, gone again the moment
+the next camp starts. Four new one-time recruitment events sit in the
+regular table alongside it — a Slavers' Coffle, Wanderers asking to join,
+a House Recruiter (an officer), and a Deserting Garrison, the last one
+built specifically to answer "could be one, could be a group" inside a
+single event: its own choice grants either two squads or one. All four
+hand bodies over directly through the choice (`grantSquads`/
+`grantOfficer`), no separate purchase step — the event already IS the
+decision to take them on.
+
+`MARKET_CHANCE` (the caravan's odds per camp) needed real measurement,
+not a guess — recruitment cadence turns out to have the same outsized
+leverage on completion that the enemy-budget tuning already documented in
+§6b warned about, because every recruit feeds the same square-law
+snowball. `npm run sim:campaign`, 300 runs, Scion, greedy/thrifty:
+
+| MARKET_CHANCE | greedy | thrifty |
+|---|---|---|
+| 1.0 (every camp — closest analogue to the old always-on market) | 20.7% | 21.7% |
+| 0.8 | 16.3% | 13.7% |
+| 0.65 | 12.3% | 14.7% |
+| 0.5 | 6.7% | 7.3% |
+| 0.3 | 3.0% | 1.3% |
+
+Close to linear. 0.3 reads as "scarce" in conversation but measures as
+"barely playable" — under 3% completion. Landed at **0.5**: real scarcity
+(half the camps, plus whichever one-time narrative events happen to turn
+up), without cutting completion to a third of where the always-on market
+left it. The player separately flagged wanting a longer, deeper run
+eventually (more encounters), which would raise the total number of
+recruitment opportunities per run even at the same per-camp odds — a
+reason to leave `MARKET_CHANCE` alone if that's revisited later rather
+than a reason to change it now.

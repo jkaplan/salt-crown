@@ -85,6 +85,8 @@ export {
 export type { Squad, SquadLeader, Warband, GroupSource } from './roster.js'
 export {
   EVENTS,
+  CARAVAN,
+  MARKET_CHANCE,
   MORALE_MIN,
   MORALE_MAX,
   clampMorale,
@@ -146,7 +148,7 @@ export { postmortem } from './postmortem.js'
 export type { Postmortem } from './postmortem.js'
 export { scoutEnemy, armorWord, mixWord } from './scouting.js'
 export type { ScoutingReport } from './scouting.js'
-export { rollOffers } from './shop.js'
+export { rollOffers, rollSquadBatch, newId } from './shop.js'
 export type { Offer, SquadOffer, OfficerOffer } from './shop.js'
 export {
   ENCOUNTERS_PER_RUN,

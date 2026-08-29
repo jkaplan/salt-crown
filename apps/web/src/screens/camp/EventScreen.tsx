@@ -60,6 +60,15 @@ export default function EventScreen({
                     </span>
                   ) : null}
                   {choice.restoreMachine ? <span className="held">restores a machine</span> : null}
+                  {choice.opensMarket ? <span className="held">opens the market</span> : null}
+                  {choice.grantSquads ? (
+                    <span className="held">
+                      {choice.grantSquads.count > 1
+                        ? `${choice.grantSquads.count} squads join`
+                        : 'a squad joins'}
+                    </span>
+                  ) : null}
+                  {choice.grantOfficer ? <span className="held">an officer joins</span> : null}
                   {blocked && <span className="dim">cannot afford</span>}
                 </span>
               </button>

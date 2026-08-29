@@ -37,6 +37,8 @@ import {
   resolveEvent,
   rollEvent,
   EVENTS,
+  CARAVAN,
+  MARKET_CHANCE,
   MORALE_MIN,
   MORALE_MAX,
   DISCIPLINE,
@@ -235,6 +237,14 @@ describe('rerolling', () => {
     expect(rerollOffers(run)).toBe(run)
   })
 
+  it('refuses to reroll a market that was never opened this camp', () => {
+    // No caravan fired, so there is nothing here to pay to reroll — paying
+    // anyway would be a back door around the whole point of gating the
+    // market behind an event.
+    const run = { ...start(), offers: [], warband: { ...start().warband, salvage: 5000 } }
+    expect(rerollOffers(run)).toBe(run)
+  })
+
   it('resets the count at the next camp', () => {
     const run = { ...start(), warband: { ...start().warband, salvage: 5000 } }
     const rerolled = rerollOffers(run)
@@ -251,6 +261,9 @@ describe('rerolling', () => {
     const resolved = resolveBattle(marched.state, results, TEAM_A, 100, marched.setup.playerSources)
     const next = advance(resolved)
     expect(next.rerollCount).toBe(0)
+    // The market does not carry itself into the next camp — it has to be
+    // opened again by that camp's own event, whatever it turns out to be.
+    expect(next.offers).toEqual([])
   })
 })
 
@@ -1123,18 +1136,92 @@ describe('events and morale', () => {
     expect(resolveEvent(run, 0).warband.morale).toBe(MORALE_MIN)
   })
 
-  it('never repeats an event within a run', () => {
+  it('reveals the market only when the chosen branch opens it', () => {
+    const run = {
+      ...withEvent({
+        id: 'caravan-test',
+        title: 't',
+        body: 'b',
+        choices: [
+          { label: 'trade', detail: 'd', opensMarket: true },
+          { label: 'pass', detail: 'd' },
+        ],
+      }),
+      offers: [],
+    }
+    const traded = resolveEvent(run, 0)
+    expect(traded.offers.length).toBeGreaterThan(0)
+
+    const passed = resolveEvent(run, 1)
+    expect(passed.offers).toEqual([])
+  })
+
+  it('hands over squads directly when a branch grants them, no purchase step', () => {
+    const run = withEvent({
+      id: 'grant-test',
+      title: 't',
+      body: 'b',
+      choices: [
+        { label: 'take', detail: 'd', grantSquads: { pool: 'mutant', count: 2 } },
+      ],
+    })
+    const before = run.warband.squads.length
+    const after = resolveEvent(run, 0)
+    expect(after.warband.squads.length).toBe(before + 2)
+    // Salvage untouched — the choice carried no `salvage` field, so it really
+    // is free, exactly as its own copy would have to say if it charged.
+    expect(after.warband.salvage).toBe(run.warband.salvage)
+  })
+
+  it('hands over an officer directly when a branch grants one', () => {
+    const run = withEvent({
+      id: 'officer-grant-test',
+      title: 't',
+      body: 'b',
+      choices: [{ label: 'take', detail: 'd', grantOfficer: true }],
+    })
+    const before = run.warband.officers.length
+    const after = resolveEvent(run, 0)
+    expect(after.warband.officers.length).toBe(before + 1)
+  })
+
+  it('never repeats a table event within a run, aside from the repeatable caravan', () => {
     const rng = new Rng(hashSeed('events'))
     const seen: string[] = []
     const all = new Set<'machine'>(['machine'])
-    for (let i = 0; i < EVENTS.length; i++) {
+    const drawn = new Set<string>()
+    // The caravan can come up any number of times in between, so this has to
+    // keep drawing until every table entry has actually turned up rather
+    // than assuming one draw per entry.
+    for (let guard = 0; guard < 2000 && drawn.size < EVENTS.length; guard++) {
       const e = rollEvent(rng, seen, all)
       expect(e).not.toBeNull()
+      if (e!.id === CARAVAN.id) continue
       expect(seen).not.toContain(e!.id)
       seen.push(e!.id)
+      drawn.add(e!.id)
     }
-    // Table exhausted — a run simply stops having events rather than looping.
-    expect(rollEvent(rng, seen, all)).toBeNull()
+    expect(drawn.size).toBe(EVENTS.length)
+    // Table exhausted — a run stops getting NEW events; only the caravan (or
+    // nothing) comes back from here.
+    for (let guard = 0; guard < 100; guard++) {
+      const e = rollEvent(rng, seen, all)
+      expect(e === null || e!.id === CARAVAN.id).toBe(true)
+    }
+  })
+
+  it('rolls the caravan roughly at MARKET_CHANCE, independent of the table', () => {
+    const rng = new Rng(hashSeed('caravan-rate'))
+    const all = new Set<'machine'>(['machine'])
+    let caravans = 0
+    const n = 20000
+    for (let i = 0; i < n; i++) {
+      // Empty `seen` every draw — isolates the caravan's own odds from the
+      // table running dry, which is covered by the test above.
+      if (rollEvent(rng, [], all)!.id === CARAVAN.id) caravans++
+    }
+    expect(caravans / n).toBeGreaterThan(MARKET_CHANCE - 0.02)
+    expect(caravans / n).toBeLessThan(MARKET_CHANCE + 0.02)
   })
 
   it('never offers an event the warband cannot act on', () => {

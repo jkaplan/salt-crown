@@ -70,6 +70,7 @@ import {
   scoutEnemy,
   assignRelic,
   RELICS_BY_ID,
+  resolveEvent,
 } from '@salt/game'
 import type { Offer, RunState } from '@salt/game'
 
@@ -90,6 +91,27 @@ function arg(name: string, fallback: number): number {
 
 function pad(s: string | number, w: number): string {
   return String(s).padStart(w)
+}
+
+/**
+ * Answer a pending camp event the way a greedy player would: take whichever
+ * choice opens the market or hands over recruits outright, if it can be
+ * afforded, else take the first choice at all. Real events also carry
+ * morale/salvage trades this ignores — the bot is here to measure whether
+ * recruitment opportunities exist and get used, not to play the flavour text
+ * well.
+ */
+function answerEvent(state: RunState): RunState {
+  if (!state.event) return state
+  const salvage = state.warband.salvage
+  const choices = state.event.choices
+  let pick = choices.findIndex(
+    (c) =>
+      (c.opensMarket || c.grantSquads || c.grantOfficer) &&
+      (c.requires === undefined || salvage >= c.requires),
+  )
+  if (pick === -1) pick = 0
+  return resolveEvent(state, pick)
 }
 
 /** Buy whatever gives the most power per salvage, until broke. */
@@ -282,6 +304,7 @@ function playRun(
 
   while (state.phase !== 'over') {
     if (state.phase === 'camp') {
+      state = answerEvent(state)
       peakFirstborn = Math.max(peakFirstborn, state.warband.prospects.filter(isFirstborn).length)
       peakProspects = Math.max(peakProspects, state.warband.prospects.length)
       const boundBefore = state.warband.squads.filter((sq) => sq.relicId).length

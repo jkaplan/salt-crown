@@ -2,8 +2,9 @@ import { BattleEventType, COLLAPSE_THRESHOLD, Rng, TEAM_A, TEAM_B, hashSeed } fr
 import type { BattleConfig, BattleEvent, GroupResult, SimGroup, Winner } from '@salt/sim'
 import { ENCOUNTERS_PER_RUN, encounterLegendaryId, generateEncounter } from './encounters.js'
 import type { Encounter } from './encounters.js'
-import { rollOffers } from './shop.js'
+import { newId, rollOffers, rollSquadBatch } from './shop.js'
 import type { Offer } from './shop.js'
+import { rollOfficer } from './officers.js'
 import { toSimGroups, totalBodies, unitType } from './roster.js'
 import type { GroupSource, SquadLeader, Warband } from './roster.js'
 import {
@@ -397,13 +398,55 @@ export function resolveEvent(state: RunState, choiceIndex: number): RunState {
     )
   }
 
+  /*
+   * A coffle, a splinter band, a garrison walking off its post — granted
+   * straight into the warband rather than turned into offers, because the
+   * event already IS the decision to take them on. Rolled from the same
+   * lottery the market uses (rollSquadBatch), so the odds of a batch
+   * carrying a Prospect are the odds a player already knows from shopping.
+   */
+  let squads = state.warband.squads
+  let prospects = state.warband.prospects
+  if (choice.grantSquads) {
+    for (let i = 0; i < choice.grantSquads.count; i++) {
+      const batch = rollSquadBatch(state.rng, state.encounterIndex, choice.grantSquads.pool)
+      squads = [
+        ...squads,
+        { id: newId(state.rng, 's'), typeId: batch.typeId, count: batch.count, leader: null },
+      ]
+      prospects = [...prospects, ...batch.prospects]
+    }
+  }
+
+  let officers = state.warband.officers
+  if (choice.grantOfficer) {
+    officers = [...officers, rollOfficer(state.rng, newId(state.rng, 'off'))]
+  }
+
+  /*
+   * The caravan's whole reason for existing: reveal this camp's market
+   * instead of leaving it empty. Any other event leaves `offers` exactly as
+   * it was — [] unless this camp's event already opened it.
+   */
+  const offers = choice.opensMarket
+    ? rollOffers(
+        state.rng,
+        state.encounterIndex,
+        ORIGINS_BY_ID.get(state.origin)?.truekinPremium ?? 1,
+      )
+    : state.offers
+
   return {
     ...state,
     event: null,
     seenEvents: [...state.seenEvents, state.event.id],
+    offers,
     warband: {
       ...state.warband,
       machines,
+      squads,
+      prospects,
+      officers,
       salvage: state.warband.salvage + (choice.salvage ?? 0),
       morale: clampMorale(state.warband.morale + (choice.morale ?? 0)),
     },
@@ -639,6 +682,11 @@ export function rerollCost(index: number, rerollCount: number): number {
 }
 
 export function rerollOffers(state: RunState): RunState {
+  // Nothing to reroll if no caravan opened this camp's market in the first
+  // place — otherwise this would be a back door to buying a market into
+  // existence for the price of one reroll, which defeats the entire point of
+  // gating it behind an event.
+  if (state.offers.length === 0) return state
   const cost = rerollCost(state.encounterIndex, state.rerollCount)
   if (state.warband.salvage < cost) return state
 
@@ -1044,7 +1092,10 @@ export function advance(state: RunState): RunState {
     ...home,
     phase: 'camp',
     encounterIndex: next,
-    offers: rollOffers(state.rng, next, ORIGINS_BY_ID.get(state.origin)?.truekinPremium ?? 1),
+    // Empty by default now — the market is something that has to happen to
+    // you (the caravan event, below) rather than a standing shop rerolled at
+    // every camp. See events.ts's MARKET_CHANCE.
+    offers: [],
     rerollCount: 0,
     encounter,
     seenLegendaries:
