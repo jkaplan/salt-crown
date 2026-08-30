@@ -48,7 +48,9 @@ export const ORIGINS: readonly Origin[] = [
     id: 'scion',
     name: 'Scion of a House',
     lineage: 'True Kin',
-    blurb: 'You inherited a warband and a name that means something to other Houses.',
+    blurb:
+      'You inherited a warband and a name that means something to other Houses — and the ' +
+      'Muster just called your name to prove it.',
     detail:
       'Two Officers and a levy of bodies to spend. True Kin serve you at the going rate, so the bionics path is open from the first encounter. The straightforward economy: buy quality, install what the ruins give you.',
     truekinPremium: 1,
@@ -70,7 +72,9 @@ export const ORIGINS: readonly Origin[] = [
     name: 'The Freed Firstborn',
     lineage: 'Mutant',
     blurb:
-      'A slave, elevated by their owner as a House affectation, who walked away and kept the title.',
+      'A slave, elevated by their owner as a House affectation, who walked away, kept the ' +
+      'title, and is entering the Muster anyway — a rite built to crown a House, not what a ' +
+      'House merely bred.',
     detail:
       'No Officers. You lead by steadying the line, not by remaking it — a squad you stand with holds better for your being there. True Kin will not readily serve under a mutant and price themselves accordingly — a bionic core is a slow, expensive pivot rather than the default. Cheaper roster, weaker bodies, far more variance.',
     truekinPremium: 2.1,

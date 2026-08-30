@@ -239,9 +239,11 @@ export default function App() {
                     <p className="enc">
                       {run.outcome === 'won'
                         ? `The column held all the way through. ${totalBodies(run.warband)} still ` +
-                          "standing — the wasteland doesn't usually let that many walk away."
-                        : "Nothing left to field. Attrition got there first, same as it gets " +
-                          'everyone eventually.'}
+                          "standing — the wasteland doesn't usually let that many walk away. " +
+                          'The Crown is theirs now, whatever that turns out to mean.'
+                        : 'Nothing left to field. Attrition got there first, same as it gets ' +
+                          'everyone eventually. The Muster does not stop to notice, and neither ' +
+                          'does whatever is under the salt.'}
                     </p>
                     <button className="btn-primary" onClick={restart}>
                       New run

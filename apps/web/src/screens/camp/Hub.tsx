@@ -40,6 +40,15 @@ function campFlavor(encounterIndex: number): string {
 }
 
 /**
+ * What each act of the Muster actually is, in one line — see StartScreen's
+ * opening flavor and origins.ts's blurbs for the rest of it. Shown only for
+ * ordinary warband encounters: a boss or legendary already carries its own
+ * dread word ("it is waiting", "this one has a name"), and stacking a second
+ * one on the same line would just crowd it.
+ */
+const ACT_FRAMING = ['the outer sweep', "the Houses' real strength", 'the seat of the Muster']
+
+/**
  * Camp, as a hub rather than a page.
  *
  * The old screen stacked seven systems and asked the player to find the one
@@ -229,6 +238,9 @@ export default function Hub({
         <div className="march-text">
           <p className="march-kind">
             Act {encounter.act + 1}
+            {encounter.kind === 'warband' && (
+              <span className="dim"> — {ACT_FRAMING[encounter.act]}</span>
+            )}
             {encounter.kind === 'boss' && <b className="boss-word">— it is waiting</b>}
             {encounter.kind === 'wasteland' && <span className="dim"> — not a warband</span>}
             {/*

@@ -1119,5 +1119,41 @@ Same conversation surfaced a second, larger gap: the game has WORLD
 PREMISE — no stated reason the warband is marching through 15 escalating
 fights, no stakes for finishing, no meaning to "Salt Crown" itself beyond
 §14's placeholder metaphor. Individual encounters have local flavour;
-nothing connects them. That's a narrative-writing task, not a code
-change, and is being scoped separately.
+nothing connects them.
+
+### The Muster ✅ built — a premise, not a system
+
+Pure copy, no new mechanics, no new data model — a throughline threaded
+into text that already existed. **The Muster**: the Houses' answer to a
+rivalry too costly to settle by open war. Warbands are sent into the
+wastes; whoever survives long enough to hold **the Salt Crown** speaks
+for their House at **the Accord**. Nobody flees and losing ends the run
+outright (§7) because the rite itself has no retreat clause — that
+invariant was already load-bearing, this just gives it a reason.
+
+Everything it touches was already there, reframed rather than replaced:
+
+- **§13's origins.** Scion's "you inherited a warband and a name that
+  means something to other Houses" gets one clause: the Muster just
+  called that name to prove it. Firstborn's "walked away and kept the
+  title" gets one clause too: entering a rite built to crown a House,
+  not what a House merely bred — the sharper reading of §2's "cruel
+  joke" line, made literal instead of left as subtext.
+- **§2's world text.** "What they bred to fight [the Houses' wars] now
+  outnumbers them beyond counting" becomes: the Muster is one more place
+  to spend that surplus. Nothing added, just named.
+- **The act curve.** 8-20 → 30-70 → 90-200+ enemies (§12) already reads
+  as escalation; it now reads as a REASON for escalation — a one-line
+  framing per act on the march card ("the outer sweep" / "the Houses'
+  real strength" / "the seat of the Muster"), shown only for ordinary
+  warband encounters so it never crowds a boss's or legendary's own
+  dread word.
+- **"Something under the salt."** Left exactly as unexplained as it
+  already was (§2: "this is never explained... nothing confirms") — the
+  new frame just makes the omission pointed: everyone fighting over the
+  Crown has no time to notice it. Free dramatic irony, no new lore.
+- **The ending screens.** "The warband endures" / "the warband is gone"
+  needed no rewrite — each gets one added clause tying the outcome back
+  to the Crown, deliberately not a triumphant one on the win side
+  ("whatever that turns out to mean") — the wasteland doesn't stop being
+  the wasteland because one House won a rite.

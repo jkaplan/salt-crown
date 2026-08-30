@@ -41,8 +41,12 @@ export default function StartScreen({
         <h1>Salt Crown</h1>
         <p className="opening-flavor">
           The Houses have warred with each other longer than anyone alive remembers, and it has
-          never once been about you. What they bred to fight it now outnumbers them beyond
-          counting. Something under the salt is stirring, and no one has explained what.
+          never once been about you. When the killing gets too costly to do outright, they call a
+          Muster instead — warbands sent into the wastes, and whoever survives long enough to
+          hold the Salt Crown speaks for their House at the Accord. What they bred to fight their
+          wars now outnumbers them beyond counting, and the Muster is one more place to spend it.
+          Something under the salt is stirring, and nobody fighting over the Crown has time to
+          notice.
         </p>
         <p className="tagline">A pure auto battler. Compose a warband. Watch it clash.</p>
 
