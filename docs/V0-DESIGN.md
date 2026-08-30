@@ -1085,3 +1085,39 @@ would need to grow to fit. The cheaper version that reuses what already
 exists is a rare mutation (mutant-lineage only, same rarity class as
 Quickened) granting an ally-heal instead of self-regen — deferred, own
 scoping pass if picked up.
+
+### A losing first battle that came from nowhere ✅ fixed
+
+*"I lost on my first battle. Zero input from me. That feels bad."*
+
+Measured before touching anything: a Scion marching at camp 0 with zero
+purchases — no recruits, no leader changes, nothing — loses encounter 1
+**42.6% of the time** (2000 headless runs). Spending the starting salvage
+on whatever scores best first, same seeds: **2.5%.** Firstborn: 35.3% vs
+0.8%. This isn't bad luck or bad tuning — `origins.ts`'s own comment says
+starting salvage was raised specifically so a Scion "is meant to buy
+their warband, not inherit all of it." The game already assumes you
+spend before you march. Nothing told the player that, and losing
+encounter 1 ends the run outright (no routing, no second chances — §7).
+
+Fix scoped deliberately narrow, since any change here has to land BEFORE
+the march (nothing can happen mid-battle) and shouldn't touch difficulty
+tuning that's been measured all session: if real salvage is still
+affordable against something on offer when March is clicked, the button
+asks once more ("March anyway") instead of marching instantly
+(`Hub.tsx`). Doesn't block, doesn't gate the Market, doesn't change a
+single balance number — turns an accidental loss into an informed one.
+Rejected alternatives: gating March behind opening the Market at least
+once (real forcing function, but a bigger interaction change for a
+problem a warning already solves), and lowering encounter 1's budget so
+an unspent roster clears it reliably (cuts against the explicit "buying
+is supposed to matter" intent, and would make spending nearly pointless
+for that one fight specifically).
+
+Same conversation surfaced a second, larger gap: the game has WORLD
+(Houses, mutants, machines, something under the salt) but no run-level
+PREMISE — no stated reason the warband is marching through 15 escalating
+fights, no stakes for finishing, no meaning to "Salt Crown" itself beyond
+§14's placeholder metaphor. Individual encounters have local flavour;
+nothing connects them. That's a narrative-writing task, not a code
+change, and is being scoped separately.

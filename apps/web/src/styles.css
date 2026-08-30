@@ -658,6 +658,10 @@ h1, h2, h3 { margin: 0; font-weight: var(--w-bold); }
   color: var(--dim);
   margin-top: var(--s1);
 }
+/* The one-time nudge before marching with salvage still on the table —
+   gold, not danger-red: this is advisory ("you could still spend"), not a
+   warning that something is actively wrong. */
+.march-facts.confirm { color: var(--gold); margin-top: var(--s1); }
 /* .march carries layout only; .btn-primary carries the look. */
 
 .camp-body { display: flex; flex-direction: column; gap: var(--s4); }

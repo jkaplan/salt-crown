@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   ENCOUNTERS_PER_RUN,
   MACHINE_RUN_COST,
@@ -63,6 +64,20 @@ export default function Hub({
   onOpen,
 }: Props) {
   const { warband, encounter } = run
+
+  /*
+   * Requested directly, after a zero-purchase first battle read as "zero
+   * input" and lost close to a coin flip: measured headless, a Scion
+   * marching with nothing bought lost encounter 1 42.6% of the time, vs
+   * 2.5% having spent first. The game already assumes you spend before you
+   * march (origins.ts's own starting-salvage comment says so) — nothing
+   * told the player that. This doesn't touch difficulty at all, only turns
+   * an accidental loss into an informed one: march once with something
+   * still affordable on the table and the button asks you to mean it.
+   */
+  const hasAffordableOffer = run.offers.some((o) => o.cost <= warband.salvage)
+  const [confirmMarch, setConfirmMarch] = useState(false)
+  useEffect(() => setConfirmMarch(false), [run.encounterIndex])
 
   const bodies = warband.squads.reduce((n, s) => n + s.count, 0) + warband.prospects.length
   const upkeep = waterUpkeep(warband)
@@ -255,13 +270,25 @@ export default function Hub({
               {warband.machines.length === 1 ? 'the machine' : `${warband.machines.length} machines`}
             </p>
           )}
+          {confirmMarch && (
+            <p className="march-facts confirm">
+              {warband.salvage} salvage still buys something on the market. Marching now spends
+              nothing else.
+            </p>
+          )}
         </div>
         <button
           className="btn-primary march"
-          onClick={onMarch}
+          onClick={() => {
+            if (hasAffordableOffer && !confirmMarch) {
+              setConfirmMarch(true)
+              return
+            }
+            onMarch()
+          }}
           disabled={bodies === 0}
         >
-          March
+          {confirmMarch ? 'March anyway' : 'March'}
         </button>
       </div>
     </div>
