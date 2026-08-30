@@ -110,6 +110,18 @@ export const enum BattleEventType {
 export const MAIM_CHANCE = 0.12
 
 /**
+ * Chance a landed hit is a critical one, and the flat multiplier applied to
+ * the SWING before armour — a crit still gets partially eaten by heavy
+ * armour, same as any other hit, which is what "armour is flat reduction,
+ * not a percentage" means applied consistently. Uniform across every unit
+ * for now: no source yet grants or resists crit, so it's pure combat spice
+ * rather than a build-around. See docs/V0-DESIGN.md §15 for the measurement
+ * these were checked against.
+ */
+export const CRIT_CHANCE = 0.1
+export const CRIT_MULTIPLIER = 1.75
+
+/**
  * One notable thing that happened, for a battle log and a leader HUD to
  * share — see docs/V0-DESIGN.md §5c. Deliberately NOT a record of everything:
  * only named individuals and squad-level collapses are worth surfacing, or
@@ -131,6 +143,16 @@ export interface BattleEvent {
   sourceGroupIndex: number
   /** Same moment, already resolved to a label — '' when sourceGroupIndex is -1. */
   sourceLabel: string
+  /**
+   * Hit/Died/Maimed only: the specific body this happened to. A named GROUP
+   * is usually one body, but a named boss/legendary SQUAD isn't — this is
+   * what lets a floating damage number land on the actual struck body
+   * instead of the group's average position. -1 for Collapsed, which is
+   * group-level by nature.
+   */
+  unitIndex: number
+  /** Hit only: whether this tick's damage against the target included a crit. */
+  crit: boolean
 }
 
 export interface BattleConfig {

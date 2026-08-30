@@ -1,5 +1,5 @@
 import { Application, Container, Graphics, Sprite, Text, Texture } from 'pixi.js'
-import { Battle, MELEE_RANGE, MS_PER_TICK, TEAM_A, TEAM_B, WORLD_H, WORLD_W } from '@salt/sim'
+import { Battle, BattleEventType, MELEE_RANGE, MS_PER_TICK, TEAM_A, TEAM_B, WORLD_H, WORLD_W } from '@salt/sim'
 import type { BattleConfig, BattleEvent, GroupResult, ResolvedStats, Winner } from '@salt/sim'
 import { makeGroup } from '@salt/game'
 import { GlowFilter } from 'pixi-filters'
@@ -68,6 +68,24 @@ const LEADER_SCALE = 1.55
  * tint. Matches UX.md §5's "capacity, things you covet" use of gold; a
  * leader is exactly that. */
 const LEADER_GOLD = 0xffd77a
+
+/*
+ * Floating damage numbers — named individuals only, same scope as the Hit
+ * events that already feed the combat log (see events.ts's own reasoning:
+ * fodder alone never emits Hit, or a battle with hundreds of simultaneous
+ * fodder swings would be unreadable noise). Pooled rather than created and
+ * destroyed per hit — the pool only ever needs to hold as many numbers as
+ * there are named individuals taking hits within one lifetime window at
+ * once, which never gets large.
+ */
+const FLOATER_POOL_SIZE = 32
+const FLOATER_LIFETIME_MS = 750
+/** World units the number rises over its whole lifetime. */
+const FLOATER_RISE = 40
+const FLOATER_COLOR = 0xf2ece2
+/** A hit that included a crit reads bigger and in its own colour — the one
+ * thing "crit damage in a different colour" was actually asking for. */
+const FLOATER_CRIT_COLOR = 0xff6a3d
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
@@ -281,6 +299,15 @@ interface Banner {
   barLift: number
 }
 
+/** One pooled floating number. `active` false means it's parked, invisible, reusable. */
+interface Floater {
+  text: Text
+  x: number
+  y: number
+  ttl: number
+  active: boolean
+}
+
 /**
  * Owns the canvas and drives the sim. Deliberately not a React component —
  * battle state must never enter React, or we re-render 60 times a second over
@@ -337,6 +364,14 @@ export class BattleView {
   private lastEmit = 0
   /** Read cursor into the sim's event ring buffer — see Battle.newEventsSince. */
   private lastEventCount = 0
+  /**
+   * A second, independent cursor into the same ring buffer — `lastEventCount`
+   * only advances at `emit()`'s throttled rate, but floaters need to catch
+   * every Hit the moment it happens, every real frame.
+   */
+  private lastFloaterEventCount = 0
+  private floaterLayer = new Container()
+  private floaterPool: Floater[] = []
 
   speed = 1
   paused = false
@@ -486,6 +521,9 @@ export class BattleView {
     // On top of every body — a streak needs to read clearly over the crowd,
     // not get lost under it the way the old flat halo ring used to.
     this.world.addChild(this.streaks)
+    // Above the streaks too — a damage number under a ranged line would be
+    // half-hidden the moment it mattered most.
+    this.world.addChild(this.floaterLayer)
     this.applyTheme()
 
     const g = new Graphics().circle(0, 0, 16).fill(0xffffff)
@@ -551,7 +589,12 @@ export class BattleView {
     this.acc = 0
     this.simMsAvg = 0
     this.lastEventCount = 0
+    this.lastFloaterEventCount = 0
     this.reported = false
+    for (const f of this.floaterPool) {
+      f.active = false
+      f.text.visible = false
+    }
 
     this.playerLayer.removeChildren()
     this.enemyLayer.removeChildren()
@@ -661,6 +704,97 @@ export class BattleView {
     this.applyTheme()
   }
 
+  /**
+   * Pop a parked Floater, or grow the pool up to FLOATER_POOL_SIZE. Past
+   * that every slot is already animating a real hit on a named body — with
+   * only a handful of named individuals ever in one battle, that ceiling is
+   * never actually reached; it exists so a pathological event burst degrades
+   * by silently dropping the newest number rather than growing unbounded.
+   */
+  private getFloater(): Floater | null {
+    for (const f of this.floaterPool) {
+      if (!f.active) return f
+    }
+    if (this.floaterPool.length >= FLOATER_POOL_SIZE) return null
+    const text = new Text({
+      text: '',
+      style: {
+        fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+        fontWeight: '700',
+        fill: FLOATER_COLOR,
+        stroke: { color: 0x0a0807, width: 4 },
+      },
+    })
+    text.anchor.set(0.5, 1)
+    text.visible = false
+    this.floaterLayer.addChild(text)
+    const f: Floater = { text, x: 0, y: 0, ttl: 0, active: false }
+    this.floaterPool.push(f)
+    return f
+  }
+
+  private spawnFloater(x: number, y: number, value: number, crit: boolean): void {
+    const f = this.getFloater()
+    if (!f) return
+    f.text.text = Math.round(value).toString()
+    f.text.style.fill = crit ? FLOATER_CRIT_COLOR : FLOATER_COLOR
+    f.text.style.fontSize = crit ? 26 : 18
+    f.text.visible = true
+    f.text.alpha = 1
+    f.x = x
+    // A small horizontal scatter so several numbers on the same body don't
+    // stack into one unreadable column.
+    f.text.x = x + (Math.random() - 0.5) * 14
+    f.y = y
+    f.text.y = y
+    f.ttl = FLOATER_LIFETIME_MS
+    f.active = true
+  }
+
+  /** Rise and fade, real frame time rather than sim time — a paused sim
+   * still lets an in-flight number finish its arc instead of freezing mid-air. */
+  private updateFloaters(deltaMs: number): void {
+    for (const f of this.floaterPool) {
+      if (!f.active) continue
+      f.ttl -= deltaMs
+      if (f.ttl <= 0) {
+        f.active = false
+        f.text.visible = false
+        continue
+      }
+      const t = 1 - f.ttl / FLOATER_LIFETIME_MS
+      f.text.y = f.y - FLOATER_RISE * t
+      f.text.alpha = 1 - t * t
+    }
+  }
+
+  /**
+   * Turns fresh Hit events into floaters, aggregating same-tick hits on the
+   * same body into one number — at 4x/8x speed several sim ticks land in one
+   * rendered frame, and a body struck twice in that span should read as one
+   * bigger number, not two numbers stacked on top of each other.
+   */
+  private processCombatEvents(battle: Battle): void {
+    const events = battle.newEventsSince(this.lastFloaterEventCount)
+    this.lastFloaterEventCount = battle.eventCount
+    if (events.length === 0) return
+
+    const perUnit = new Map<number, { value: number; crit: boolean }>()
+    for (const e of events) {
+      if (e.type !== BattleEventType.Hit || e.unitIndex < 0) continue
+      const existing = perUnit.get(e.unitIndex)
+      if (existing) {
+        existing.value += e.value
+        existing.crit = existing.crit || e.crit
+      } else {
+        perUnit.set(e.unitIndex, { value: e.value, crit: e.crit })
+      }
+    }
+    for (const [unitIndex, hit] of perUnit) {
+      this.spawnFloater(battle.x[unitIndex], battle.y[unitIndex], hit.value, hit.crit)
+    }
+  }
+
   private frame = (): void => {
     const app = this.app
     const battle = this.battle
@@ -682,7 +816,9 @@ export class BattleView {
         const per = (performance.now() - t0) / steps
         this.simMsAvg = this.simMsAvg === 0 ? per : this.simMsAvg * 0.9 + per * 0.1
       }
+      if (steps > 0) this.processCombatEvents(battle)
     }
+    this.updateFloaters(app.ticker.deltaMS)
 
     this.draw(Math.min(1, this.acc / MS_PER_TICK))
     this.emit(app)

@@ -11,6 +11,8 @@ export {
   MELEE_RANGE,
   COLLAPSE_THRESHOLD,
   MAIM_CHANCE,
+  CRIT_CHANCE,
+  CRIT_MULTIPLIER,
   BattleEventType,
 } from './types.js'
 export type {

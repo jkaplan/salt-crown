@@ -1013,3 +1013,75 @@ the same nominal MARKET_CHANCE. Measured (300 runs, Scion, MARKET_CHANCE
 recruitment-cadence feature had already shipped at, so the UI change
 doesn't quietly re-inflate difficulty that was already agreed and
 measured once.
+
+### Damage numbers, a crit roll, and a healer's real cost
+
+Requested directly: *"Can we add damage numbers? ... crit damage in a
+different color."* Also asked, as a standalone design question rather
+than a build request: *"how would adding a healer class be for
+balancing?"*
+
+**Damage numbers ✅ built.** Floating text at the struck body's position,
+pooled rather than spawned/destroyed per hit (`BattleView.ts`'s
+`Floater`). Scoped to named individuals only — the same population that
+already generates Hit events for the combat log, and for the same
+reason: fodder alone never emits Hit, or a battle with hundreds of
+simultaneous fodder swings would be unreadable noise on top of what the
+log already decided not to show. `BattleEvent` gained a `unitIndex`
+field to make this possible at all — a named boss/legendary SQUAD isn't
+always one body, and the event previously had no way to say which body
+of it got hit. Doesn't touch `hash()` (computed from body state only,
+never events), so no golden-replay impact from that change alone.
+
+**Crit ✅ built — chosen over the cosmetic alternative.** Nothing in the
+sim rolled any variance into a swing's damage before this — armour aside,
+every hit from the same attacker against the same target landed for
+exactly the same number every time. Offered the choice between a real
+crit roll (a new mechanic, needs balance measurement, changes the RNG
+stream) and a purely cosmetic "big hit" threshold with no new mechanic;
+picked the real one, correctly — the cosmetic version had nothing to
+threshold against, since damage was deterministic. `CRIT_CHANCE` 0.1,
+`CRIT_MULTIPLIER` 1.75 (`types.ts`), applied to the swing before armour so
+a crit through heavy armour still gets partially eaten, same as any
+other hit.
+
+Two measured consequences, checked rather than assumed:
+
+- **Golden replay changed, as expected.** A new `rng.float()` per swing
+  shifts every roll after it in the same battle — re-recorded via
+  `npm run sim:golden`, called out explicitly rather than pasted in quietly,
+  per this doc's own standing rule.
+- **The fairness curve softened.** `npm run sim:leaders` previously
+  measured +5% body count → ~95% win rate (§6b). With crit's variance
+  added, the same check now reads **+5% → 82%**. This isn't a bug — a
+  random multiplicative kick necessarily blurs a deterministic edge — but
+  it's a real, measured change to a number §6b cites specifically, logged
+  here so it isn't rediscovered by surprise later. Completion rate itself
+  barely moved (`sim:campaign`, 300 runs, Scion: 7.3%/7.0% →
+  9.0%/7.0% greedy/thrifty against the crossroads-era baseline
+  immediately above), because crit applies symmetrically to both sides.
+
+**Healing numbers — not built, no source to show yet.** The renderer path
+is ready (a Floater is just a value and a color; nothing about it assumes
+damage specifically), but nothing in the sim heals another body — the
+only existing "healing" is the `Regeneration` mutation, which is
+self-only and passive. Building healing-number display ahead of any
+mechanic that could emit one would be dead code with no way to verify it.
+
+**Healer class — analysed, not built.** Real tension with a documented
+decision: §6b keeps Lanchester's square law on purpose and explicitly
+rejected curve-flattening fixes (wider front, capped attackers-per-target)
+for undercutting "being stronger should trivialise a fight." Sustained
+ally-healing is also a curve-flattener, mechanically — it raises a
+squad's effective HP pool over a fight the same way a wider front would
+have. Not a reason to refuse it, but a reason it needs tuning as
+*multiplier depth* (the way mutations/bionics/relics already work) rather
+than as an exception that quietly undoes attrition — checkable the same
+way, via `sim:leaders`/`sim:campaign`, once built. Also genuinely new
+sim capability: every unit today only ever targets the nearest ENEMY;
+nothing anywhere targets an ally. Scope note: "a healer class" reads as a
+new purchasable unit archetype, which V0's fixed 15-unit-type roster
+would need to grow to fit. The cheaper version that reuses what already
+exists is a rare mutation (mutant-lineage only, same rarity class as
+Quickened) granting an ally-heal instead of self-regen — deferred, own
+scoping pass if picked up.

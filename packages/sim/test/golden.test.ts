@@ -29,36 +29,39 @@ const EXPECTED: Record<
   string,
   { t20: number; t60: number; t150: number; finalHash: number; ticks: number; winner: number }
 > = {
+  // Re-recorded for the crit roll: a new rng.float() draw per swing shifts
+  // every subsequent roll in the same battle, so mid/late hashes and even
+  // tick counts move even though nothing about movement or targeting did.
   even: {
     t20: 3410066792,
-    t60: 4165278151,
-    t150: 1254205669,
-    finalHash: 4075487761,
-    ticks: 470,
+    t60: 987613432,
+    t150: 322035903,
+    finalHash: 3834414113,
+    ticks: 496,
     winner: 0,
   },
   lopsided: {
     t20: 3926206773,
-    t60: 751151138,
-    t150: 841021199,
-    finalHash: 1932500002,
-    ticks: 251,
+    t60: 2659194258,
+    t150: 3246300347,
+    finalHash: 42474071,
+    ticks: 188,
     winner: 0,
   },
   ranged: {
     t20: 3850142319,
-    t60: 475010335,
-    t150: 2297482446,
-    finalHash: 3574567654,
-    ticks: 239,
+    t60: 3452493697,
+    t150: 229716419,
+    finalHash: 2642510307,
+    ticks: 248,
     winner: 0,
   },
   mixed: {
     t20: 1388987572,
-    t60: 466908571,
-    t150: 2809166256,
-    finalHash: 178336592,
-    ticks: 815,
+    t60: 874963972,
+    t150: 1921991970,
+    finalHash: 604152171,
+    ticks: 762,
     winner: 0,
   },
 }

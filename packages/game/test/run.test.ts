@@ -2707,7 +2707,7 @@ describe('permanent injuries', () => {
   function maimedEvent(groupIndex: number, label: string, sourceGroupIndex: number, sourceLabel: string): BattleEvent {
     return {
       tick: 10, type: BattleEventType.Maimed, team: TEAM_A, groupIndex, label, value: 0,
-      sourceGroupIndex, sourceLabel,
+      sourceGroupIndex, sourceLabel, unitIndex: -1, crit: false,
     }
   }
 

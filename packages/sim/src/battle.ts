@@ -1,6 +1,17 @@
 import { Rng } from './rng.js'
 import { SpatialGrid } from './spatial.js'
-import { BattleEventType, COLLAPSE_THRESHOLD, MAIM_CHANCE, MELEE_RANGE, TEAM_A, TEAM_B, WORLD_H, WORLD_W } from './types.js'
+import {
+  BattleEventType,
+  COLLAPSE_THRESHOLD,
+  CRIT_CHANCE,
+  CRIT_MULTIPLIER,
+  MAIM_CHANCE,
+  MELEE_RANGE,
+  TEAM_A,
+  TEAM_B,
+  WORLD_H,
+  WORLD_W,
+} from './types.js'
 import type { BattleConfig, BattleEvent, GroupResult, SimGroup, Winner } from './types.js'
 
 /** Ring buffer capacity. Past this, the oldest notable event is overwritten. */
@@ -234,6 +245,13 @@ export class Battle {
   private readonly lastHitByGroup: Int32Array
   /** Damage accumulated this tick, applied in phase 2. */
   private readonly damage: Float32Array
+  /**
+   * Whether ANY hit landed on unit i this tick was a crit — a body can take
+   * more than one swing in the same tick, and `damage[i]` already sums them,
+   * so this is the same "aggregate, don't try to separate" treatment applied
+   * to the Hit event's `value`.
+   */
+  private readonly critFlag: Uint8Array
 
   private readonly rng: Rng
   private readonly grid: SpatialGrid
@@ -295,6 +313,7 @@ export class Battle {
     this.lastAttackTarget = new Int32Array(total).fill(-1)
     this.lastHitByGroup = new Int32Array(total).fill(-1)
     this.damage = new Float32Array(total)
+    this.critFlag = new Uint8Array(total)
 
     const gn = config.groups.length
     this.groupStartCount = new Int32Array(gn)
@@ -312,7 +331,7 @@ export class Battle {
     for (let e = 0; e < EVENT_CAPACITY; e++) {
       this.events[e] = {
         tick: 0, type: BattleEventType.Hit, team: TEAM_A, groupIndex: 0, label: '', value: 0,
-        sourceGroupIndex: -1, sourceLabel: '',
+        sourceGroupIndex: -1, sourceLabel: '', unitIndex: -1, crit: false,
       }
     }
 
@@ -418,7 +437,7 @@ export class Battle {
     if (this.finished) return
     this.tick++
 
-    const { x, y, px, py, hp, maxHp, alive, cooldown, target, damage, group, groupEff, engaged, rng } = this
+    const { x, y, px, py, hp, maxHp, alive, cooldown, target, damage, critFlag, group, groupEff, engaged, rng } = this
     const groups = this.groups
     const count = this.count
 
@@ -426,6 +445,7 @@ export class Battle {
     py.set(y)
     this.grid.build(count, px, py, alive)
     damage.fill(0)
+    critFlag.fill(0)
     this.updateMorale()
 
     // Phase 1 — intent. Reads only the snapshot; writes movement and damage.
@@ -498,7 +518,8 @@ export class Battle {
           this.groupHits[gi]++
           // A bleeding squad hits softer. Fewer bodies AND weaker blows makes
           // the collapse superlinear, which is what a rout should feel like.
-          const swung = st.damage * groupEff[gi]
+          const isCrit = rng.float() < CRIT_CHANCE
+          const swung = st.damage * groupEff[gi] * (isCrit ? CRIT_MULTIPLIER : 1)
           const raw = swung - tt.armor
           const dealt = raw > 1 ? raw : 1
           // What armour ate. Measured against the SWING, so it captures the
@@ -506,6 +527,7 @@ export class Battle {
           const blocked = swung - dealt
           if (blocked > 0) this.groupDamageBlocked[gi] += blocked
           damage[t] += dealt
+          if (isCrit) critFlag[t] = 1
           this.lastHitByGroup[t] = gi
 
           this.lastAttackTick[i] = this.tick
@@ -527,7 +549,9 @@ export class Battle {
     for (let i = 0; i < count; i++) {
       if (alive[i] === 0 || damage[i] === 0) continue
       const gi = group[i]
-      if (groups[gi].named) this.pushEvent(BattleEventType.Hit, this.team[i], gi, damage[i])
+      if (groups[gi].named) {
+        this.pushEvent(BattleEventType.Hit, this.team[i], gi, damage[i], -1, '', i, critFlag[i] === 1)
+      }
       hp[i] -= damage[i]
       if (hp[i] <= 0) this.resolveDeath(i)
     }
@@ -584,7 +608,7 @@ export class Battle {
       this.hp[t] = 1
       this.pushEvent(
         BattleEventType.Maimed, this.team[t], gi, 0,
-        src, src >= 0 ? this.groups[src].label : '',
+        src, src >= 0 ? this.groups[src].label : '', t,
       )
       return
     }
@@ -597,7 +621,7 @@ export class Battle {
       const src = this.lastHitByGroup[t]
       this.pushEvent(
         BattleEventType.Died, this.team[t], gi, 0,
-        src, src >= 0 ? this.groups[src].label : '',
+        src, src >= 0 ? this.groups[src].label : '', t,
       )
     }
     this.alive[t] = 0
@@ -610,7 +634,7 @@ export class Battle {
   /** Overwrites the next ring slot in place — no allocation once the ring exists. */
   private pushEvent(
     type: BattleEventType, team: number, groupIndex: number, value: number,
-    sourceGroupIndex = -1, sourceLabel = '',
+    sourceGroupIndex = -1, sourceLabel = '', unitIndex = -1, crit = false,
   ): void {
     const e = this.events[this.eventCursor]
     e.tick = this.tick
@@ -621,6 +645,8 @@ export class Battle {
     e.value = value
     e.sourceGroupIndex = sourceGroupIndex
     e.sourceLabel = sourceLabel
+    e.unitIndex = unitIndex
+    e.crit = crit
     this.eventCursor = (this.eventCursor + 1) % EVENT_CAPACITY
     this.eventCount++
   }
@@ -644,6 +670,7 @@ export class Battle {
       out.push({
         tick: e.tick, type: e.type, team: e.team, groupIndex: e.groupIndex, label: e.label, value: e.value,
         sourceGroupIndex: e.sourceGroupIndex, sourceLabel: e.sourceLabel,
+        unitIndex: e.unitIndex, crit: e.crit,
       })
     }
     return out
