@@ -9,6 +9,7 @@ import {
 } from '@salt/game'
 import UnitName from '../../components/UnitName'
 import UnitShape from '../../components/UnitShape'
+import ItemIcon from '../../components/ItemIcon'
 import {
   MachineRow,
   OfficerRow,
@@ -189,6 +190,7 @@ export default function WarbandPage({
               const b = BIONICS_BY_ID.get(id)!
               return (
                 <li key={`${id}-${i}`} className="row inline">
+                  <ItemIcon kind="bionic" id={b.id} size={20} />
                   <span className="row-name">
                     <b className="truekin">{b.name}</b>
                     <span className="dim">{b.effect}</span>
@@ -213,6 +215,7 @@ export default function WarbandPage({
               const r = RELICS_BY_ID.get(id)!
               return (
                 <li key={`${id}-${i}`} className="row inline">
+                  <ItemIcon kind="relic" id={r.id} size={20} />
                   <span className="row-name">
                     <b>{r.name}</b>
                     <span className="dim">{r.effect}</span>

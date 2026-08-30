@@ -4,6 +4,8 @@ import {
 } from '@salt/game'
 import type { RunState } from '@salt/game'
 import { useUnlocks } from '../persistence/unlocks'
+import MutationIcon from '../components/MutationIcon'
+import ItemIcon from '../components/ItemIcon'
 
 type Tab = 'mutations' | 'squads' | 'relics' | 'bionics' | 'factions' | 'glossary'
 
@@ -28,6 +30,7 @@ function EntryCard({
   onSelect,
   eyebrow,
   name,
+  icon,
   children,
 }: {
   unlocked: boolean
@@ -35,6 +38,7 @@ function EntryCard({
   onSelect: () => void
   eyebrow: string
   name: string
+  icon?: React.ReactNode
   children: React.ReactNode
 }) {
   const className = [
@@ -48,6 +52,7 @@ function EntryCard({
   return (
     <button type="button" className={className} onClick={onSelect} disabled={!unlocked}>
       <div className="compendium-card__top">
+        {unlocked && icon}
         <div>
           <div className="compendium-card__eyebrow">{unlocked ? eyebrow : 'Not yet encountered'}</div>
           <h3>{unlocked ? name : '?'}</h3>
@@ -145,6 +150,7 @@ function MutationsTab({ unlocked, unlockAll }: { unlocked: Set<string>; unlockAl
                 onSelect={() => setSelectedId(m.id)}
                 eyebrow={MUTATION_CATEGORY_NAMES[MUTATION_CATEGORY[m.id] ?? 'utility']}
                 name={m.name}
+                icon={<MutationIcon icon={m.icon} size={24} />}
               >
                 <p className="compendium-card__blurb">{m.blurb}</p>
                 <p className="compendium-card__effect">{m.describe(1)}</p>
@@ -160,7 +166,9 @@ function MutationsTab({ unlocked, unlockAll }: { unlocked: Set<string>; unlockAl
       <aside className="compendium-detail">
         {selected && selectedUnlocked ? (
           <>
-            <h3>{selected.name}</h3>
+            <h3>
+              <MutationIcon icon={selected.icon} size={20} /> {selected.name}
+            </h3>
             <p className="compendium-detail__blurb">{selected.blurb}</p>
             <div className="compendium-detail__stat-block">
               <div>
@@ -242,10 +250,12 @@ function SquadsTab({ unlocked, unlockAll }: { unlocked: Set<string>; unlockAll: 
 /* -------------------------------------------------------- relics / bionics --- */
 
 function EffectTab({
+  kind,
   entries,
   unlocked,
   unlockAll,
 }: {
+  kind: 'bionic' | 'relic'
   entries: readonly { id: string; name: string; blurb: string; cost: number; effect: string }[]
   unlocked: Set<string>
   unlockAll: boolean
@@ -268,6 +278,7 @@ function EffectTab({
                 onSelect={() => setSelectedId(e.id)}
                 eyebrow={`${e.cost} salvage`}
                 name={e.name}
+                icon={<ItemIcon kind={kind} id={e.id} size={24} />}
               >
                 <p className="compendium-card__blurb">{e.blurb}</p>
                 <p className="compendium-card__effect">{e.effect}</p>
@@ -280,7 +291,9 @@ function EffectTab({
       <aside className="compendium-detail">
         {selected && selectedUnlocked ? (
           <>
-            <h3>{selected.name}</h3>
+            <h3>
+              <ItemIcon kind={kind} id={selected.id} size={20} /> {selected.name}
+            </h3>
             <p className="compendium-detail__blurb">{selected.blurb}</p>
             <div className="compendium-detail__stat-block">
               <div>
@@ -416,8 +429,12 @@ export default function Compendium({ run }: { run: RunState | null }) {
 
       {tab === 'mutations' && <MutationsTab unlocked={unlocked.mutations} unlockAll={unlockAll} />}
       {tab === 'squads' && <SquadsTab unlocked={unlocked.squads} unlockAll={unlockAll} />}
-      {tab === 'relics' && <EffectTab entries={RELICS} unlocked={unlocked.relics} unlockAll={unlockAll} />}
-      {tab === 'bionics' && <EffectTab entries={BIONICS} unlocked={unlocked.bionics} unlockAll={unlockAll} />}
+      {tab === 'relics' && (
+        <EffectTab kind="relic" entries={RELICS} unlocked={unlocked.relics} unlockAll={unlockAll} />
+      )}
+      {tab === 'bionics' && (
+        <EffectTab kind="bionic" entries={BIONICS} unlocked={unlocked.bionics} unlockAll={unlockAll} />
+      )}
       {tab === 'factions' && <FactionsTab unlocked={unlocked.factions} unlockAll={unlockAll} />}
       {tab === 'glossary' && <GlossaryTab />}
     </main>

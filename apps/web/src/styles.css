@@ -339,9 +339,19 @@ button.on { background: var(--a); color: #10100c; }
 
 .compendium-card__top {
   display: flex;
-  justify-content: space-between;
   gap: var(--s2);
-  align-items: flex-start;
+  align-items: center;
+}
+.compendium-card__top .item-icon,
+.compendium-card__top .mutation-icon {
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 3px;
+}
+.compendium-detail h3 .item-icon,
+.compendium-detail h3 .mutation-icon {
+  vertical-align: -5px;
+  margin-right: 2px;
 }
 
 .compendium-card__eyebrow {
@@ -767,8 +777,12 @@ button.buy:hover:not(:disabled) { background: var(--gold); color: #17120a; }
 .unit-shape { display: inline-flex; flex: none; align-items: center; justify-content: center; }
 .unit-shape-fill { fill: currentColor; }
 .mutation-icon { display: inline-flex; flex: none; align-items: center; justify-content: center; }
-.mutation-icon-fill { fill: currentColor; }
+/* Real pixel art now (7Souls RPG Graphics), not a hand-drawn glyph — crisp
+   at small sizes needs the browser to stop smoothing it into mush. */
+.mutation-icon img { image-rendering: pixelated; object-fit: contain; }
 .tag .mutation-icon { margin-right: 4px; vertical-align: -2px; }
+.item-icon { display: inline-flex; flex: none; align-items: center; justify-content: center; }
+.item-icon img { image-rendering: pixelated; object-fit: contain; }
 .unit-name { position: relative; cursor: help; outline: none; }
 
 /* Tooltips: fixed-ish width, flipped to stay on screen on narrow viewports. */
@@ -1359,7 +1373,6 @@ select option {
   min-height: 0;
 }
 .growth-choice:hover:not(:disabled) { background: var(--surface-2); box-shadow: inset 2px 0 0 var(--gold); }
-.growth-choice .mutation-icon { color: var(--gold); }
 .gc-name { font-size: var(--t-body); font-weight: var(--w-bold); color: var(--gold); }
 .gc-name b { font-variant-numeric: tabular-nums; }
 .gc-effect { font-size: var(--t-body); color: var(--dim); font-variant-numeric: tabular-nums; }

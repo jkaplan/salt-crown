@@ -4,3 +4,9 @@ dist/
 .DS_Store
 .vite/
 coverage/
+
+# Raw purchased asset-pack zips — large, and their license doesn't permit
+# redistributing the raw packs even privately committed. Only the small,
+# hand-curated subset actually copied into apps/web/src/assets/icons/ is
+# meant to be part of the repo.
+/assets/
