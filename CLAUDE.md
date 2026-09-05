@@ -1,8 +1,10 @@
 # Salt Crown
 
-Run-based **pure auto battler**. Post-collapse wasteland, Caves of Qud tone. Recruit a warband of mutants, True Kin, and salvaged machines; watch it clash; manage the attrition.
+Run-based **overland survival roguelite whose battles resolve as a pure auto battler**. Post-collapse wasteland, Caves of Qud tone. March a warband of mutants, True Kin and salvaged machines across the salt; watch it clash; manage the attrition.
 
-Structural model is *How Many Dudes?* (roguelike autobattler, no positioning, depth from unit variety + modifiers), crossed with *Battle Brothers* attrition and *Caves of Qud* worldbuilding.
+**The focus shifted on 2026-09-05** — this was a pure auto battler until then, and a lot of the docs still read that way. The road became the spine of a run rather than the gap between fights. See [docs/V0-DESIGN.md](docs/V0-DESIGN.md) §16 for what changed and why; that section is authoritative where an older passage disagrees.
+
+Structural model is *Oregon Trail* (the march is the game: distance, supply, and who survives it), crossed with *How Many Dudes?* (roguelike autobattler, no positioning, depth from unit variety + modifiers), *Battle Brothers* attrition and *Caves of Qud* worldbuilding.
 
 ## Docs
 
@@ -56,6 +58,10 @@ apps/web       Vite + React + Pixi. Imports sim. Sim NEVER imports this.
 - **Events are data, not code.** A choice declares what it does (`salvage`, `morale`, `requires`); `resolveEvent()` is the only thing that knows how to apply it. Adding an event is a row in `events.ts`. Every event needs at least two branches that differ — a one-option choice is a notification.
 - **Never scale encounter difficulty to warband strength.** Rubber-banding kills the break-run pillar.
 - **Two origins:** Scion of a House (True Kin start) and the Freed Firstborn (mutant start, True Kin recruit at a steep premium). Asymmetry is data — starting roster and price modifiers — not new systems.
-- **V0 scope:** 15 unit types (5/lineage), 2 resources (Salvage, Water), 2 expedition verbs (Scavenge, Delve), 15 encounters, 2 origins. Espers, Coolant, Survey, and per-House sub-origins are V0.1.
+- **V0 scope:** 15 unit types (5/lineage), 2 expedition verbs (Scavenge, Delve), 15 encounters, 2 origins — **plus the march**: a travel phase, and the Food and baggage-train systems that hang off it (see [docs/plans/travel.md](docs/plans/travel.md)). Espers, Survey, and per-House sub-origins are still V0.1.
 
-Scope creep toward the full vision is the main risk on this project. When a change would pull a V0.1 system forward, say so before building it.
+Scope discipline still applies, but the thing being guarded changed on 2026-09-05. The old rule read "scope creep toward the full vision is the main risk" and treated the march as creep; the march is now the spine. What needs guarding instead:
+
+- **One system at a time, each ending in something playable.** Travel ships alone and gets played before Food or the baggage train are built, precisely because all three interlock and building them together means nothing is playable for a long stretch.
+- **A second resource must not be a reskin of the first.** Water is charged per body; Food is charged per day. If a proposed system's pressure is already expressible in an existing one, it is decoration.
+- **The auto battler invariants above are untouched by the shift.** No positioning, no in-battle commands, no counter-triangle. The march is the game; the battle is still a thing you watch.

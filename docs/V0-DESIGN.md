@@ -1228,3 +1228,82 @@ pushes at every opportunity — an upper bound on recklessness, not a player.
 Nothing here says what pushing does in the hands of someone who stops. The
 `sim:campaign` harness now reports `instability` (bodies pushed, defects
 grown, peak) so that reading can be taken later.
+
+## 16. The shift — from auto battler to overland survival, 2026-09-05
+
+Everything above this section was written for a **pure auto battler**: a game
+about composing a warband, watching it clash, and managing what survived.
+Sections 1-15 remain accurate about combat, roster, economy and content.
+They are no longer accurate about *what the game is*.
+
+### What changed
+
+In the player's own words, after planning a travel phase:
+
+> *"I think I find the idea of an oregon trail style roguelite with
+> autobattler mechanics much more compelling than I do an autobattler."*
+
+So: **the march is the spine of a run, and battles are things that happen
+along it.** Previously the road was the gap between fights — `march()` was an
+instant cut that charged Water and started a battle. Now the road is where
+the game lives, and the auto battler is the combat system inside it rather
+than the thing the game is about.
+
+### Why this is a pivot and not scope creep
+
+Worth stating plainly, because the distinction changes how future requests
+get judged. Under the old framing, a travel phase was a feature bolted onto
+the core, and Food and camp upgrades were deferred niceties competing with
+the real game — which is exactly how they were first assessed, and why the
+first response to each was to flag it against §14's scope guard. Under the
+new framing they are not additions at all: distance, supply and attrition on
+the road ARE the game, and the fights punctuate them.
+
+The same three systems, read against the wrong identity, look like creep.
+Read against the right one, they look like the missing middle.
+
+### What survives untouched
+
+Most of it, which is why this is affordable:
+
+- **Every auto battler invariant.** No positioning, no in-battle commands, no
+  counter-triangle, battles fought to the finish, morale as a damage
+  multiplier. The battle is still a thing you watch.
+- **The whole sim architecture** — determinism, fixed timestep, golden-seed
+  replay, the measurement harnesses.
+- **Three tiers, three lineages**, mutations, bionics, machines, the wound
+  ladder, Instability (§15), permadeath.
+- **The economy's shape.** Water still caps warband size; salvage still buys
+  bodies. Food does not replace Water, it splits the axis — Water is charged
+  per body, Food per day on the road, so a big warband on a short hop and a
+  small one on a long haul fail for different reasons.
+
+### What is now questionable and not yet resolved
+
+Flagged rather than fixed, because none of it blocks the travel work:
+
+- **`ROADMAP.md`'s M5** ("tune and port") was written against the old
+  identity. A 10,000-run balance pass over a game whose core loop is about to
+  change is measuring the wrong thing. M5 is not wrong so much as premature.
+- **The 15-encounter run structure** (§12) counts *encounters*. A game about
+  a march may want to count *distance*, with encounters falling where they
+  fall. Not decided.
+- **Break runs** (§11) currently means losing a fight. It should probably also
+  mean running out of road — starving, or arriving too thin to matter.
+- **The title.** §14 left it open and recommended keeping `salt_crown`. A game
+  about crossing the salt has a stronger claim to that name than one about
+  fighting over a crown, so the recommendation stands, for a better reason.
+
+### Order of work from here
+
+Travel ships **alone** and gets played before Food or the baggage train are
+built. All three interlock — Food is consumed by days, the train carries and
+produces it, travel is what makes both matter — which is exactly the argument
+for building them together and exactly why that would be a mistake: nothing
+would be playable for a long stretch, and the riskiest assumption in the whole
+pivot (that a march makes a run better rather than merely longer) can only be
+tested by playing one.
+
+See [plans/travel.md](plans/travel.md) for the agreed plan, including the
+shapes Food and the baggage train have already been argued into, so neither
+gets re-derived from scratch.

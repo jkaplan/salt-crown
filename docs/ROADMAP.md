@@ -265,3 +265,27 @@ This was the single largest per-salvage value in the game (see
 buffs are deferred to V0.1 relics/perks, which can explain themselves —
 `carrying` a totem or a banner leaking effect to a formation has a mechanism
 a body's own biology does not.
+
+---
+
+## The focus shifted — 2026-09-05
+
+Everything above was planned for a **pure auto battler**. It is now an
+overland survival roguelite whose battles resolve as an auto battler — the
+march is the spine of a run, not the gap between fights. See
+[V0-DESIGN.md](V0-DESIGN.md) §16 for the reasoning.
+
+M0-M4 are unaffected: they built the sim, the roster, the economy, the
+attrition systems and the content, all of which survive the shift intact.
+
+**M5 is premature, not wrong.** A 10,000-run balance pass and a phone build
+both assume the core loop is settled. It isn't — the march is about to become
+it. The porting work stays exactly as written and waits; the balance pass
+should be re-read against whatever the loop looks like once travel is
+playable, since tuning a curve that is about to change measures nothing.
+
+**Next milestone is the march.** Travel ships alone and gets played before
+Food or the baggage train are built — see [plans/travel.md](plans/travel.md),
+status agreed. The riskiest assumption in the whole pivot is that a march
+makes a run *better* rather than merely *longer*, and no probe tests that
+short of playing one.
