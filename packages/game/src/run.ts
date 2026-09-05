@@ -9,11 +9,14 @@ import { toSimGroups, totalBodies, unitType } from './roster.js'
 import type { GroupSource, SquadLeader, Warband } from './roster.js'
 import {
   APPRAISAL_COST,
+  INSTABILITY_PER_PUSH,
   MAX_FIELDED_PROSPECTS,
   fieldedCount,
   isFirstborn,
+  isPastCapacity,
   isReadyToMutate,
   prospectTitle,
+  resolveInstabilityFlares,
   revealIfMaxed,
   rollGrowthChoices,
   rollProspect,
@@ -213,9 +216,18 @@ export function chooseMutation(
   if (!offer || !choice) return state
 
   const before = state.warband.prospects.find((p) => p.id === prospectId)
+  // A pick taken while the body is already at or past its own capacity is a
+  // push — the body being forced somewhere it wasn't built to hold. See
+  // Instability, docs/V0-DESIGN.md §15.
+  const pushed = before !== undefined && isPastCapacity(before)
   const prospects = state.warband.prospects.map((p) =>
     p.id === prospectId
-      ? revealIfMaxed({ ...p, mutations: [...p.mutations, choice], growth: p.growth + 1 })
+      ? revealIfMaxed({
+          ...p,
+          mutations: [...p.mutations, choice],
+          growth: p.growth + 1,
+          instability: pushed ? p.instability + INSTABILITY_PER_PUSH : p.instability,
+        })
       : p,
   )
 
@@ -1105,7 +1117,10 @@ export function advance(state: RunState): RunState {
     return { ...state, phase: 'over', outcome: 'won' }
   }
 
-  const home = returnExpedition(state)
+  const returned = returnExpedition(state)
+  // Bodies pushed past their own capacity can mutate on their own before the
+  // player ever sees a growth offer this camp — see Instability, §15.
+  const home = { ...returned, warband: resolveInstabilityFlares(state.rng, returned.warband) }
   const encounter = generateEncounter(state.rng, next, state.seenLegendaries)
   const legendaryId = encounterLegendaryId(encounter)
 

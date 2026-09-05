@@ -1,5 +1,5 @@
 export { UNIT_TYPES, MUTANT_TYPES, TRUEKIN_TYPES, MACHINE_TYPES, DISCIPLINE } from './units.js'
-export { MUTATIONS, MUTATIONS_BY_ID, describeRoll } from './mutations.js'
+export { MUTATIONS, DEFECTS, MUTATIONS_BY_ID, describeRoll } from './mutations.js'
 export type { Mutation, MutationRoll, MutationIconId } from './mutations.js'
 export {
   OFFICER_RANKS,
@@ -38,6 +38,16 @@ export {
   MAX_MUTATION_LEVEL,
   QUICKENED_MAX_MUTATION_LEVEL,
   FIRSTBORN_AT_MUTATIONS,
+  tollSpent,
+  isPastCapacity,
+  flareChance,
+  flareLevel,
+  rollInstabilityFlare,
+  resolveInstabilityFlares,
+  INSTABILITY_PER_PUSH,
+  INSTABILITY_FLARE_CHANCE_PER_POINT,
+  INSTABILITY_FLARE_CHANCE_CAP,
+  DEFECT_FLARE_CHANCE,
 } from './prospects.js'
 export type { Prospect } from './prospects.js'
 export {

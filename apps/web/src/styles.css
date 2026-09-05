@@ -773,6 +773,11 @@ button.buy:hover:not(:disabled) { background: var(--gold); color: #17120a; }
 }
 .tag.hot { background: #33290f; color: var(--gold); }
 .tag b { font-variant-numeric: tabular-nums; }
+/* A defect reuses its stat family's glyph, so colour is the only thing
+   separating "grew armour" from "lost armour" at a glance. It carries the
+   whole distinction and has to be unmistakable. */
+.tag.defect { background: #2a1414; color: var(--danger); }
+.tag.defect .mutation-icon img { filter: grayscale(1) sepia(1) hue-rotate(-35deg) saturate(3); }
 
 .unit-shape { display: inline-flex; flex: none; align-items: center; justify-content: center; }
 .unit-shape-fill { fill: currentColor; }
@@ -1376,6 +1381,30 @@ select option {
 .gc-name { font-size: var(--t-body); font-weight: var(--w-bold); color: var(--gold); }
 .gc-name b { font-variant-numeric: tabular-nums; }
 .gc-effect { font-size: var(--t-body); color: var(--dim); font-variant-numeric: tabular-nums; }
+.gc-toll {
+  font-size: var(--t-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--danger);
+}
+
+/* Pushing past capacity is the only permanent choice that can make a body
+   worse, so the screen changes colour rather than adding a line nobody
+   reads. Gold means "you are directing this"; red means "this costs". */
+.growth-takeover.pushing .takeover-kind { color: var(--danger); }
+.growth-choice.pushing:hover:not(:disabled) { box-shadow: inset 2px 0 0 var(--danger); }
+.takeover-note.warn { color: var(--danger); }
+.takeover-note.warn b { color: var(--danger); font-weight: var(--w-bold); }
+.growth-unstable { color: var(--danger); }
+
+/* Toll spent past the body's own ceiling. Hollow and red — a slot that
+   should not exist, rather than one more slot that does. */
+.slot.over {
+  border-color: var(--danger);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+.capacity.unstable .capacity-word { color: var(--danger); }
 
 @media (min-width: 620px) {
   .growth-choices { flex-direction: row; }

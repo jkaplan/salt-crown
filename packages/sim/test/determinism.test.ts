@@ -292,7 +292,7 @@ describe('Maiming', () => {
 describe('Stat resolution', () => {
   const prospect = (mutations: { id: string; level: number }[]) => ({
     id: 'x', typeId: 0, name: 'Test', mutations, battles: 0, growth: 0, capacity: 6, appraised: true, fielded: true,
-    wound: null, bionics: [], permanentInjuries: [], dismemberments: [] })
+    wound: null, bionics: [], permanentInjuries: [], dismemberments: [], instability: 0 })
 
   it('leaves fodder unmutated', () => {
     // Mutation is individual and rare. Squads are bodies, nothing more.

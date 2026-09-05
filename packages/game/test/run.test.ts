@@ -4,6 +4,15 @@ import type { BattleEvent, GroupResult, SimGroup } from '@salt/sim'
 import {
   ENCOUNTERS_PER_RUN,
   MUTATIONS,
+  DEFECTS,
+  MUTATIONS_BY_ID,
+  tollSpent,
+  isPastCapacity,
+  flareChance,
+  rollInstabilityFlare,
+  flareLevel,
+  resolveInstabilityFlares,
+  INSTABILITY_PER_PUSH,
   MUTANT_TYPES,
   TRUEKIN_TYPES,
   assignLeader,
@@ -360,6 +369,7 @@ describe('leadership', () => {
       wound: null,
       permanentInjuries: [],
       dismemberments: [],
+      instability: 0,
     }
     expect(resolveSquadStats(mutant, null, heavy)).toEqual(bare)
     expect(resolveSquadStats(mutant, null, { ...heavy, titled: true })).toEqual(bare)
@@ -555,7 +565,11 @@ describe('mutation growth', () => {
     }
   })
 
-  it('stops offering growth once a Prospect is a Firstborn', () => {
+  it('keeps offering growth to a Firstborn, who can push like anyone else', () => {
+    // This used to assert the opposite. The gate was never really "Firstborn"
+    // — it was capacity, which happened to bite at five mutations for most
+    // bodies. Instability replaces that hard stop with a price, and the
+    // Firstborn is precisely the body a player is tempted to overinvest in.
     const p = {
       ...start().warband.prospects[0],
       battles: 99,
@@ -565,7 +579,130 @@ describe('mutation growth', () => {
         level: 1,
       })),
     }
-    expect(isReadyToMutate(p)).toBe(false)
+    expect(isFirstborn(p)).toBe(true)
+    expect(isReadyToMutate(p)).toBe(true)
+  })
+})
+
+describe('instability', () => {
+  const body = (over: Partial<ReturnType<typeof start>['warband']['prospects'][0]> = {}) => ({
+    ...start().warband.prospects[0],
+    capacity: 3,
+    battles: 99,
+    growth: 0,
+    mutations: [],
+    instability: 0,
+    fielded: true,
+    ...over,
+  })
+
+  it('spends capacity by toll, not by mutation count', () => {
+    // One Flaming Ray costs a body more than three contained changes do.
+    const ray = body({ mutations: [{ id: 'flaming-ray', level: 1 }] })
+    const three = body({
+      mutations: [
+        { id: 'horns', level: 1 },
+        { id: 'carapace', level: 1 },
+        { id: 'bulging-sacs', level: 1 },
+      ],
+    })
+    expect(tollSpent(ray)).toBe(3)
+    expect(tollSpent(three)).toBe(3)
+    expect(isPastCapacity(ray)).toBe(true)
+    expect(isPastCapacity(three)).toBe(true)
+    expect(isPastCapacity(body({ mutations: [{ id: 'horns', level: 6 }] }))).toBe(false)
+  })
+
+  it('charges instability only for a pick taken past capacity', () => {
+    const run = start()
+    const p = run.warband.prospects[0]
+
+    const within = { ...run, warband: { ...run.warband, prospects: [body({ id: p.id })] },
+      growth: [{ prospectId: p.id, choices: [{ id: 'horns', level: 2 }] }] }
+    expect(chooseMutation(within, p.id, 0).warband.prospects[0].instability).toBe(0)
+
+    const past = { ...run, warband: { ...run.warband, prospects: [
+      body({ id: p.id, mutations: [{ id: 'flaming-ray', level: 1 }] }),
+    ] }, growth: [{ prospectId: p.id, choices: [{ id: 'horns', level: 2 }] }] }
+    expect(chooseMutation(past, p.id, 0).warband.prospects[0].instability)
+      .toBe(INSTABILITY_PER_PUSH)
+  })
+
+  it('flares mostly into defects, and only rarely into something useful', () => {
+    const rng = new Rng(hashSeed('flare-mix'))
+    const p = body({ instability: 4 })
+    let defects = 0
+    const n = 2000
+    for (let i = 0; i < n; i++) {
+      const flare = rollInstabilityFlare(rng, p)!
+      if (MUTATIONS_BY_ID.get(flare.id)?.defect) defects++
+      expect(flare.level).toBe(flareLevel(p))
+    }
+    // 85% intended. Wide band so this checks the shape, not the exact constant.
+    expect(defects / n).toBeGreaterThan(0.78)
+    expect(defects / n).toBeLessThan(0.92)
+  })
+
+  it('lands harder on a body that has been pushed further', () => {
+    // Level 1 flat made pushing strictly +EV — see flareLevel's own note. This
+    // is the correction, and the reason the constant is not just cosmetic.
+    expect(flareLevel(body({ instability: 0 }))).toBe(1)
+    expect(flareLevel(body({ instability: 4 }))).toBe(3)
+    expect(flareLevel(body({ instability: 999 }))).toBe(MAX_MUTATION_LEVEL)
+  })
+
+  it('never draws rng for a body that was never pushed', () => {
+    // The guard that keeps every existing seed reproducing exactly as before:
+    // a warband with no instability anywhere must not advance the stream.
+    const a = new Rng(hashSeed('untouched'))
+    const w = { prospects: [body(), body({ id: 'b' })] }
+    resolveInstabilityFlares(a, w)
+
+    const b = new Rng(hashSeed('untouched'))
+    expect(a.float()).toBe(b.float())
+  })
+
+  it('halves the instability that caused a flare rather than clearing it', () => {
+    const rng = new Rng(hashSeed('halving'))
+    const w = { prospects: [body({ instability: 9 })] }
+    // flareChance caps well short of 1, so drive it by looping until one fires.
+    let out = w
+    for (let i = 0; i < 500 && out.prospects[0].mutations.length === 0; i++) {
+      out = resolveInstabilityFlares(rng, out)
+    }
+    expect(out.prospects[0].mutations.length).toBe(1)
+    expect(out.prospects[0].instability).toBe(4)
+  })
+
+  it('caps the flare chance so high instability never becomes a certainty', () => {
+    expect(flareChance(body({ instability: 0 }))).toBe(0)
+    expect(flareChance(body({ instability: 1000 }))).toBeLessThan(1)
+  })
+
+  it('keeps defects out of everything a player can choose or buy', () => {
+    const defectIds = new Set(DEFECTS.map((d) => d.id))
+    for (const m of MUTATIONS) expect(defectIds.has(m.id)).toBe(false)
+
+    const rng = new Rng(hashSeed('no-defects-for-sale'))
+    for (let i = 0; i < 300; i++) {
+      const shop = rollProspect(rng, MUTANT_TYPES[0].id, i % ENCOUNTERS_PER_RUN)
+      for (const m of shop.mutations) expect(defectIds.has(m.id)).toBe(false)
+      for (const c of rollGrowthChoices(rng, shop, i % ENCOUNTERS_PER_RUN)) {
+        expect(defectIds.has(c.id)).toBe(false)
+      }
+    }
+  })
+
+  it('keeps a body loaded with every defect from resolving to nonsense', () => {
+    const type = MUTANT_TYPES[0]
+    const wrecked = resolveSquadStats(
+      { id: 's', typeId: type.id, count: 1, leader: null, relicId: null },
+      null,
+    )
+    // Guard rails hold even when every defect lands at once.
+    const stats = { ...wrecked }
+    for (const d of DEFECTS) d.apply(stats, 6)
+    expect(stats.hp).toBeLessThan(wrecked.hp)
   })
 })
 
@@ -646,7 +783,10 @@ describe('capacity', () => {
     expect(firstbornCapable).toBeGreaterThan(0)
   })
 
-  it('stops growth at the body’s own ceiling, not a universal one', () => {
+  it('marks a body maxed at its own ceiling, but keeps offering growth past it', () => {
+    // Growth no longer stops dead at capacity — a body can be pushed past its
+    // own ceiling (Instability, §15). `isMaxed` still marks the ceiling
+    // itself, since that's what pricing and appraisal read.
     const base = start().warband.prospects[0]
     const shallow = { ...base, capacity: 2, battles: 99, growth: 0, mutations: [
       { id: 'horns', level: 3 },
@@ -654,9 +794,12 @@ describe('capacity', () => {
     ] }
     const deep = { ...shallow, capacity: 6 }
 
-    expect(isReadyToMutate(shallow)).toBe(false)
     expect(isMaxed(shallow)).toBe(true)
+    expect(isMaxed(deep)).toBe(false)
+    // Still offered growth past its own ceiling — only the full pool stops it.
+    expect(isReadyToMutate(shallow)).toBe(true)
     expect(isReadyToMutate(deep)).toBe(true)
+    expect(isReadyToMutate({ ...shallow, mutations: MUTATIONS.map((m) => ({ id: m.id, level: 1 })) })).toBe(false)
   })
 
   it('prices unused capacity once it is known', () => {

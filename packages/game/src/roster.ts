@@ -133,6 +133,9 @@ function clamp(s: ResolvedStats): ResolvedStats {
   if (s.moveSpeed < 0.8) s.moveSpeed = 0.8
   if (s.armor < 0) s.armor = 0
   if (s.damage < 1) s.damage = 1
+  // Reachable only since defects (see DEFECTS) began subtracting HP — a body
+  // at 0 hp would be dead on arrival rather than merely ruined.
+  if (s.hp < 1) s.hp = 1
   if (s.accuracy < 0.05) s.accuracy = 0.05
   else if (s.accuracy > 0.98) s.accuracy = 0.98
   if (s.evade < 0) s.evade = 0

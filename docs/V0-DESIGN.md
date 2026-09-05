@@ -1157,3 +1157,74 @@ Everything it touches was already there, reframed rather than replaced:
   to the Crown, deliberately not a triumphant one on the win side
   ("whatever that turns out to mean") — the wasteland doesn't stop being
   the wasteland because one House won a rite.
+
+### Instability — growth past a body's own limit ✅ built
+
+Asked for as a point-buy system "like Qud", then redirected by the player in
+the same breath into something better: *"I think I'd like to try a balancing
+system. Like you can continue mutating but there should be cost for it
+mechanically... I like an idea of instability... pushing through could add
+instability which adds random chance of mutations with a tiny tiny chance of
+those mutations to be positive... might be fun to end up with a bunch of
+crazy mutated creatures that as they get more powerful they are just a
+mess."*
+
+**Capacity became a price, not a wall.** It used to be a hard stop: a body
+with capacity 3 took three mutations and was finished. Now it is the line
+past which growth costs something. Two changes make that work:
+
+1. **Toll.** Every mutation carries a `toll` — how much of a body it uses up.
+   A Horns is 1; a Flaming Ray is 3. Capacity is spent in toll rather than
+   counted in mutations, so "how much room is left" finally distinguishes a
+   contained change from a rebuild of what the body does. This is the
+   "relative cost/value per mutation" half of the point-buy ask above,
+   arriving in a different shape than that entry imagined.
+2. **Pushing.** Past capacity, growth offers keep coming. Taking one adds a
+   point of Instability, and an unstable body mutates *on its own* between
+   battles — a flare, 85% of the time into a **defect**.
+
+**Defects are new content and deliberately mirrored.** One per stat family
+in `MUTATIONS`: Withered Limb shadows Horns, Sloughing Skin shadows Carapace,
+Brittle Frame shadows Bulging Sacs, and so on. They reuse the same family
+glyph, so no new visual vocabulary is needed — only the colour changes — and
+they live in their own `DEFECTS` table, absent from `MUTATIONS`, so nothing
+can ever offer one as a growth pick or roll one onto a body in a shop.
+
+**Measured, and the first pass was wrong.** Recorded here because the
+correction is the reasoning, per this project's standing habit:
+
+| 300 runs, greedy | completion | pushed | defects grown |
+|---|---|---|---|
+| baseline (no Instability) | 9.0% | — | — |
+| first pass, flares flat level 1 | **11.3%** | 44 | 31 |
+| corrected, flare level scales | 10.0% | 31 | 12 |
+
+The first pass made pushing **strictly better than not pushing** — the exact
+opposite of a cost. One push buys a *chosen* mutation at level 3-6 and cost,
+on average, 0.7 of a level-1 defect. Completion went UP against a mechanic
+whose entire job was to be a gamble. The fix was `flareLevel`: a body far
+past its limit grows *worse* things, not merely more of them, which corrects
+the magnitude and reads better besides. 10.0% against a 9.0% baseline is a
+three-run difference on 300 — inside noise, which is the right place for a
+mechanic that should be a genuine coin-flip rather than a tax or a bonus.
+
+**The Firstborn cap went with it.** A test asserted growth stopped at
+Firstborn; it now asserts the opposite. That gate was never really about the
+title — it was capacity, which happened to bite at five mutations for most
+bodies — and the Firstborn is precisely the body a player is tempted to
+overinvest in.
+
+**Deliberately not built: the terminal state.** *"Maybe some turn into blobs
+of men because they pushed dna to the limit."* Designed alongside this and
+held back on purpose — there was no data on how far bodies actually get
+pushed, and every threshold in this game set by feel (the boss curve, Water,
+machine decay) had to be corrected by measurement afterwards. There is now a
+first reading to design against: peak Instability 5, and about one body in
+ten runs pushed far enough to matter. Pick the threshold from that, not from
+a guess.
+
+**Still unmeasured.** The campaign bot claims *every* growth offer, so it
+pushes at every opportunity — an upper bound on recklessness, not a player.
+Nothing here says what pushing does in the hands of someone who stops. The
+`sim:campaign` harness now reports `instability` (bodies pushed, defects
+grown, peak) so that reading can be taken later.

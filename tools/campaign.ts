@@ -57,6 +57,7 @@ import {
   prospectPower,
   squadPower,
   totalBodies,
+  MUTATIONS_BY_ID,
   isFirstborn,
   chooseMutation,
   setFielded,
@@ -366,6 +367,15 @@ function playRun(
     ticks,
     maimed,
     relicsBound,
+    // Instability, docs/V0-DESIGN.md §15. This bot claims EVERY growth offer,
+    // so it pushes past capacity at every opportunity — an upper bound on how
+    // unstable a warband can get, not what a player who stops would see.
+    pushed: state.warband.prospects.filter((p) => p.instability > 0).length,
+    peakInstability: state.warband.prospects.reduce((n, p) => Math.max(n, p.instability), 0),
+    defects: state.warband.prospects.reduce(
+      (n, p) => n + p.mutations.filter((m) => MUTATIONS_BY_ID.get(m.id)?.defect).length,
+      0,
+    ),
   }
 }
 
@@ -394,6 +404,9 @@ let firstborn = 0
 let prospects = 0
 let maimed = 0
 let relicsBound = 0
+let pushed = 0
+let defects = 0
+let peakInstability = 0
 const runTicks: number[] = []
 const reachedHist = new Array(ENCOUNTERS_PER_RUN + 1).fill(0)
 const finalBodies: number[] = []
@@ -408,6 +421,9 @@ for (let i = 1; i <= runs; i++) {
   prospects += r.prospects
   maimed += r.maimed
   relicsBound += r.relicsBound
+  pushed += r.pushed
+  defects += r.defects
+  peakInstability = Math.max(peakInstability, r.peakInstability)
   marches += r.reached + 1
   if (r.outcome === 'won') {
     won++
@@ -427,7 +443,11 @@ console.log(
 `,
 )
 console.log(`maimed      ${maimed} across ${runs} runs (both sides), ${(maimed / runs).toFixed(2)} per run\n`)
-console.log(`relics      ${relicsBound} bound across ${runs} runs, ${(relicsBound / runs).toFixed(2)} per run\n`)
+console.log(`relics      ${relicsBound} bound across ${runs} runs, ${(relicsBound / runs).toFixed(2)} per run`)
+console.log(
+  `instability ${pushed} bodies pushed past capacity, ${defects} defects grown, ` +
+    `peak ${peakInstability}\n`,
+)
 console.log('  encounters won    runs')
 console.log('  ----------------------')
 for (let i = 0; i <= ENCOUNTERS_PER_RUN; i++) {

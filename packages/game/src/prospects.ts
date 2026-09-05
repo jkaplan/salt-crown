@@ -1,5 +1,5 @@
 import { Rng } from '@salt/sim'
-import { MUTATIONS } from './mutations.js'
+import { DEFECTS, MUTATIONS, MUTATIONS_BY_ID } from './mutations.js'
 import type { MutationRoll } from './mutations.js'
 import type { PermanentInjury, Wound } from './wounds.js'
 
@@ -93,6 +93,13 @@ export interface Prospect {
    * site. Hidden until appraised, same as `capacity`.
    */
   quickened?: boolean
+  /**
+   * Instability — docs/V0-DESIGN.md §15. Rises when a body is grown past
+   * its own `capacity` (in toll, not mutation count) rather than being
+   * stopped there. 0 for almost every Prospect: most never reach their own
+   * limit, let alone push past it.
+   */
+  instability: number
 }
 
 /**
@@ -183,13 +190,39 @@ export function earnedGrowth(p: Prospect): number {
   return Math.floor(p.battles / per)
 }
 
-/** Growth stops at the body's own ceiling, not a universal one. */
-export function isReadyToMutate(p: Prospect): boolean {
-  return earnedGrowth(p) > p.growth && p.mutations.length < p.capacity
+/**
+ * How much of a body's growth capacity is already spent. Toll, not a raw
+ * mutation count — a Flaming Ray costs more of a body's own room than a
+ * Horns does, see `Mutation.toll`.
+ */
+export function tollSpent(p: Prospect): number {
+  let total = 0
+  for (const m of p.mutations) total += MUTATIONS_BY_ID.get(m.id)?.toll ?? 1
+  return total
 }
 
+/**
+ * A body's own natural ceiling. Reaching it used to stop growth outright;
+ * now it is the line past which growth becomes a gamble — see `isMaxed` and
+ * §15's Instability.
+ */
+export function isPastCapacity(p: Prospect): boolean {
+  return tollSpent(p) >= p.capacity
+}
+
+/**
+ * Growth no longer stops at the body's own ceiling — it can be pushed past
+ * it, at the cost of Instability (§15). What actually bounds it is the
+ * mutation pool itself: once a body carries one of everything, there is
+ * nothing left to offer.
+ */
+export function isReadyToMutate(p: Prospect): boolean {
+  return earnedGrowth(p) > p.growth && p.mutations.length < MUTATIONS.length
+}
+
+/** "Finished" in the sense an appraiser would use it — at or past capacity. */
 export function isMaxed(p: Prospect): boolean {
-  return p.mutations.length >= p.capacity
+  return isPastCapacity(p)
 }
 
 /**
@@ -266,6 +299,7 @@ export function rollProspect(rng: Rng, typeId: number, encounterIndex: number): 
     permanentInjuries: [],
     dismemberments: [],
     quickened: rng.float() < QUICKENED_CHANCE,
+    instability: 0,
   }
 }
 
@@ -282,7 +316,7 @@ export function prospectCost(p: Prospect, baseCost: number): number {
   for (const m of p.mutations) total += m.level * PROSPECT_COST_PER_LEVEL
 
   const capacity = p.appraised ? p.capacity : ASSUMED_CAPACITY
-  total += Math.max(0, capacity - p.mutations.length) * PROSPECT_COST_PER_CAPACITY
+  total += Math.max(0, capacity - tollSpent(p)) * PROSPECT_COST_PER_CAPACITY
   // Certainty is worth paying for; a graded body costs more than a blind one.
   if (p.appraised) total *= 1.15
 
@@ -294,7 +328,7 @@ export function prospectCost(p: Prospect, baseCost: number): number {
  * you ever paid to find out.
  */
 export function revealIfMaxed(p: Prospect): Prospect {
-  return !p.appraised && p.mutations.length >= p.capacity ? { ...p, appraised: true } : p
+  return !p.appraised && isPastCapacity(p) ? { ...p, appraised: true } : p
 }
 
 /**
@@ -338,6 +372,101 @@ export function rollGrowthChoices(rng: Rng, p: Prospect, encounterIndex: number)
   }
 
   return choices
+}
+
+/**
+ * Instability — docs/V0-DESIGN.md §15.
+ *
+ * A body's `capacity` used to be a hard stop. Now it's a natural ceiling
+ * that CAN be pushed past — the player can keep taking a body's earned
+ * growth offers after it, but every pick past the line is a body being
+ * forced somewhere it wasn't built to hold, and it doesn't come free.
+ *
+ * PLACEHOLDER NUMBERS, unmeasured — same discipline as everything else this
+ * doc calls out: tune against sim:campaign once this has a body of runs
+ * behind it, not by feel.
+ */
+
+/** Instability added by one growth pick taken past the body's own capacity. */
+export const INSTABILITY_PER_PUSH = 1
+
+/**
+ * Chance, per point of Instability, that a body mutates on its own at the
+ * next camp instead of waiting for the player to choose — checked once per
+ * eligible camp, not once per point, so it stays a rare flare rather than a
+ * near-certainty at high Instability. Capped well short of 1 for the same
+ * reason.
+ */
+export const INSTABILITY_FLARE_CHANCE_PER_POINT = 0.05
+export const INSTABILITY_FLARE_CHANCE_CAP = 0.6
+
+export function flareChance(p: Prospect): number {
+  return Math.min(INSTABILITY_FLARE_CHANCE_CAP, p.instability * INSTABILITY_FLARE_CHANCE_PER_POINT)
+}
+
+/**
+ * How often a flare is a defect rather than a real mutation. A body coming
+ * apart is not a body improving — the small remainder exists so that pushing
+ * is a gamble rather than a straight tax, and so that the rare good flare is
+ * worth telling someone about.
+ */
+export const DEFECT_FLARE_CHANCE = 0.85
+
+/**
+ * An uncontrolled mutation — the body changing on its own rather than the
+ * player choosing one. Always the lowest level: an earned pick is worth
+ * paying for, a flare isn't.
+ *
+ * A terminal state past this ("pushed the DNA to its limit and became
+ * something else") was designed alongside it and deliberately deferred —
+ * there is no data yet on how far bodies actually get pushed, and every
+ * other threshold in this game that was set by feel had to be corrected by
+ * measurement. See docs/V0-DESIGN.md §15.
+ */
+export function rollInstabilityFlare(rng: Rng, p: Prospect): MutationRoll | null {
+  const held = new Set(p.mutations.map((m) => m.id))
+  const table = rng.float() < DEFECT_FLARE_CHANCE ? DEFECTS : MUTATIONS
+  const pool = table.filter((m) => !held.has(m.id))
+  // A body already carrying every defect still has somewhere left to go.
+  const fallback = pool.length > 0 ? pool : [...DEFECTS, ...MUTATIONS].filter((m) => !held.has(m.id))
+  if (fallback.length === 0) return null
+  return { id: fallback[rng.int(fallback.length)].id, level: flareLevel(p) }
+}
+
+/**
+ * How hard a flare lands. Level 1 flat made pushing strictly +EV — measured,
+ * not guessed: the first 300-run pass completed at 11.3% against a 9.0%
+ * baseline, because one push buys a CHOSEN mutation at level 3-6 and cost on
+ * average 0.7 of a level-1 defect. A body far past its limit now grows worse
+ * things, not merely more of them, which is both the correction and the
+ * better fiction.
+ */
+export function flareLevel(p: Prospect): number {
+  return Math.min(MAX_MUTATION_LEVEL, 1 + Math.floor(p.instability / 2))
+}
+
+/**
+ * Resolves a flare for every eligible fielded Prospect in one warband,
+ * called once per camp. A flare halves the Instability that caused it
+ * rather than clearing it — the pressure that found a way out, not the
+ * pressure that's gone.
+ */
+export function resolveInstabilityFlares<W extends { prospects: Prospect[] }>(
+  rng: Rng,
+  warband: W,
+): W {
+  const prospects = warband.prospects.map((p) => {
+    if (!p.fielded || p.instability <= 0) return p
+    if (rng.float() >= flareChance(p)) return p
+    const flare = rollInstabilityFlare(rng, p)
+    if (!flare) return p
+    return revealIfMaxed({
+      ...p,
+      mutations: [...p.mutations, flare],
+      instability: Math.floor(p.instability / 2),
+    })
+  })
+  return { ...warband, prospects }
 }
 
 /**

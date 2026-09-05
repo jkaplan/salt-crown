@@ -14,6 +14,7 @@ import {
   APPRAISAL_COST,
   isMaxed,
   isFirstborn,
+  tollSpent,
   sellValue,
   MAX_FIELDED_PROSPECTS,
   BIONICS_BY_ID,
@@ -292,7 +293,7 @@ export function SquadRow({
  * a glance rather than a number in a list.
  */
 export function Capacity({ prospect }: { prospect: Prospect }) {
-  const filled = prospect.mutations.length
+  const filled = tollSpent(prospect)
 
   /*
    * An ungraded body must LOOK ungraded. If the slots were drawn from the
@@ -317,20 +318,36 @@ export function Capacity({ prospect }: { prospect: Prospect }) {
 
   const maxed = isMaxed(prospect)
   const legend = canBecomeFirstborn(prospect)
+  // Toll spent beyond the body's own ceiling. Drawn as extra slots past the
+  // end rather than by stretching the row, so "past what it was built for"
+  // reads as overflow rather than as a bigger body.
+  const over = Math.max(0, filled - prospect.capacity)
+  const unstable = prospect.instability > 0
 
   return (
     <span
-      className={`capacity${maxed ? ' maxed' : ''}${legend ? ' legend' : ''}`}
+      className={`capacity${maxed ? ' maxed' : ''}${legend ? ' legend' : ''}${
+        unstable ? ' unstable' : ''
+      }`}
       title={`Capacity ${prospect.capacity} — ${capacityGrade(prospect.capacity)}. ${
         maxed
-          ? 'This body can hold no more.'
+          ? 'At its own limit. Growing it further will cost stability.'
           : `${prospect.capacity - filled} more mutation(s) possible.`
-      }${legend ? ' Deep enough to become a Firstborn.' : ''}`}
+      }${legend ? ' Deep enough to become a Firstborn.' : ''}${
+        unstable
+          ? ` Instability ${prospect.instability} — this body may change on its own.`
+          : ''
+      }`}
     >
       {Array.from({ length: prospect.capacity }, (_, i) => (
         <i key={i} className={i < filled ? 'slot on' : 'slot'} />
       ))}
-      <span className="capacity-word">{maxed ? 'finished' : capacityGrade(prospect.capacity)}</span>
+      {Array.from({ length: over }, (_, i) => (
+        <i key={`over${i}`} className="slot over" />
+      ))}
+      <span className="capacity-word">
+        {unstable ? `unstable ${prospect.instability}` : maxed ? 'at its limit' : capacityGrade(prospect.capacity)}
+      </span>
     </span>
   )
 }

@@ -12,7 +12,7 @@ export default function MutationTag({ roll, hot }: { roll: MutationRoll; hot?: b
   if (!def) return null
 
   return (
-    <span className={`tag ${hot ? 'hot' : ''}`} tabIndex={0}>
+    <span className={`tag ${hot ? 'hot' : ''}${def.defect ? ' defect' : ''}`} tabIndex={0}>
       <MutationIcon icon={def.icon} size={13} />
       {def.name} <b>{roll.level}</b>
       <span className="tip" role="tooltip">
@@ -20,7 +20,13 @@ export default function MutationTag({ roll, hot }: { roll: MutationRoll; hot?: b
           {def.name} <em>level {roll.level}</em>
         </span>
         <span className="tip-effect">{def.describe(roll.level)}</span>
-        <span className="tip-scale">Scales 1–6. Higher rolls are rarer and cost more.</span>
+        {/* A defect was never chosen and never priced, so the buyer's-guide
+            line below would be nonsense on one. */}
+        <span className="tip-scale">
+          {def.defect
+            ? 'Not chosen. An unstable body grew this on its own.'
+            : 'Scales 1–6. Higher rolls are rarer and cost more.'}
+        </span>
       </span>
     </span>
   )
