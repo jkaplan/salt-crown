@@ -29,7 +29,6 @@ import type { BattleEvent, GroupResult, Winner } from '@salt/sim'
 import Camp from './screens/Camp'
 import BattleScreen from './screens/BattleScreen'
 import Report from './screens/Report'
-import Skirmish from './screens/Skirmish'
 import StartScreen from './screens/StartScreen'
 import LeaderSelect from './screens/LeaderSelect'
 import OriginSelect from './screens/OriginSelect'
@@ -38,7 +37,7 @@ import Compendium from './screens/Compendium'
 import ParametersPanel from './components/ParametersPanel'
 import type { ViewStats } from './BattleView'
 
-type Mode = 'campaign' | 'skirmish' | 'compendium'
+type Mode = 'campaign' | 'compendium'
 /*
  * Setup is a three-step path whose middle step depends on the origin: a Scion
  * picks a commander, a Freed Firstborn picks what they are. §13 — "the True
@@ -160,9 +159,6 @@ export default function App() {
           <button className={mode === 'campaign' ? 'on' : ''} onClick={() => setMode('campaign')}>
             Campaign
           </button>
-          <button className={mode === 'skirmish' ? 'on' : ''} onClick={() => setMode('skirmish')}>
-            Skirmish
-          </button>
           <button className={mode === 'compendium' ? 'on' : ''} onClick={() => setMode('compendium')}>
             Compendium
           </button>
@@ -176,8 +172,6 @@ export default function App() {
 
       <div className={showPanel ? 'shell shell-docked' : 'shell'}>
         <div className="shell-main">
-          {mode === 'skirmish' && <Skirmish />}
-
           {mode === 'compendium' && <Compendium run={run} />}
 
           {mode === 'campaign' && run && (
