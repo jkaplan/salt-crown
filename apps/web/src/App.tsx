@@ -20,19 +20,19 @@ import {
   march,
   setOut,
   advanceLeg,
-  travelDone,
   moveSquad,
   placeSquad,
   newRun,
   resolveBattle,
   totalBodies,
 } from '@salt/game'
-import type { BattleSetup, Officer, OriginId, RunState } from '@salt/game'
+import type { BattleSetup, Officer, OriginId, Pace, RunState } from '@salt/game'
 import type { BattleEvent, GroupResult, Winner } from '@salt/sim'
 import Camp from './screens/Camp'
 import BattleScreen from './screens/BattleScreen'
 import Report from './screens/Report'
 import StartScreen from './screens/StartScreen'
+import TravelScreen from './screens/TravelScreen'
 import LeaderSelect from './screens/LeaderSelect'
 import OriginSelect from './screens/OriginSelect'
 import FoundingMutations from './screens/FoundingMutations'
@@ -61,33 +61,30 @@ export default function App() {
   const [run, setRun] = useState<RunState | null>(null)
   const [setup, setSetup] = useState<BattleSetup | null>(null)
   const [liveStats, setLiveStats] = useState<ViewStats | null>(null)
+  // True from the moment March is pressed until the warband arrives. Only the
+  // camp half of the road needs it; after setOut the phase says where we are.
+  const [departing, setDeparting] = useState(false)
 
-  const onMarch = useCallback(() => {
+  /*
+   * Marching opens the road rather than crossing it. The pace is chosen while
+   * the run is still in camp — setOut() is what moves it to the travel phase —
+   * so a flag carries the screen across that one boundary and TravelScreen
+   * reads the phase for everything after it.
+   */
+  const onMarch = useCallback(() => setDeparting(true), [])
+
+  const onSetOut = useCallback((pace: Pace) => setRun((r) => (r ? setOut(r, pace) : r)), [])
+
+  const onWalk = useCallback(() => setRun((r) => (r ? advanceLeg(r) : r)), [])
+
+  const onArrive = useCallback(() => {
     if (!run) return
-    /*
-     * STOPGAP. The road is walked here with no player input and always at
-     * Column pace, because the travel screen does not exist yet — it is step 5
-     * of docs/plans/travel.md and this is step 2. Column costs exactly what a
-     * march cost before travel existed, so the game plays as it did.
-     *
-     * The screen replaces this block outright: pace becomes a choice, and the
-     * legs become something the player watches happen.
-     */
-    let walked = setOut(run, 'column')
-    while (walked.phase === 'travel' && !travelDone(walked)) walked = advanceLeg(walked)
-
-    // Running the quarry down ends the run on the road. There is no battle to
-    // set up, and the loop above must not wait for one.
-    if (walked.phase === 'over') {
-      setRun(walked)
-      return
-    }
-
     // The setup comes back from march() so it always matches the warband that
-    // actually leaves camp — a water shortfall removes bodies here.
-    const { state, setup } = march(walked)
+    // actually arrives — the road removes bodies, not just the gate.
+    const { state, setup } = march(run)
     setSetup(setup)
     setRun(state)
+    setDeparting(false)
   }, [run])
 
   const onDone = useCallback(
@@ -118,6 +115,7 @@ export default function App() {
     setRun(null)
     setSetup(null)
     setLiveStats(null)
+    setDeparting(false)
     setSetupPhase('start')
     setOrigin('scion')
   }
@@ -198,7 +196,16 @@ export default function App() {
 
           {mode === 'campaign' && run && (
             <>
-              {run.phase === 'camp' && (
+              {(departing || run.phase === 'travel') && (
+                <TravelScreen
+                  run={run}
+                  onSetOut={onSetOut}
+                  onWalk={onWalk}
+                  onArrive={onArrive}
+                />
+              )}
+
+              {run.phase === 'camp' && !departing && (
                 <Camp
                   run={run}
                   onBuy={(id) => setRun(buy(run, id))}
