@@ -1,6 +1,6 @@
 # Plan: The march
 
-Status: **agreed, steps 1-4 of 6 implemented** — 2026-09-06
+Status: **agreed, steps 1-5 of 6 implemented** — 2026-09-06
 
 Went agreed → proposed → agreed in one day. Desk research
 ([research/travel-games.md](../research/travel-games.md)) invalidated the first
@@ -8,6 +8,10 @@ version's central mechanic hours after it was agreed, so it went back to
 proposed rather than being quietly patched; the chase, and then the decision
 that the chase gates an *ending* rather than survival, is what earned the
 status back. What changed and why is in "What the research overturned" below.
+
+Stage-4 note as of step 5: the march is now playable end to end, so the
+riskiest assumption below is finally testable by the only instrument that can
+settle it — a person walking one. Nobody has yet.
 
 Stage-4 note: the riskiest assumption — that a march makes a run *better*
 rather than merely *longer* — is still unspiked. The research sharpened it
@@ -306,3 +310,42 @@ is the only one that can never catch anything.
 rounds of guess-and-check against one greedy bot on one origin. The adaptive
 policy is deliberately crude and is the harness, not a player. Nobody has
 played a single march of this.
+
+## Step 5 reading — the screen
+
+The road is a takeover, on the same grounds as events and growth picks: the
+pace is required input and a decision that shares a page with a shop reads as
+optional however the buttons are labelled. Two states in one component,
+because picking a pace and living with it is one moment.
+
+Three things the screen decided that the model had left open:
+
+**The quote is exact, not an estimate.** `forecastPace` in `travel.ts` runs the
+real `payWater` — which is pure and rolls nothing — so the deserters shown in
+camp are the deserters `setOut` will actually take. A forecast that could be
+wrong is worse than no forecast, because the whole reason the bill is shown
+before the buy is that a shortfall should be a decision the player made.
+
+**Straggling is reported net.** A leg where four fall behind and four rejoin
+leaves the column the size it was, and the state carries no more detail than
+that. Printing both would be inventing it.
+
+**"Two numbers, or one?" is answered by neither.** The open question above
+asked whether distance-to-encounter and gap-to-quarry are one number wearing
+two labels. In the built screen the first is not a number at all — it is three
+legs, which is the shape it always was — so only the gap is a distance and the
+question does not arise. Struck.
+
+The gap is in the camp status bar as well as on the road, because the
+condition this plan set for a march you can plan around is that the distance
+is visible BEFORE the buy, and the buy happens in camp.
+
+**Played, not just built:** Column, Forced and Killing each walk three legs,
+draw the water they quoted, move the gap the way they said, and hand off to
+the battle. Column over 100 runs is unchanged — 10.0% completion, 70% cold
+trails — which is the same reskin-not-rebalance check step 2 passed.
+
+**Still not trustworthy.** Every pace constant remains a placeholder from
+guess-and-check against one greedy bot. What the screen changes is that the
+one instrument that can settle the plan's riskiest assumption — a person
+walking a march and saying whether it was worth walking — now exists.
