@@ -155,6 +155,18 @@ export {
   startingWarband,
 } from './origins.js'
 export type { Origin, OriginId, StartChoice } from './origins.js'
+export {
+  PACES,
+  PACE_NAMES,
+  PACE_WATER_MULT,
+  PACE_GAP_MOVE,
+  LEGS_PER_MARCH,
+  STARTING_GAP,
+  TRAIL_LOST_AT,
+  marchWaterBill,
+  legWaterCost,
+} from './travel.js'
+export type { Pace, TravelState } from './travel.js'
 export { postmortem } from './postmortem.js'
 export type { Postmortem } from './postmortem.js'
 export { scoutEnemy, armorWord, mixWord } from './scouting.js'
@@ -194,6 +206,11 @@ export {
   placeSquad,
   buildBattle,
   march,
+  setOut,
+  advanceLeg,
+  travelDone,
+  hasCaught,
+  hasLostTrail,
   resolveBattle,
   advance,
 } from './run.js'

@@ -52,6 +52,9 @@ import {
   assignLeader,
   buy,
   march,
+  setOut,
+  advanceLeg,
+  travelDone,
   newRun,
   resolveBattle,
   prospectPower,
@@ -338,7 +341,16 @@ function playRun(
           .map((p) => p.id)
         if (crew.length > 0) state = sendExpedition(state, verb, crew)
       }
-      const marched = march(state)
+      /*
+       * Column pace, always. It is the baseline — exactly the old march cost —
+       * so every completion figure recorded before travel existed stays
+       * comparable. A bot that picks a pace is what step 4 of the plan is for,
+       * and it needs the gap wired to an ending before the choice means
+       * anything.
+       */
+      let walked = setOut(state, 'column')
+      while (!travelDone(walked)) walked = advanceLeg(walked)
+      const marched = march(walked)
       const setup = marched.setup
       state = marched.state
       const battle = new Battle(setup.config)

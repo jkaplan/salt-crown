@@ -1,6 +1,6 @@
 # Plan: The march
 
-Status: **agreed** — 2026-09-05
+Status: **agreed, step 2 of 6 implemented** — 2026-09-05
 
 Went agreed → proposed → agreed in one day. Desk research
 ([research/travel-games.md](../research/travel-games.md)) invalidated the first
@@ -175,8 +175,18 @@ predicted:  Column pace, greedy, 300 runs: completion within 2 points of the
                      it has replaced the encounter curve by accident.
             Straggling: mutant-heavy warbands lose measurably more to the road
                      than True Kin-heavy ones at the same pace.
-measured:   (fill in at build)
-verdict:    (fill in at build)
+measured:   Column, greedy, 300 runs: byte-identical to the baseline on every
+            counter — 31 runs won (10.3%), 8147 deserters over 2530 marches,
+            0.52 Firstborn, 1558 wounded-camps. Not "within 2 points": the
+            same numbers.
+            Forced and Killing are unmeasured — the bot always walks Column,
+            deliberately, so the recorded baselines stay comparable. Reading
+            them needs a bot that picks a pace, which is step 4.
+verdict:    Right, for the half that was testable. Getting there took two
+            wrong shapes, both caught by the harness and neither by a test:
+            splitting the water shortfall across legs cascaded desertion and
+            cut completion to 3.0%, and leaving march()’s morale hit in place
+            alongside setOut’s charged it twice for a quiet 1% drift.
 ```
 
 ## Open questions

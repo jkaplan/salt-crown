@@ -24,6 +24,14 @@ import {
   newRun,
   advance,
   march,
+  setOut,
+  advanceLeg,
+  travelDone,
+  hasCaught,
+  hasLostTrail,
+  LEGS_PER_MARCH,
+  STARTING_GAP,
+  TRAIL_LOST_AT,
   placeSquad,
   BATTLES_PER_MUTATION,
   earnedGrowth,
@@ -128,8 +136,20 @@ import {
   applyPermanentInjuries,
   PERMANENT_INJURY_PENALTY,
 } from '@salt/game'
-import type { Encounter, Prospect, RunState, Warband, Wound } from '@salt/game'
+import type { Encounter, Pace, Prospect, RunState, Warband, Wound } from '@salt/game'
 import { TEAM_A, TEAM_B } from '@salt/sim'
+
+/**
+ * Camp to battle in one call, for the tests that are about what happens on
+ * the far side of the road rather than about the road itself. The march is
+ * three legs now (docs/plans/travel.md); Column is the baseline pace and
+ * costs exactly what a march cost before travel existed.
+ */
+function marchNow(state: RunState, pace: Pace = 'column') {
+  let walked = setOut(state, pace)
+  while (!travelDone(walked)) walked = advanceLeg(walked)
+  return march(walked)
+}
 
 function start(seed = 'test-seed'): RunState {
   const leader = rollOfficer(new Rng(hashSeed(seed)), 'leader-0')
@@ -265,7 +285,7 @@ describe('rerolling', () => {
     // Hand-built win, same pattern as the machine/bionic tests above — a
     // real simulated battle isn't guaranteed to go the player's way, and
     // advance() only opens a fresh camp (with a fresh rerollCount) on one.
-    const marched = march(rerolled)
+    const marched = marchNow(rerolled)
     const results = marched.setup.playerSources.map(() => ({
       label: 'x', started: 1, dead: 0, survived: 1, endEffectiveness: 1,
       damageDealt: 0, damageTaken: 0, damageBlocked: 0, swings: 0, hits: 0, team: TEAM_A,
@@ -1694,7 +1714,7 @@ describe('water and upkeep', () => {
     const paid = payWater(thirsty)
     expect(paid.deserted).toBeGreaterThan(0)
 
-    const marched = march({ ...run, warband: thirsty }).state
+    const marched = marchNow({ ...run, warband: thirsty }).state
     expect(marched.warband.officers).toHaveLength(run.warband.officers.length)
     expect(marched.warband.prospects).toHaveLength(run.warband.prospects.length)
   })
@@ -1704,7 +1724,10 @@ describe('water and upkeep', () => {
     // pre-march one meant deserters marched anyway.
     const run = start()
     const thirsty = { ...run, warband: { ...run.warband, water: 0 } }
-    const { state, setup } = march(thirsty)
+    // The road is what charges now, so it has to be walked before the gate.
+    let walked = setOut(thirsty, 'column')
+    while (!travelDone(walked)) walked = advanceLeg(walked)
+    const { state, setup } = march(walked)
 
     expect(state.lastUpkeep!.deserted).toBeGreaterThan(0)
     const fielded = setup.config.groups
@@ -1717,7 +1740,7 @@ describe('water and upkeep', () => {
   it('shakes the column when people walk', () => {
     const run = start()
     const thirsty = { ...run, warband: { ...run.warband, water: 0, morale: 0 } }
-    expect(march(thirsty).state.warband.morale).toBeLessThan(0)
+    expect(marchNow(thirsty).state.warband.morale).toBeLessThan(0)
   })
 })
 
@@ -1752,7 +1775,7 @@ describe('expeditions', () => {
       expect(sent.warband.prospects.find((p) => p.id === id)!.fielded).toBe(false)
     }
 
-    const fielded = march(sent).setup.playerSources.filter((s) => s.kind === 'prospect')
+    const fielded = marchNow(sent).setup.playerSources.filter((s) => s.kind === 'prospect')
     expect(fielded.map((s) => s.id)).not.toContain('crew-0')
   })
 
@@ -1881,7 +1904,7 @@ describe('expeditions', () => {
   it('brings the crew home at the next camp, with what they found', () => {
     const run = withCrew(2)
     const sent = sendExpedition(run, 'delve', ['crew-0', 'crew-1'])
-    const marched = march(sent)
+    const marched = marchNow(sent)
     const won = {
       ...marched.state,
       phase: 'report' as const,
@@ -2234,7 +2257,7 @@ describe('machines', () => {
 
   it('only degrades, and only when it fights', () => {
     const run = withMachine()
-    const marched = march(run)
+    const marched = marchNow(run)
     const battled = resolveBattle(
       marched.state,
       marched.setup.playerSources.map((src) => ({
@@ -2301,7 +2324,7 @@ describe('machines', () => {
     // not march — rather than a hidden extra step of decay.
     const run = withMachine()
     const broke = { ...run, warband: { ...run.warband, salvage: MACHINE_RUN_COST - 1 } }
-    const { state, setup } = march(broke)
+    const { state, setup } = marchNow(broke)
 
     expect(setup.playerSources.some((s) => s.kind === 'machine')).toBe(false)
     expect(state.lastUpkeep!.cold).toBe(1)
@@ -2310,7 +2333,7 @@ describe('machines', () => {
     expect(state.warband.machines[0].condition).toBe(MACHINE_CONDITION_MAX)
 
     // With salvage, it runs, and the running is what costs.
-    const paid = march(run)
+    const paid = marchNow(run)
     expect(paid.setup.playerSources.some((s) => s.kind === 'machine')).toBe(true)
     expect(paid.state.warband.salvage).toBe(run.warband.salvage - MACHINE_RUN_COST)
   })
@@ -3013,7 +3036,7 @@ describe('permanent injuries', () => {
   it('turns a Maimed event into a permanent injury on the right Prospect', () => {
     const run = start()
     const prospect = run.warband.prospects[0]
-    const marched = march(run)
+    const marched = marchNow(run)
     const state = marched.state
     const setup = marched.setup
     const groupIndex = setup.playerSources.findIndex((s) => s.kind === 'prospect' && s.id === prospect.id)
@@ -3039,7 +3062,7 @@ describe('permanent injuries', () => {
   it('credits a dismemberment to the Prospect whose own body dealt it, not to the squad it might lead', () => {
     const run = start()
     const prospect = run.warband.prospects[0]
-    const marched = march(run)
+    const marched = marchNow(run)
     const state = marched.state
     const setup = marched.setup
     const groupIndex = setup.playerSources.findIndex((s) => s.kind === 'prospect' && s.id === prospect.id)
@@ -3061,7 +3084,7 @@ describe('permanent injuries', () => {
 
   it('gives no credit when a squad, not a Prospect, was the source', () => {
     const run = start()
-    const marched = march(run)
+    const marched = marchNow(run)
     const state = marched.state
     const setup = marched.setup
     const squadIndex = setup.playerSources.findIndex((s) => s.kind === 'squad')
@@ -3091,5 +3114,127 @@ describe('permanent injuries', () => {
         expect(describeInjury({ zone, harmKind, attacker: 'x', encounterIndex: 0 })).toBeTruthy()
       }
     }
+  })
+})
+
+describe('the march', () => {
+  /*
+   * docs/plans/travel.md. The road between camps used to be an instant cut:
+   * march() charged Water and started a battle. It is now three legs walked at
+   * a chosen pace, against a quarry that is running.
+   *
+   * The gap is the clock. Nothing here needs a calendar, because what pace
+   * buys is ground rather than days — see the plan's own note on Oregon
+   * Trail charging MORE food per mile at a harder pace, not less.
+   */
+
+  const camp = (over: Partial<RunState> = {}): RunState => ({ ...start(), ...over })
+
+  const walkTheWholeRoad = (state: RunState, pace: Pace): RunState => {
+    let s = setOut(state, pace)
+    while (!travelDone(s)) s = advanceLeg(s)
+    return s
+  }
+
+  it('walks camp to battle by way of three legs', () => {
+    const run = camp()
+    expect(run.phase).toBe('camp')
+
+    const setting = setOut(run, 'column')
+    expect(setting.phase).toBe('travel')
+    expect(setting.travel!.pace).toBe('column')
+    expect(setting.travel!.legsDone).toBe(0)
+    // The bill is settled on setting out, not recomputed per leg.
+    expect(setting.travel!.waterBill).toBe(waterUpkeep(run.warband))
+
+    let s = setting
+    for (let i = 1; i <= LEGS_PER_MARCH; i++) {
+      s = advanceLeg(s)
+      expect(s.travel!.legsDone).toBe(i)
+    }
+    expect(travelDone(s)).toBe(true)
+
+    // Only now will the battle start, and march() still hands back the setup
+    // it always did.
+    const { state: marched, setup } = march(s)
+    expect(marched.phase).toBe('battle')
+    expect(setup.config.groups.length).toBeGreaterThan(0)
+  })
+
+  it('refuses to march a road that has not been walked', () => {
+    const run = camp()
+    // Straight from camp, and again mid-road: neither is a march.
+    expect(() => march(run)).toThrow()
+    expect(() => march(advanceLeg(setOut(run, 'column')))).toThrow()
+  })
+
+  it('costs at Column exactly what a march cost before there was a road', () => {
+    /*
+     * Column is the baseline and must stay free of charge in the sense that
+     * matters: a player who picks nothing different pays nothing different.
+     * Anything else would be a silent rebalance wearing a new feature's
+     * clothes.
+     */
+    const run = camp()
+    const upkeep = waterUpkeep(run.warband)
+    const walked = walkTheWholeRoad(run, 'column')
+    expect(run.warband.water - walked.warband.water).toBe(upkeep)
+  })
+
+  it('charges more for every step up in pace', () => {
+    const run = camp()
+    const spent = (pace: Pace) =>
+      run.warband.water - walkTheWholeRoad(run, pace).warband.water
+
+    // Oregon Trail's actual model: pushing costs MORE, and buys ground.
+    expect(spent('forced')).toBeGreaterThan(spent('column'))
+    expect(spent('killing')).toBeGreaterThan(spent('forced'))
+  })
+
+  it('loses ground at Column, holds at Forced, and gains at Killing', () => {
+    const run = camp({ gap: 6 })
+    expect(walkTheWholeRoad(run, 'column').gap).toBeGreaterThan(6)
+    expect(walkTheWholeRoad(run, 'forced').gap).toBe(6)
+    expect(walkTheWholeRoad(run, 'killing').gap).toBeLessThan(6)
+  })
+
+  it('knows when the quarry is caught and when the trail is cold', () => {
+    // Neither is wired to an ending yet — that is the travel screen's step.
+    // What exists here is the reading the ending will be taken from.
+    expect(hasCaught(camp({ gap: 0 }))).toBe(true)
+    expect(hasCaught(camp({ gap: 1 }))).toBe(false)
+
+    expect(hasLostTrail(camp({ gap: TRAIL_LOST_AT }))).toBe(true)
+    expect(hasLostTrail(camp({ gap: TRAIL_LOST_AT - 1 }))).toBe(false)
+  })
+
+  it('charges the morale of a walkout once, not once per stage of the march', () => {
+    /*
+     * Provisioning takes the morale hit for anyone the cistern cannot carry.
+     * march() used to take it as well, because it used to be the thing that
+     * paid the water — leaving both in charged it twice.
+     *
+     * Nothing failed. Every test still passed; the run just quietly went 1%
+     * worse, and only a 300-run comparison against the recorded baseline
+     * showed it. This test is here so the next one is caught by the suite.
+     */
+    const run = start()
+    const thirsty = { ...run, warband: { ...run.warband, water: 0 } }
+
+    const provisioned = setOut(thirsty, 'column')
+    expect(provisioned.travel!.deserted).toBeGreaterThan(0)
+    const afterWalkout = provisioned.warband.morale
+
+    let walked = provisioned
+    while (!travelDone(walked)) walked = advanceLeg(walked)
+    // Walking costs no further morale, and neither does the gate.
+    expect(walked.warband.morale).toBe(afterWalkout)
+    expect(march(walked).state.warband.morale).toBe(afterWalkout)
+  })
+
+  it('starts a run with the quarry already ahead', () => {
+    expect(camp().gap).toBe(STARTING_GAP)
+    expect(hasCaught(camp())).toBe(false)
+    expect(hasLostTrail(camp())).toBe(false)
   })
 })

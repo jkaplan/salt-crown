@@ -124,10 +124,13 @@ export interface DesertionResult {
  * not leave, and it has no water. The run is in serious trouble and nothing
  * has been executed to say so.
  */
-export function payWater(w: Warband): DesertionResult {
+export function payWater(w: Warband, bill?: number): DesertionResult {
   let squads = w.squads
   let deserted = 0
-  let cost = waterUpkeep(w)
+  // A march charges its own bill, one leg at a time — see travel.ts. Left
+  // optional so every other caller keeps the ordinary upkeep it always had.
+  const baseline = waterUpkeep(w)
+  let cost = bill ?? baseline
 
   if (cost <= w.water) {
     return { squads, deserted, spent: cost, remaining: w.water - cost }
@@ -148,7 +151,10 @@ export function payWater(w: Warband): DesertionResult {
 
     squads[biggest].count--
     deserted++
-    cost = waterUpkeep({ ...w, squads })
+    // A named bill keeps its shape as bodies leave: it is scaled by the same
+    // ratio the ordinary upkeep just moved, so a hard march stays a hard
+    // march all the way down rather than reverting to the baseline rate.
+    cost = bill === undefined ? waterUpkeep({ ...w, squads }) : Math.round(bill * (waterUpkeep({ ...w, squads }) / baseline))
     if (cost <= w.water) break
   }
 

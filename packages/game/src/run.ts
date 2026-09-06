@@ -27,7 +27,16 @@ import type { Prospect } from './prospects.js'
 import type { Machine } from './machines.js'
 import { clampMorale, rollCampEvent, rollCampOptions } from './events.js'
 import type { CampOption, EventCategory } from './events.js'
-import { MORALE_PER_DESERTER, payWater } from './water.js'
+import { MORALE_PER_DESERTER, payWater, waterUpkeep } from './water.js'
+import {
+  LEGS_PER_MARCH,
+  PACE_GAP_MOVE,
+  STARTING_GAP,
+  TRAIL_LOST_AT,
+  legWaterCost,
+  marchWaterBill,
+} from './travel.js'
+import type { Pace, TravelState } from './travel.js'
 import { BIONICS, BIONICS_BY_ID, BIONIC_SLOTS } from './bionics.js'
 import { RELICS, RELICS_BY_ID } from './relics.js'
 import { postmortem } from './postmortem.js'
@@ -56,7 +65,7 @@ import {
 } from './wounds.js'
 import type { PermanentInjury } from './wounds.js'
 
-export type Phase = 'camp' | 'battle' | 'report' | 'over'
+export type Phase = 'camp' | 'travel' | 'battle' | 'report' | 'over'
 
 export interface SquadLoss {
   label: string
@@ -116,6 +125,17 @@ export interface RunState {
   origin: OriginId
   rng: Rng
   phase: Phase
+  /**
+   * The road, while it is being walked. Null everywhere else — travel is a
+   * phase, not a permanent fixture of a run.
+   */
+  travel: TravelState | null
+  /**
+   * Days the quarry is ahead — docs/plans/travel.md. This is the run’s clock:
+   * pace moves it, catching it is the true ending, and losing it drops the run
+   * to a lesser one rather than ending it.
+   */
+  gap: number
   encounterIndex: number
   warband: Warband
   offers: Offer[]
@@ -171,6 +191,8 @@ export function newRun(seedText: string, choice: StartChoice = { origin: 'scion'
     origin: origin.id,
     rng,
     phase: 'camp',
+    travel: null,
+    gap: STARTING_GAP,
     encounterIndex: 0,
     warband,
     offers: rollOffers(rng, 0, origin.truekinPremium),
@@ -828,8 +850,105 @@ export function buildBattle(state: RunState): BattleSetup {
  * that is already consistent with the state makes that ordering impossible to
  * get wrong.
  */
+/** Has the quarry been run down? */
+export function hasCaught(state: RunState): boolean {
+  return state.gap <= 0
+}
+
+/**
+ * Has the trail gone cold?
+ *
+ * Deliberately not a loss. The run continues to a lesser ending — see the
+ * plan's own note on why “you can keep playing but cannot win” is miserable
+ * while “you can keep playing for less” is not.
+ */
+export function hasLostTrail(state: RunState): boolean {
+  return state.gap >= TRAIL_LOST_AT
+}
+
+/** Every leg walked, and the battle is what happens next. */
+export function travelDone(state: RunState): boolean {
+  return state.travel !== null && state.travel.legsDone >= LEGS_PER_MARCH
+}
+
+/**
+ * Leave camp at a chosen pace.
+ *
+ * The bill for the whole march is settled here rather than per leg: you
+ * loaded the wagons for this trip at this pace, and bodies lost on the road
+ * do not make the crossing retroactively cheaper.
+ */
+export function setOut(state: RunState, pace: Pace): RunState {
+  if (state.phase !== 'camp') return state
+
+  /*
+   * The column is provisioned here, in one reckoning, and anyone the cistern
+   * cannot carry leaves before it moves.
+   *
+   * Splitting the shortfall across the legs instead was tried and measured,
+   * and it is a silent rebalance rather than a reskin: each leg shed bodies to
+   * afford its own share, then walked on with less water for the next one, and
+   * the cascade doubled desertion per march (3.2 to 6.1) and cut bot
+   * completion from 10.3% to 3.0% on 300 runs. Column is meant to cost exactly
+   * what a march cost before there was a road, and this is what makes that
+   * true: one payWater call with the pace-scaled bill, which at Column IS the
+   * old call.
+   *
+   * The water still drains a leg at a time below. What does not happen a leg
+   * at a time is people leaving.
+   */
+  const bill = marchWaterBill(waterUpkeep(state.warband), pace)
+  const { squads, deserted, spent } = payWater(state.warband, bill)
+
+  return {
+    ...state,
+    phase: 'travel',
+    travel: { pace, legsDone: 0, waterBill: spent, spent: 0, deserted },
+    warband: {
+      ...state.warband,
+      squads,
+      morale: clampMorale(state.warband.morale - deserted * MORALE_PER_DESERTER),
+    },
+  }
+}
+
+/**
+ * Walk one leg.
+ *
+ * Water comes off here rather than in one lump at the end, so a march can
+ * run a warband dry partway rather than only ever at the gate. The gap moves
+ * once, on the last leg — pace is a commitment for the whole road, so it
+ * resolves as one outcome rather than three small ones.
+ */
+export function advanceLeg(state: RunState): RunState {
+  const travel = state.travel
+  if (state.phase !== 'travel' || !travel || travelDone(state)) return state
+
+  // Water only. Who walks was settled when the column was provisioned.
+  const drawn = legWaterCost(travel.waterBill, travel.legsDone)
+  const legsDone = travel.legsDone + 1
+  const last = legsDone >= LEGS_PER_MARCH
+
+  return {
+    ...state,
+    travel: { ...travel, legsDone, spent: travel.spent + drawn },
+    gap: last ? state.gap + PACE_GAP_MOVE[travel.pace] : state.gap,
+    warband: { ...state.warband, water: Math.max(0, state.warband.water - drawn) },
+  }
+}
+
 export function march(state: RunState): { state: RunState; setup: BattleSetup } {
-  const { squads, deserted, spent, remaining } = payWater(state.warband)
+  if (!travelDone(state)) {
+    throw new Error(
+      'march() needs a road walked first: setOut(), then advanceLeg() until travelDone().',
+    )
+  }
+  /*
+   * The road already charged for this crossing, one leg at a time. march()
+   * reports what it cost rather than billing for it a second time.
+   */
+  const { spent, deserted } = state.travel!
+  const squads = state.warband.squads
 
   /*
    * Machines cost salvage per battle just to run — §3's "expensive to merely
@@ -860,11 +979,12 @@ export function march(state: RunState): { state: RunState; setup: BattleSetup } 
       ...state.warband,
       squads,
       salvage,
-      water: remaining,
       // Only the machines that are running take the field. The cold ones are
       // still owned, still drink, and are back on the list next camp.
       machines: running,
-      morale: clampMorale(state.warband.morale - deserted * MORALE_PER_DESERTER),
+      // Morale for the walkers is NOT charged here. setOut() already took it
+      // when they left, and taking it twice is a real, measurable difference:
+      // it moved desertion by about 1% across 300 runs.
     },
     lastUpkeep: { spent, deserted, cold: cold.length },
   }
@@ -1157,6 +1277,7 @@ export function advance(state: RunState): RunState {
   return {
     ...home,
     phase: 'camp',
+    travel: null,
     encounterIndex: next,
     // Empty by default now — the market is something that has to happen to
     // you (the caravan event, below) rather than a standing shop rerolled at

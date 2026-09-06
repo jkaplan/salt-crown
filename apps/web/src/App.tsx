@@ -18,6 +18,9 @@ import {
   rerollOffers,
   chooseMutation,
   march,
+  setOut,
+  advanceLeg,
+  travelDone,
   moveSquad,
   placeSquad,
   newRun,
@@ -61,9 +64,21 @@ export default function App() {
 
   const onMarch = useCallback(() => {
     if (!run) return
+    /*
+     * STOPGAP. The road is walked here with no player input and always at
+     * Column pace, because the travel screen does not exist yet — it is step 5
+     * of docs/plans/travel.md and this is step 2. Column costs exactly what a
+     * march cost before travel existed, so the game plays as it did.
+     *
+     * The screen replaces this block outright: pace becomes a choice, and the
+     * legs become something the player watches happen.
+     */
+    let walked = setOut(run, 'column')
+    while (!travelDone(walked)) walked = advanceLeg(walked)
+
     // The setup comes back from march() so it always matches the warband that
     // actually leaves camp — a water shortfall removes bodies here.
-    const { state, setup } = march(run)
+    const { state, setup } = march(walked)
     setSetup(setup)
     setRun(state)
   }, [run])
