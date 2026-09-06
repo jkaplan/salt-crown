@@ -1,4 +1,5 @@
 import { Rng } from '@salt/sim'
+import type { Pace } from './travel.js'
 
 /**
  * Events, as data.
@@ -47,10 +48,27 @@ export interface EventChoice {
   grantSquads?: { pool: 'mutant' | 'truekin'; count: number }
   /** Hand over one rolled Officer directly, same terms as grantSquads. */
   grantOfficer?: boolean
+  /**
+   * Water gained. Negative drinks it. Only the road spends water this way —
+   * in camp the bill is the march itself, and a second way to pay it would
+   * make the upkeep curve unreadable.
+   */
+  water?: number
+  /**
+   * Change the pace mid-march. The plan locks pace for the whole road and
+   * names exactly one exception: "a trail event may offer to change it as one
+   * of its branches". This is that exception, and it costs no new UI because
+   * a branch is already how every other choice is offered.
+   */
+  pace?: Pace
+  /** Days added to the gap. Negative closes it. */
+  gap?: number
+  /** Halt and gather everyone who has fallen behind. */
+  rallyStragglers?: boolean
 }
 
 /** An event that only makes sense when the warband has something to act on. */
-export type EventGate = 'machine'
+export type EventGate = 'machine' | 'stragglers'
 
 /**
  * What kind of stop this is, before the player has any idea which specific
@@ -58,7 +76,15 @@ export type EventGate = 'machine'
  * category, never the event itself directly. 'market' has exactly one
  * member, CARAVAN; 'recruitment' and 'flavor' each draw from a pool.
  */
-export type EventCategory = 'market' | 'recruitment' | 'flavor'
+export type EventCategory = 'market' | 'recruitment' | 'flavor' | 'trail'
+
+/**
+ * The buckets the crossroads can offer. 'trail' is deliberately not one of
+ * them: the road does not offer a rumour and a choice of category, it just
+ * happens to you, so anything keyed by what a player can pick in camp is
+ * keyed by this rather than by EventCategory.
+ */
+export type CrossroadsCategory = Exclude<EventCategory, 'trail'>
 
 export interface GameEvent {
   id: string
@@ -477,7 +503,7 @@ export const RECRUITMENT_CHANCE = 0.3
 
 /** A rumor of what the next stop might be — not the stop itself. */
 export interface CampOption {
-  category: EventCategory
+  category: CrossroadsCategory
   hint: string
 }
 
@@ -488,7 +514,7 @@ export interface CampOption {
  * spelling out which of the four recruitment events or nine flavour events
  * is actually waiting on the other side of the choice.
  */
-const CATEGORY_HINTS: Record<EventCategory, string> = {
+const CATEGORY_HINTS: Record<CrossroadsCategory, string> = {
   market: "Wagon tracks in the salt, and they're fresh.",
   recruitment: 'Voices on the wind — more of them than your own column makes.',
   flavor: "Something's wrong, and it isn't out on the horizon.",
@@ -524,10 +550,194 @@ export function rollCampEvent(
   rng: Rng,
   seen: string[],
   has: Set<EventGate>,
-  category: EventCategory,
+  category: CrossroadsCategory,
 ): GameEvent | null {
   if (category === 'market') return CARAVAN
   const pool = (category === 'recruitment' ? RECRUITMENT_EVENTS : FLAVOR_EVENTS).filter(
+    (e) => !seen.includes(e.id) && (!e.needs || has.has(e.needs)),
+  )
+  if (pool.length === 0) return null
+  return pool[rng.int(pool.length)]
+}
+
+/**
+ * The road's own table — docs/plans/travel.md step 6.
+ *
+ * Kept separate from EVENTS rather than folded in as a fourth category of the
+ * same list, because the crossroads rolls from that list and the road does
+ * not: there is no rumour and no choice of category out here, only the thing
+ * that is already happening. Same shape, same resolver, different draw.
+ *
+ * The rule these exist to satisfy is the plan's finding 3: a leg may not be
+ * flavour text plus a drain. Banner Saga players describe waiting dozens of
+ * days where nothing changes "only your caravan dies out for the missing
+ * supplies", and a road with no decisions on it is that road.
+ *
+ * So every branch here moves something the player can see on the travel
+ * screen — water, the gap, who is still walking, or the pace itself.
+ */
+export const TRAIL_EVENTS: GameEvent[] = [
+  {
+    id: 'sunk-cistern',
+    category: 'trail',
+    title: 'A pylon came down here, a long time ago',
+    body:
+      'The salt around its base is darker than the salt everywhere else. Something under it is still holding water, and digging it out is a day nobody spends walking.',
+    choices: [
+      {
+        label: 'Dig',
+        detail: 'A day lost, and the wagons come away heavy.',
+        water: 40,
+        gap: 1,
+      },
+      {
+        label: 'Give the shovels to the ones who cannot fight anyway',
+        detail: 'Faster. They will remember who was made to dig.',
+        water: 40,
+        morale: -0.03,
+      },
+      {
+        label: 'Walk past it',
+        detail: 'You are not out here for water.',
+      },
+    ],
+  },
+  {
+    id: 'strung-out',
+    category: 'trail',
+    needs: 'stragglers',
+    title: 'The tail of the column is a long way back',
+    body:
+      'Stragglers, strung out over a mile of flat white nothing. Some of them are still walking. Waiting for all of them costs the morning.',
+    choices: [
+      {
+        label: 'Halt and gather them in',
+        detail: 'Everyone who can still walk comes back. It costs a day.',
+        rallyStragglers: true,
+        gap: 1,
+        morale: 0.02,
+      },
+      {
+        label: 'Press on',
+        detail: 'They know the direction. Some of them will manage it.',
+        morale: -0.03,
+      },
+    ],
+  },
+  {
+    id: 'warm-sign',
+    category: 'trail',
+    title: 'The sign is fresh',
+    body:
+      'Cook fires scraped over, and the char is still warm under the top layer. They are not as far ahead as you thought, and they do not know it.',
+    choices: [
+      {
+        label: 'Run them down',
+        detail: 'Killing pace, from here to the fight.',
+        pace: 'killing',
+      },
+      {
+        label: 'Close the distance steadily',
+        detail: 'Forced march. Hard, not ruinous.',
+        pace: 'forced',
+      },
+      {
+        label: 'Keep your own pace',
+        detail: 'A warm fire is not worth a column that cannot fight when it gets there.',
+        morale: 0.02,
+      },
+    ],
+  },
+  {
+    id: 'salt-blind',
+    category: 'trail',
+    title: 'The glare has taken half a squad',
+    body:
+      'Salt blindness — eyes swollen shut, walking with a hand on the shoulder in front. It passes in a few days, in the dark, lying still.',
+    choices: [
+      {
+        label: 'Rig shade on the wagons and slow down',
+        detail: 'The column crawls. Nobody is left behind for it.',
+        gap: 1,
+        morale: 0.03,
+      },
+      {
+        label: 'Rope them together and keep moving',
+        detail: 'They walk. It is not walking they will remember.',
+        morale: -0.04,
+      },
+    ],
+  },
+  {
+    id: 'poisoned-seep',
+    category: 'trail',
+    title: 'Water, and something dead in it',
+    body:
+      'A seep at the foot of a rise, and the bones of whatever drank here first are still arranged around it. There is a way to make water like this safe. It is not free and it is not certain.',
+    choices: [
+      {
+        label: 'Boil it off with salvaged fuel',
+        detail: 'Burn the good scrap. Come away with full barrels.',
+        requires: 40,
+        salvage: -40,
+        water: 70,
+      },
+      {
+        label: 'Drink it as it is',
+        detail: 'Everyone drinks. Some of them will wish they had not.',
+        water: 45,
+        morale: -0.05,
+      },
+      {
+        label: 'Leave it',
+        detail: 'The bones were a message and you can read.',
+      },
+    ],
+  },
+  {
+    id: 'abandoned-column',
+    category: 'trail',
+    title: 'Somebody else came this way and stopped',
+    body:
+      'Wagons on their sides, picked over already. Whoever did the picking left the heavy things. Your own people go quiet looking at it.',
+    choices: [
+      {
+        label: 'Strip it',
+        detail: 'Slow, thorough, and there is good scrap in a dead column.',
+        salvage: 60,
+        gap: 1,
+        morale: -0.02,
+      },
+      {
+        label: 'Bury what is left of them and move on',
+        detail: 'Costs an hour. They watch you do it.',
+        morale: 0.04,
+      },
+    ],
+  },
+]
+
+/**
+ * Chance, per leg, that the road stops to ask something.
+ *
+ * PLACEHOLDER. Six events over fifteen marches of three legs is 45 chances at
+ * a table that runs out, so the real ceiling is the table's own length, not
+ * this number — it decides how early the road goes quiet, not how much
+ * happens in total.
+ */
+export const TRAIL_EVENT_CHANCE = 0.25
+
+/**
+ * Draw one, or nothing.
+ *
+ * Unlike the crossroads there is no category to pick first: the road does not
+ * offer a rumour, it just happens to you. Gated entries are held back the same
+ * way the Tinkerer is — an event about stragglers turning up for a column that
+ * has none would read as a bug.
+ */
+export function rollTrailEvent(rng: Rng, seen: string[], has: Set<EventGate>): GameEvent | null {
+  if (rng.float() >= TRAIL_EVENT_CHANCE) return null
+  const pool = TRAIL_EVENTS.filter(
     (e) => !seen.includes(e.id) && (!e.needs || has.has(e.needs)),
   )
   if (pool.length === 0) return null

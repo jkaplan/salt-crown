@@ -103,8 +103,11 @@ export {
   moraleWord,
   rollCampOptions,
   rollCampEvent,
+  TRAIL_EVENTS,
+  TRAIL_EVENT_CHANCE,
+  rollTrailEvent,
 } from './events.js'
-export type { GameEvent, EventChoice, EventCategory, CampOption } from './events.js'
+export type { GameEvent, EventChoice, EventCategory, CrossroadsCategory, CampOption } from './events.js'
 export {
   WATER_PER_BODY,
   ROSTER_SCALE_DIVISOR,
@@ -196,6 +199,7 @@ export {
   setFielded,
   chooseCampOption,
   resolveEvent,
+  resolveTrailEvent,
   sellProspect,
   treatWound,
   treatOfficer,

@@ -27,6 +27,8 @@ import {
   setOut,
   advanceLeg,
   travelDone,
+  resolveTrailEvent,
+  TRAIL_EVENTS,
   hasCaught,
   hasLostTrail,
   LEGS_PER_MARCH,
@@ -145,9 +147,28 @@ import { TEAM_A, TEAM_B } from '@salt/sim'
  * three legs now (docs/plans/travel.md); Column is the baseline pace and
  * costs exactly what a march cost before travel existed.
  */
+/**
+ * One step of the road. A pending trail event freezes the leg counter, so a
+ * loop that only ever calls advanceLeg spins forever once the road can stop
+ * to ask something — this is the single place these tests answer it.
+ */
+function walkOrAnswer(state: RunState): RunState {
+  return state.trailEvent ? resolveTrailEvent(state, 0) : advanceLeg(state)
+}
+
 function marchNow(state: RunState, pace: Pace = 'column') {
-  let walked = setOut(state, pace)
-  while (!travelDone(walked)) walked = advanceLeg(walked)
+  /*
+   * A quiet road. These tests are about the far side of it, and a trail event
+   * can move salvage, water, morale and the gap — so one turning up would
+   * change the very figures the assertion is reading, at seeds chosen for
+   * something else entirely. Marking the whole table seen is the cheapest
+   * honest way to say "not what this test is about".
+   */
+  let walked = setOut({ ...state, seenEvents: [...state.seenEvents, ...TRAIL_EVENTS.map((e) => e.id)] }, pace)
+  // The road can stop to ask something, and a pending question freezes the
+  // leg counter — taking the first branch keeps these tests about the far
+  // side of the road rather than about the road.
+  while (!travelDone(walked)) walked = walkOrAnswer(walked)
   return march(walked)
 }
 
@@ -1726,7 +1747,7 @@ describe('water and upkeep', () => {
     const thirsty = { ...run, warband: { ...run.warband, water: 0 } }
     // The road is what charges now, so it has to be walked before the gate.
     let walked = setOut(thirsty, 'column')
-    while (!travelDone(walked)) walked = advanceLeg(walked)
+    while (!travelDone(walked)) walked = walkOrAnswer(walked)
     const { state, setup } = march(walked)
 
     expect(state.lastUpkeep!.deserted).toBeGreaterThan(0)
@@ -3132,7 +3153,7 @@ describe('the march', () => {
 
   const walkTheWholeRoad = (state: RunState, pace: Pace): RunState => {
     let s = setOut(state, pace)
-    while (!travelDone(s)) s = advanceLeg(s)
+    while (!travelDone(s)) s = walkOrAnswer(s)
     return s
   }
 
@@ -3237,7 +3258,7 @@ describe('the march', () => {
     const afterWalkout = provisioned.warband.morale
 
     let walked = provisioned
-    while (!travelDone(walked)) walked = advanceLeg(walked)
+    while (!travelDone(walked)) walked = walkOrAnswer(walked)
     // Walking costs no further morale, and neither does the gate.
     expect(walked.warband.morale).toBe(afterWalkout)
     expect(march(walked).state.warband.morale).toBe(afterWalkout)
@@ -3266,7 +3287,7 @@ describe('march attrition', () => {
 
   const walk = (state: RunState, pace: Pace): RunState => {
     let s = setOut(state, pace)
-    while (!travelDone(s)) s = advanceLeg(s)
+    while (!travelDone(s)) s = walkOrAnswer(s)
     return s
   }
 
@@ -3295,22 +3316,23 @@ describe('march attrition', () => {
     }
   }
 
-  it('takes nothing but water at Column, and does not even roll for it', () => {
+  it('takes nothing but water at Column', () => {
     /*
-     * Column is the baseline, and the harness walks it for every recorded
-     * figure. If the road draws from the seeded stream at Column then every
-     * campaign number taken before this feature stops being comparable — so
-     * the guard is that it must not draw AT ALL, not merely that it rolls
-     * zeroes.
+     * This test used to assert something stronger and no longer true: that
+     * Column did not TOUCH the seeded stream, so every campaign figure
+     * recorded before travel existed stayed byte-identical. Trail events
+     * (step 6) retired that guard deliberately — they roll at every pace,
+     * because a Column where nothing ever happens is the pace nobody picks
+     * for any reason but thirst. The baselines were re-recorded instead.
+     *
+     * What survives is the part that was always about attrition: Column
+     * costs water and nothing else. Nobody straggles and nobody gets worse.
      */
     const a = start()
-    const b = start()
     const walked = walk(a, 'column')
 
     expect(bodies(walked)).toBe(bodies(a))
     expect(walked.travel!.stragglers).toEqual([])
-    // The stream is exactly where it would have been had nobody left camp.
-    expect(walked.rng.float()).toBe(b.rng.float())
   })
 
   it('sheds bodies at Forced, and more of them at Killing', () => {
@@ -3429,7 +3451,7 @@ describe('the chase, and how a run ends', () => {
 
   const walk = (state: RunState, pace: Pace): RunState => {
     let s = setOut(state, pace)
-    while (s.phase === 'travel' && !travelDone(s)) s = advanceLeg(s)
+    while (s.phase === 'travel' && !travelDone(s)) s = walkOrAnswer(s)
     return s
   }
 

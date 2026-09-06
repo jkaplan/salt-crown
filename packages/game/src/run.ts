@@ -32,8 +32,8 @@ import {
 import type { MutationRoll } from './mutations.js'
 import type { Prospect } from './prospects.js'
 import type { Machine } from './machines.js'
-import { clampMorale, rollCampEvent, rollCampOptions } from './events.js'
-import type { CampOption, EventCategory } from './events.js'
+import { clampMorale, rollCampEvent, rollCampOptions, rollTrailEvent } from './events.js'
+import type { CampOption, CrossroadsCategory } from './events.js'
 import { MORALE_PER_DESERTER, payWater, waterUpkeep } from './water.js'
 import {
   LEGS_PER_MARCH,
@@ -61,7 +61,7 @@ import {
 } from './machines.js'
 import { MAX_CREW, expeditionCost, resolveExpedition } from './expeditions.js'
 import type { Expedition, ExpeditionResult, Verb } from './expeditions.js'
-import type { GameEvent } from './events.js'
+import type { EventGate, GameEvent } from './events.js'
 import { MUTANT_TYPES } from './units.js'
 import { ORIGINS, ORIGINS_BY_ID, startingWarband } from './origins.js'
 import type { OriginId, StartChoice } from './origins.js'
@@ -177,6 +177,11 @@ export interface RunState {
   campOptions: CampOption[]
   /** The camp's pending event. Blocks the march — a skippable choice is not one. */
   event: GameEvent | null
+  /**
+   * What the road has stopped to ask. Blocks the next leg for the same reason
+   * a camp event blocks the march: a skippable choice is not one.
+   */
+  trailEvent: GameEvent | null
   /** Events already fired, so a run never repeats one. */
   seenEvents: string[]
   /** Legendary type ids already encountered, so a run never repeats one — see
@@ -227,6 +232,7 @@ export function newRun(seedText: string, choice: StartChoice = { origin: 'scion'
     promoted: [],
     campOptions: [],
     event: null,
+    trailEvent: null,
     seenEvents: [],
     seenLegendaries: legendaryId === null ? [] : [legendaryId],
     lastUpkeep: null,
@@ -434,7 +440,7 @@ export function sellProspect(state: RunState, prospectId: string): RunState {
  * this is the first moment the RNG has any opinion about which of the
  * category's events it actually is.
  */
-export function chooseCampOption(state: RunState, category: EventCategory): RunState {
+export function chooseCampOption(state: RunState, category: CrossroadsCategory): RunState {
   if (!state.campOptions.some((o) => o.category === category)) return state
   const has = new Set<'machine'>(state.warband.machines.length > 0 ? (['machine'] as const) : [])
   const event = rollCampEvent(state.rng, state.seenEvents, has, category)
@@ -1030,6 +1036,8 @@ function walkAttrition(state: RunState, travel: TravelState): RunState {
 export function advanceLeg(state: RunState): RunState {
   const travel = state.travel
   if (state.phase !== 'travel' || !travel || travelDone(state)) return state
+  // The road asked something and has not been answered. Same rule as camp.
+  if (state.trailEvent) return state
 
   /*
    * Column takes nothing but water and must not touch the seeded stream at
@@ -1072,7 +1080,81 @@ export function advanceLeg(state: RunState): RunState {
    * the question is the one the plan asked for: do I burn the warband for a
    * better ending? See advance().
    */
-  return walked
+
+  /*
+   * The road stops to ask something — docs/plans/travel.md step 6.
+   *
+   * Rolled AFTER the leg resolves, so an event is a reaction to ground that
+   * has already been covered rather than a toll gate on ground that has not.
+   * That ordering is what lets a branch talk about the stragglers this leg
+   * just produced.
+   *
+   * This draws at every pace INCLUDING Column, which knowingly ends the
+   * "Column touches no seeded stream" guard that steps 2 to 4 were held to.
+   * That guard existed to prove the travel phase was a reskin rather than a
+   * rebalance; trail events are openly a rebalance, and the alternative —
+   * events only on hard paces — would make Column the pace where nothing
+   * happens, which is precisely the Banner Saga failure mode the plan quotes.
+   * The baselines move, and step 6's reading is where they are re-recorded.
+   */
+  const gates = new Set<EventGate>()
+  if (walked.warband.machines.length > 0) gates.add('machine')
+  if ((walked.travel?.stragglers.length ?? 0) > 0) gates.add('stragglers')
+
+  const asked = travelDone(walked)
+    ? null
+    : rollTrailEvent(walked.rng, walked.seenEvents, gates)
+
+  return asked ? { ...walked, trailEvent: asked } : walked
+}
+
+/**
+ * Answer whatever the road asked.
+ *
+ * Deliberately its own function rather than a branch inside resolveEvent:
+ * the two share a vocabulary but not a target, and the travel-only verbs
+ * (pace, the gap, gathering stragglers) have nothing to act on in camp.
+ */
+export function resolveTrailEvent(state: RunState, choiceIndex: number): RunState {
+  const event = state.trailEvent
+  const travel = state.travel
+  const choice = event?.choices[choiceIndex]
+  if (!event || !travel || !choice) return state
+  if (choice.requires !== undefined && state.warband.salvage < choice.requires) return state
+
+  /*
+   * Stragglers rejoin the squad they fell out of, and only that squad. A
+   * squad that has since been emptied is gone from the roster entirely, and
+   * its stragglers have nowhere to walk back to — they stay lost rather than
+   * being quietly re-homed somewhere they never belonged.
+   */
+  let squads = state.warband.squads
+  let stragglers = travel.stragglers
+  if (choice.rallyStragglers) {
+    const back = new Map(stragglers.map((g) => [g.squadId, g.count]))
+    squads = squads.map((sq) =>
+      back.has(sq.id) ? { ...sq, count: sq.count + back.get(sq.id)! } : sq,
+    )
+    stragglers = []
+  }
+
+  const gap = state.gap + (choice.gap ?? 0)
+
+  return {
+    ...state,
+    trailEvent: null,
+    seenEvents: [...state.seenEvents, event.id],
+    gap,
+    trailLost: state.trailLost || gap >= TRAIL_LOST_AT,
+    travel: { ...travel, pace: choice.pace ?? travel.pace, stragglers },
+    warband: {
+      ...state.warband,
+      squads,
+      water: Math.max(0, state.warband.water + (choice.water ?? 0)),
+      salvage: state.warband.salvage + (choice.salvage ?? 0),
+      morale: clampMorale(state.warband.morale + (choice.morale ?? 0)),
+    },
+  }
 }
 
 export function march(state: RunState): { state: RunState; setup: BattleSetup } {
