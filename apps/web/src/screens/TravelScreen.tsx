@@ -10,6 +10,7 @@ import {
   waterUpkeep,
 } from '@salt/game'
 import type { Pace, RunState } from '@salt/game'
+import EventScreen from './camp/EventScreen'
 
 /**
  * The road — docs/plans/travel.md step 5.
@@ -89,11 +90,13 @@ export default function TravelScreen({
   onSetOut,
   onWalk,
   onArrive,
+  onAnswer,
 }: {
   run: RunState
   onSetOut: (pace: Pace) => void
   onWalk: () => void
   onArrive: () => void
+  onAnswer: (index: number) => void
 }) {
   const travel = run.travel
   const onTheRoad = run.phase === 'travel' && travel !== null
@@ -170,6 +173,28 @@ export default function TravelScreen({
           </p>
         </div>
       </div>
+    )
+  }
+
+  /*
+   * The road stopped to ask something. Same screen the camp events use — a
+   * trail event is the same shape, and a second screen that looked almost
+   * like the first would be the inconsistency the takeover comment warns
+   * about rather than a distinction.
+   */
+  if (run.trailEvent) {
+    return (
+      <EventScreen
+        event={run.trailEvent}
+        salvage={run.warband.salvage}
+        onChoose={onAnswer}
+        kind={`${PACE_NAMES[travel.pace]} · leg ${legsDone} of ${LEGS_PER_MARCH}`}
+        note="The column has stopped. It does not start again until you say so."
+        unavailable={(i) => {
+          const c = run.trailEvent!.choices[i]
+          return c.pace === travel.pace ? 'already the pace' : null
+        }}
+      />
     )
   }
 

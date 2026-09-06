@@ -77,6 +77,7 @@ import {
   assignRelic,
   RELICS_BY_ID,
   resolveEvent,
+  resolveTrailEvent,
   chooseCampOption,
 } from '@salt/game'
 import type { Offer, Pace, RunState } from '@salt/game'
@@ -165,6 +166,23 @@ function answerEvent(state: RunState): RunState {
   )
   if (pick === -1) pick = 0
   return resolveEvent(state, pick)
+}
+
+/**
+ * Answer whatever the road asked, the way a greedy player would: take water
+ * if it is on offer and affordable, else close the gap, else the first
+ * branch. Crude on purpose — it measures whether the road's decisions get
+ * used and what they cost, not whether they are played well.
+ */
+function answerTrailEvent(state: RunState): RunState {
+  const choices = state.trailEvent?.choices ?? []
+  const affordable = (i: number) =>
+    choices[i].requires === undefined || state.warband.salvage >= choices[i].requires!
+
+  let pick = choices.findIndex((c, i) => (c.water ?? 0) > 0 && affordable(i))
+  if (pick === -1) pick = choices.findIndex((c, i) => (c.gap ?? 0) < 0 && affordable(i))
+  if (pick === -1) pick = 0
+  return resolveTrailEvent(state, pick)
 }
 
 /** Buy whatever gives the most power per salvage, until broke. */
@@ -387,7 +405,9 @@ function playRun(
        */
       const walkAt = pace === 'chase' ? chasePace(state) : pace
       let walked = setOut(state, walkAt)
-      while (walked.phase === 'travel' && !travelDone(walked)) walked = advanceLeg(walked)
+      while (walked.phase === 'travel' && !travelDone(walked)) {
+        walked = walked.trailEvent ? answerTrailEvent(walked) : advanceLeg(walked)
+      }
       // The quarry can be run down on the road, which ends the run then and
       // there — no battle, and nothing further to do this iteration.
       if (walked.phase === 'over') {

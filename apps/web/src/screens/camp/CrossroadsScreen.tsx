@@ -1,4 +1,4 @@
-import type { CampOption, EventCategory } from '@salt/game'
+import type { CampOption, CrossroadsCategory } from '@salt/game'
 
 /**
  * The crossroads: pick which rumor to follow before the camp reveals what it
@@ -14,7 +14,7 @@ import type { CampOption, EventCategory } from '@salt/game'
  * outright, the same way scouting's armour words become legible with
  * repetition.
  */
-const CATEGORY_READ: Record<EventCategory, string> = {
+const CATEGORY_READ: Record<CrossroadsCategory, string> = {
   market: 'sounds like trade',
   recruitment: 'sounds like people',
   flavor: 'could be trouble, could be luck',
@@ -25,7 +25,7 @@ export default function CrossroadsScreen({
   onChoose,
 }: {
   options: CampOption[]
-  onChoose: (category: EventCategory) => void
+  onChoose: (category: CrossroadsCategory) => void
 }) {
   return (
     <div className="takeover event-takeover">

@@ -1,3 +1,4 @@
+import { PACE_NAMES } from '@salt/game'
 import type { GameEvent } from '@salt/game'
 
 /**
@@ -18,26 +19,43 @@ import type { GameEvent } from '@salt/game'
  * across menus "create confusion rather than distinction". What separates this
  * screen is the ground it sits on and the fact that nothing else is on it, not
  * a new visual language.
+ *
+ * The road reuses it outright (docs/plans/travel.md step 6). A trail event is
+ * the same shape — a title, a situation, branches that differ — so it gets the
+ * same screen with different framing text rather than a second one that looks
+ * almost like it.
  */
 export default function EventScreen({
   event,
   salvage,
   onChoose,
+  kind = 'The column is waiting on you',
+  note = 'There is no walking past this one.',
+  unavailable,
 }: {
   event: GameEvent
   salvage: number
   onChoose: (index: number) => void
+  kind?: string
+  note?: string
+  /**
+   * Why a branch cannot be taken right now, for reasons the event data
+   * cannot know. The road uses it for the pace the column is already
+   * walking at — a branch that changes nothing is not a branch.
+   */
+  unavailable?: (index: number) => string | null
 }) {
   return (
     <div className="takeover event-takeover">
       <div className="takeover-body">
-        <p className="takeover-kind">The column is waiting on you</p>
+        <p className="takeover-kind">{kind}</p>
         <h1>{event.title}</h1>
         <p className="takeover-text">{event.body}</p>
 
         <div className="event-choices">
           {event.choices.map((choice, i) => {
-            const blocked = choice.requires !== undefined && salvage < choice.requires
+            const moot = unavailable?.(i) ?? null
+            const blocked = (choice.requires !== undefined && salvage < choice.requires) || !!moot
             return (
               <button
                 key={choice.label}
@@ -69,14 +87,36 @@ export default function EventScreen({
                     </span>
                   ) : null}
                   {choice.grantOfficer ? <span className="held">an officer joins</span> : null}
-                  {blocked && <span className="dim">cannot afford</span>}
+                  {choice.water ? (
+                    <span className={choice.water > 0 ? 'water' : 'dead'}>
+                      {choice.water > 0 ? '+' : ''}
+                      {choice.water} water
+                    </span>
+                  ) : null}
+                  {choice.gap ? (
+                    <span className={choice.gap < 0 ? 'gap-close' : 'gap-lose'}>
+                      {choice.gap > 0 ? '+' : ''}
+                      {choice.gap} day{Math.abs(choice.gap) === 1 ? '' : 's'} on the gap
+                    </span>
+                  ) : null}
+                  {choice.pace ? (
+                    <span className="salvage">{PACE_NAMES[choice.pace].toLowerCase()} from here</span>
+                  ) : null}
+                  {choice.rallyStragglers ? (
+                    <span className="held">the stragglers come in</span>
+                  ) : null}
+                  {moot ? (
+                    <span className="dim">{moot}</span>
+                  ) : (
+                    blocked && <span className="dim">cannot afford</span>
+                  )}
                 </span>
               </button>
             )
           })}
         </div>
 
-        <p className="takeover-note">There is no walking past this one.</p>
+        <p className="takeover-note">{note}</p>
       </div>
     </div>
   )

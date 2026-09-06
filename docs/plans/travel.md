@@ -1,6 +1,6 @@
 # Plan: The march
 
-Status: **agreed, steps 1-5 of 6 implemented** — 2026-09-06
+Status: **implemented** — all six steps, 2026-09-06
 
 Went agreed → proposed → agreed in one day. Desk research
 ([research/travel-games.md](../research/travel-games.md)) invalidated the first
@@ -349,3 +349,50 @@ trails — which is the same reskin-not-rebalance check step 2 passed.
 guess-and-check against one greedy bot. What the screen changes is that the
 one instrument that can settle the plan's riskiest assumption — a person
 walking a march and saying whether it was worth walking — now exists.
+
+## Step 6 reading — what happens on the road, and what it cost
+
+Six trail events, drawn per leg, resolved on the screen the camp events
+already use. Four new verbs: water, the gap, the pace, and gathering
+stragglers. Each moves something the travel screen already shows.
+
+**A guard was deliberately retired.** Steps 2 to 4 were held to "Column must
+not draw from the seeded stream at all", which is what let every campaign
+figure recorded before travel existed stay byte-identical. Trail events roll
+at every pace including Column, so that guard is gone and the baselines below
+replace it. The alternative — events only on hard paces — makes Column the
+pace where nothing ever happens, which is precisely the Banner Saga failure
+mode this plan was rewritten around. The test that asserted the guard now
+records why it went instead of asserting it.
+
+**Re-recorded, against the step 5 numbers:**
+
+| pace | completion before | after | caught before | after |
+|---|---|---|---|---|
+| Column | 10.5% | **11.0%** | 0% | 0% |
+| chase (adaptive) | 6.5% | **6.0%** | 2.5% | 3.0% |
+| Forced | 3.5% | **4.5%** | 3.5% | 4.5% |
+| Killing | 2.0% | **3.5%** | 2.0% | 3.5% |
+
+(Column 300 runs, the rest 200 each. Cold trails at Column fell from 69.5%
+to 65.0%.)
+
+**The finding is in the shape of the change, not its size.** Every pace
+improved, but the hard paces improved most — Killing by 1.5 points against
+Column's 0.5 — which narrowed the spread from about 8.5 points to 7.5. The
+mechanism is not subtle: the road's best branches sell water, water is
+exactly the pressure that kills a hard pace, and **the harness bot takes
+water first every single time.** So this is the water-greedy reading, and a
+player who ever picks morale or salvage over a full barrel will see a
+different curve. Read the numbers as "what the road is worth to someone
+playing it optimally against the one constraint that binds", not as balance.
+
+The trade the plan asked for survives: Column still wins most and catches
+nothing, Killing still catches most and rarely survives to enjoy it.
+
+**Still not trustworthy, and now for a second reason.** The pace constants
+were always placeholders from guess-and-check against one greedy bot. The
+trail-event numbers add a policy artifact on top of that — the bot's water
+preference is doing visible work in the table above. And the table itself
+runs out: six events over fifteen marches means the back half of a run has a
+quiet road by construction, which nobody has yet judged as pacing.
