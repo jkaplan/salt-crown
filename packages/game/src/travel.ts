@@ -57,8 +57,8 @@ export const LEGS_PER_MARCH = 3
  */
 export const PACE_WATER_MULT: Record<Pace, number> = {
   column: 1,
-  forced: 1.4,
-  killing: 2,
+  forced: 1.15,
+  killing: 1.35,
 }
 
 /**
@@ -68,16 +68,16 @@ export const PACE_WATER_MULT: Record<Pace, number> = {
  * free: walk gently for long enough and the trail goes cold on its own.
  */
 export const PACE_GAP_MOVE: Record<Pace, number> = {
-  column: +1,
-  forced: 0,
-  killing: -1,
+  column: +2,
+  forced: -1,
+  killing: -3,
 }
 
 /** How far ahead the quarry is when a run opens. */
-export const STARTING_GAP = 6
+export const STARTING_GAP = 12
 
 /** At this many days behind, the trail is cold and the quarry is gone. */
-export const TRAIL_LOST_AT = 12
+export const TRAIL_LOST_AT = 24
 
 /**
  * What a warband is carrying while it walks.
@@ -155,8 +155,8 @@ export function legWaterCost(bill: number, legsDone: number): number {
  */
 export const PACE_WOUND_CHANCE: Record<Pace, number> = {
   column: 0,
-  forced: 0.1,
-  killing: 0.22,
+  forced: 0.06,
+  killing: 0.14,
 }
 
 /**
@@ -166,8 +166,8 @@ export const PACE_WOUND_CHANCE: Record<Pace, number> = {
  */
 export const PACE_STRAGGLE_RATE: Record<Pace, number> = {
   column: 0,
-  forced: 0.03,
-  killing: 0.08,
+  forced: 0.012,
+  killing: 0.035,
 }
 
 /**

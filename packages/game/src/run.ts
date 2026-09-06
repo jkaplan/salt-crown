@@ -1054,19 +1054,24 @@ export function advanceLeg(state: RunState): RunState {
   }
 
   /*
-   * Running the quarry down ends the run where it happens, on the road,
-   * rather than waiting for the encounter counter to run out. That is what
-   * makes a hard pace a bet rather than a tax: it can end the campaign early
-   * and in your favour, and the warband you burned getting there is the
-   * price you paid for it.
+   * Closing the gap does NOT end the run, and the first version of this got
+   * that wrong in a way worth recording.
    *
-   * The confrontation itself is not built. The run ends at the moment the
-   * column runs them down, and what is at the end of that trail is content
-   * this plan deliberately left open.
+   * Ending the run the moment the quarry was caught made the chase gate
+   * SURVIVAL as well as the ending — the exact thing this plan says it must
+   * not do. Catching early is a shortcut, and a shortcut is worth however
+   * much campaign it skips, so whichever pace closed fastest simply won.
+   * Measured twice: closing in six marches put Killing at 26.3% completion
+   * against Column’s 10.3%, and closing in four put it at 63.3%. Pushing the
+   * gap out far enough to stop that did not produce a middle — it produced
+   * 0.7%, because the attrition curve goes from survivable to fatal across a
+   * narrow band of marches. There is no number that fixes it.
+   *
+   * So the quarry is run down at the END of the road. The gap is what you
+   * arrive with, every pace has to survive the same fifteen encounters, and
+   * the question is the one the plan asked for: do I burn the warband for a
+   * better ending? See advance().
    */
-  if (hasCaught(walked)) {
-    return { ...walked, phase: 'over', outcome: 'won', ending: 'caught' }
-  }
   return walked
 }
 
@@ -1398,10 +1403,12 @@ export function advance(state: RunState): RunState {
   const next = state.encounterIndex + 1
   if (next >= ENCOUNTERS_PER_RUN) {
     /*
-     * Survived everything and never ran the quarry down. A win, and a smaller
-     * one than it could have been — see travel.ts's Ending.
+     * The end of the road, and the gap decides which ending is standing there.
+     * Survival is the same either way — that is what keeps the chase a
+     * question about what a run was FOR rather than a difficulty setting.
      */
-    return { ...state, phase: 'over', outcome: 'won', ending: 'endured' }
+    const ending: Ending = hasCaught(state) ? 'caught' : 'endured'
+    return { ...state, phase: 'over', outcome: 'won', ending }
   }
 
   const returned = returnExpedition(state)

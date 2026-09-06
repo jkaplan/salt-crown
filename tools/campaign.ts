@@ -68,6 +68,7 @@ import {
   canBecomeFirstborn,
   unitType,
   waterUpkeep,
+  marchWaterBill,
   sendExpedition,
   installBionic,
   BIONICS_BY_ID,
@@ -106,6 +107,38 @@ function pad(s: string | number, w: number): string {
  * bot exists to measure whether recruitment access gets used, not to play
  * preference.
  */
+/**
+ * Which pace to walk, for a bot that is allowed to change its mind.
+ *
+ * A bot locked to one pace for a whole run can only ever find the extremes,
+ * and the decision this system exists to pose is precisely NOT an extreme:
+ * walk gently while the warband is thin, drive it while the cistern is deep
+ * and the quarry is close. Measuring the design with a single-pace bot
+ * measures the harness, not the design.
+ *
+ * Deliberately simple, and deliberately not optimal. It reads the two things
+ * a player can see without arithmetic — is the trail still worth chasing, and
+ * can I pay for a hard march — and nothing else.
+ */
+function chasePace(state: RunState): Pace {
+  // Nothing left to chase. Save the water and the bodies.
+  if (state.trailLost) return 'column'
+
+  /*
+   * Forced is the DEFAULT while a trail is live, not the fallback. The first
+   * version of this policy dropped to Column whenever water tightened, which
+   * throws the chase away to save a march — it never caught anything across
+   * 200 runs while fixed Forced caught 3.5%. Column is giving up, so it is
+   * only reached when the cistern genuinely cannot carry a Forced march.
+   */
+  const killingBill = marchWaterBill(waterUpkeep(state.warband), 'killing')
+  if (state.warband.water >= killingBill * 2) return 'killing'
+
+  const forcedBill = marchWaterBill(waterUpkeep(state.warband), 'forced')
+  if (state.warband.water >= forcedBill) return 'forced'
+  return 'column'
+}
+
 function chooseCrossroads(state: RunState): RunState {
   if (state.campOptions.length === 0) return state
   const order = ['market', 'recruitment', 'flavor'] as const
@@ -299,7 +332,7 @@ function playRun(
   onCurve: boolean,
   verb: 'scavenge' | 'delve' | null,
   origin: 'scion' | 'firstborn',
-  pace: Pace,
+  pace: Pace | 'chase',
 ) {
   // A bot cannot make a character-creation decision, so the mutant origin gets
   // the widest opening: three mutations at the shallow level. A player choosing
@@ -352,7 +385,8 @@ function playRun(
        * The bot still walks ONE pace for a whole run. A bot that chooses per
        * march needs the gap wired to an ending first, which is step 4.
        */
-      let walked = setOut(state, pace)
+      const walkAt = pace === 'chase' ? chasePace(state) : pace
+      let walked = setOut(state, walkAt)
       while (walked.phase === 'travel' && !travelDone(walked)) walked = advanceLeg(walked)
       // The quarry can be run down on the road, which ends the run then and
       // there — no battle, and nothing further to do this iteration.
@@ -420,7 +454,8 @@ const runs = arg('runs', 200)
 const thrifty = process.argv.includes('--thrifty')
 const onCurve = process.argv.includes('--oncurve')
 const paceArg = process.argv[process.argv.indexOf('--pace') + 1]
-const pace: Pace = PACES.includes(paceArg as Pace) ? (paceArg as Pace) : 'column'
+const pace: Pace | 'chase' =
+  paceArg === 'chase' || PACES.includes(paceArg as Pace) ? (paceArg as Pace | 'chase') : 'column'
 const origin = process.argv.includes('--firstborn')
   ? ('firstborn' as const)
   : ('scion' as const)

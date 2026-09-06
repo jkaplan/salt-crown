@@ -3191,11 +3191,22 @@ describe('the march', () => {
     expect(spent('killing')).toBeGreaterThan(spent('forced'))
   })
 
-  it('loses ground at Column, holds at Forced, and gains at Killing', () => {
+  it('loses ground at Column, closes slowly at Forced, quickly at Killing', () => {
+    /*
+     * Forced used to hold the gap exactly, and holding turned out to be worth
+     * nothing — it cost more water than Column and achieved no more, so there
+     * was no state of the world where it was the right call. Measured: 4.0%
+     * completion against Column’s 10.3%, and zero quarries caught. It closes
+     * now, slowly, which is what makes it the sustainable chase.
+     */
     const run = camp({ gap: 6 })
-    expect(walkTheWholeRoad(run, 'column').gap).toBeGreaterThan(6)
-    expect(walkTheWholeRoad(run, 'forced').gap).toBe(6)
-    expect(walkTheWholeRoad(run, 'killing').gap).toBeLessThan(6)
+    const column = walkTheWholeRoad(run, 'column').gap
+    const forced = walkTheWholeRoad(run, 'forced').gap
+    const killing = walkTheWholeRoad(run, 'killing').gap
+
+    expect(column).toBeGreaterThan(6)
+    expect(forced).toBeLessThan(6)
+    expect(killing).toBeLessThan(forced)
   })
 
   it('knows when the quarry is caught and when the trail is cold', () => {
@@ -3422,15 +3433,43 @@ describe('the chase, and how a run ends', () => {
     return s
   }
 
-  it('ends the run the moment the quarry is run down', () => {
+  it('does not end the run when the gap closes — the road still has to be walked', () => {
+    /*
+     * Ending the run on the spot was the first version, and it made the chase
+     * gate SURVIVAL as well as the ending, which is the one thing the plan
+     * says it must not do. Catching early is a shortcut worth however much
+     * campaign it skips, so whichever pace closed fastest simply won:
+     * measured at 26.3% completion for Killing against Column’s 10.3%, then
+     * 63.3% when it closed faster still. Widening the gap to stop that made
+     * the ending unreachable instead (0.7%) rather than producing a middle.
+     *
+     * The quarry is run down at the END of the road now. Every pace survives
+     * the same fifteen encounters and the gap only decides which ending is
+     * standing there.
+     */
     const run = { ...start(), gap: 1 }
-    const caught = walk(run, 'killing')
+    const closed = walk(run, 'killing')
 
-    expect(caught.gap).toBeLessThanOrEqual(0)
-    expect(hasCaught(caught)).toBe(true)
-    expect(caught.phase).toBe('over')
-    expect(caught.outcome).toBe('won')
-    expect(caught.ending).toBe('caught')
+    expect(closed.gap).toBeLessThanOrEqual(0)
+    expect(hasCaught(closed)).toBe(true)
+    // Still on the road. Nothing has been won yet.
+    expect(closed.phase).toBe('travel')
+    expect(closed.outcome).toBeNull()
+    expect(closed.ending).toBeNull()
+  })
+
+  it('pays out the true ending only once the campaign is survived', () => {
+    const closed: RunState = {
+      ...start(),
+      gap: 0,
+      encounterIndex: ENCOUNTERS_PER_RUN - 1,
+      phase: 'report',
+      report: { ...(start().report ?? ({} as never)), won: true } as RunState['report'],
+    }
+    const done = advance(closed)
+
+    expect(done.outcome).toBe('won')
+    expect(done.ending).toBe('caught')
   })
 
   it('does not end the run when the trail goes cold', () => {

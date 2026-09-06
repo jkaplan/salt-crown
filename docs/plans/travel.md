@@ -1,6 +1,6 @@
 # Plan: The march
 
-Status: **agreed, steps 1-3 of 6 implemented** — 2026-09-06
+Status: **agreed, steps 1-4 of 6 implemented** — 2026-09-06
 
 Went agreed → proposed → agreed in one day. Desk research
 ([research/travel-games.md](../research/travel-games.md)) invalidated the first
@@ -259,3 +259,50 @@ warband and to help them."*
 Loop Hero is the closest reference and also the warning — its camp is genuine
 meta-progression across runs, and its most common criticism is that the
 endgame becomes grind. A per-run train avoids that shape.
+
+## Step 4 reading — the chase, and four tuning passes
+
+The endings are wired. Getting there took one structural correction and four
+measured tunings, and the structural one is the finding.
+
+**Catching must not end the run.** The first version ended it on the spot,
+which made the chase gate SURVIVAL as well as the ending — the exact thing
+the section above says it must not do. A shortcut is worth however much
+campaign it skips, so whichever pace closed fastest simply won:
+
+| gap / closing rate | Killing completion | Column completion |
+|---|---|---|
+| closes in 6 marches | 26.3% | 10.3% |
+| closes in 4 marches | 63.3% | 10.3% |
+| closes in 14 marches | 0.7% | 10.3% |
+
+Widening the gap did not produce a middle, it produced an unreachable ending —
+the attrition curve goes from survivable to fatal across a narrow band of
+marches. **There is no number that fixes it**, which is what said the model
+was wrong rather than the constants. The quarry is now run down at the END of
+the road: every pace survives the same fifteen encounters, and the gap only
+decides which ending is standing there.
+
+**Forced was strictly dominated and had to start closing.** Holding the gap
+exactly is worth nothing when closing it later is unaffordable — a bridge to
+nowhere. It cost more water than Column and caught nothing. It closes slowly
+now, which makes it the sustainable chase and Killing the sprint.
+
+Where it landed, 200 runs per policy:
+
+| pace | completion | caught | lost the trail |
+|---|---|---|---|
+| Column | 10.5% | 0% | 69.5% |
+| chase (adaptive) | 6.5% | 2.5% | 1.0% |
+| Forced | 3.5% | 3.5% | 0% |
+| Killing | 2.0% | 2.0% | 0% |
+
+No pace dominates, mixing beats committing, and the trade is the one this
+plan asked for: **give up roughly seven points of win rate to convert a win
+into the true ending.** Column is the only pace that reliably survives, and it
+is the only one that can never catch anything.
+
+**Not yet trustworthy.** Every number above is a placeholder reached by four
+rounds of guess-and-check against one greedy bot on one origin. The adaptive
+policy is deliberately crude and is the harness, not a player. Nobody has
+played a single march of this.
