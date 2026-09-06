@@ -1971,3 +1971,47 @@ button.install .price {
 .camp-warband, .camp-market, .camp-ruins {
   background: linear-gradient(180deg, var(--page-tint), transparent 240px);
 }
+
+/* ---------------------------------------------------------------- road -- */
+
+/*
+ * The road gets its own ground and nothing else new — same restraint as the
+ * event and growth takeovers. What separates it is the tint and the fact that
+ * nothing else is allowed on screen while the column is walking.
+ */
+.travel-takeover { background: radial-gradient(120% 80% at 50% 0%, rgba(214,178,106,0.06), transparent 70%); }
+
+.pace-choice { gap: var(--s1); }
+.pace-facts { font-size: var(--t-meta); color: var(--dim); }
+/* Closing is the thing you are paying for; losing ground is the price. */
+.gap-close { color: var(--good); }
+.gap-lose { color: var(--danger); }
+
+.pace-warn { font-size: var(--t-meta); color: var(--danger); }
+.pace-catch { font-size: var(--t-meta); color: var(--gold); }
+
+/* Three marks that fill in. A progress bar would imply a smooth quantity;
+   legs are discrete and each one either happened or has not. */
+.legs { display: flex; gap: var(--s2); }
+.leg {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--hair);
+}
+.leg.walked { background: var(--gold); }
+
+.leg-log { display: flex; flex-direction: column; gap: var(--s1); }
+.leg-line {
+  display: flex;
+  gap: var(--s2);
+  font-size: var(--t-meta);
+  color: var(--dim);
+}
+.leg-n {
+  min-width: 4.5em;
+  color: var(--faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: var(--t-label);
+}

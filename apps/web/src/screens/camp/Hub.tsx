@@ -5,6 +5,7 @@ import {
   MAX_FIELDED_PROSPECTS,
   fieldedCount,
   moraleWord,
+  TRAIL_LOST_AT,
   payWater,
   scoutEnemy,
   waterState,
@@ -181,7 +182,23 @@ export default function Hub({
           <i>/{MAX_FIELDED_PROSPECTS}</i> fielded
         </span>
         <span title="Shifted by what you decide between battles.">
-          <b className={moraleTone(warband.morale)}>{moraleWord(warband.morale)}</b> column
+          <b className={moraleTone(warband.morale)}>{moraleWord(warband.morale)}</b> ranks
+        </span>
+        {/*
+          The gap belongs here as well as on the road, because the plan's
+          condition for a march you can plan around is that the distance is
+          visible BEFORE the buy — and the buy happens on this screen.
+        */}
+        <span title="How far ahead the quarry is. Your pace on the road moves it.">
+          {run.trailLost ? (
+            <>
+              <b className="dead">cold</b> trail
+            </>
+          ) : (
+            <>
+              <b className={run.gap >= TRAIL_LOST_AT - 4 ? 'dead' : 'salvage'}>{run.gap}</b> days behind
+            </>
+          )}
         </span>
       </div>
 

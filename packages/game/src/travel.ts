@@ -1,3 +1,6 @@
+import type { Warband } from './roster.js'
+import { payWater, waterUpkeep } from './water.js'
+
 /**
  * The march — docs/plans/travel.md.
  *
@@ -198,4 +201,51 @@ export interface Straggler {
 /** Does this pace cost anything beyond water? */
 export function paceIsHard(pace: Pace): boolean {
   return PACE_STRAGGLE_RATE[pace] > 0 || PACE_WOUND_CHANCE[pace] > 0
+}
+
+/**
+ * What a pace would cost, worked out before the player commits to it.
+ *
+ * Lives here rather than in the screen because it is arithmetic with a right
+ * answer, and because the same numbers are wanted by the camp warning and by
+ * anything that ever wants to pick a pace without a person present.
+ *
+ * It is exact rather than an estimate: `payWater` is pure and takes no rolls,
+ * so the deserters quoted here are the deserters `setOut` will actually take.
+ * A forecast that could be wrong would be worse than no forecast — the whole
+ * point of showing the bill in camp is that a shortfall is a decision the
+ * player made rather than a surprise the road sprang.
+ */
+export interface PaceForecast {
+  pace: Pace
+  /** Water for the whole march at this pace. */
+  bill: number
+  /** Bodies who will not march thirsty, if the cistern cannot cover it. */
+  deserters: number
+  /** Where the gap stands once the road has been walked. */
+  gapAfter: number
+  /** Would this march be the one that lets the trail go cold? */
+  losesTrail: boolean
+  /** Would this march close the gap? */
+  catches: boolean
+}
+
+export function forecastPace(
+  w: Warband,
+  gap: number,
+  trailLost: boolean,
+  pace: Pace,
+): PaceForecast {
+  const bill = marchWaterBill(waterUpkeep(w), pace)
+  const { deserted } = payWater(w, bill)
+  const gapAfter = gap + PACE_GAP_MOVE[pace]
+
+  return {
+    pace,
+    bill,
+    deserters: deserted,
+    gapAfter,
+    losesTrail: !trailLost && gapAfter >= TRAIL_LOST_AT,
+    catches: !trailLost && gapAfter <= 0,
+  }
 }
