@@ -977,12 +977,29 @@ export function resolveBattle(
     .map((p) => {
       const r = prospectResult.get(p.id)
       const died = r ? r.survived === 0 : false
-      prospectLosses.push({
-        name: p.name,
-        label: prospectTitle(p, unitType(p.typeId).name),
-        died,
-        battles: p.battles + (died ? 0 : 1),
-      })
+      /*
+       * A body that never left camp is not part of this battle. It earns no
+       * battle towards Firstborn, and it does not appear in the report as a
+       * survivor of a fight it sat out.
+       *
+       * prospects.ts states the rule outright — "Unfielded Prospects are
+       * stock: they do not deploy, do not accrue battles towards Firstborn"
+       * — and nothing enforced it, which made benching strictly better than
+       * fielding: the body could not die and grew anyway. Read from the sim
+       * result rather than from the fielded flag, so credit follows having
+       * actually been in the fight; fielded is the upstream mechanism that
+       * decides it, and expedition crews are unfielded for exactly this
+       * reason.
+       */
+      const fought = r !== undefined
+      if (fought) {
+        prospectLosses.push({
+          name: p.name,
+          label: prospectTitle(p, unitType(p.typeId).name),
+          died,
+          battles: p.battles + (died ? 0 : 1),
+        })
+      }
       if (died) return null
       // Wound ladder — docs/V0-DESIGN.md §7. A Prospect always fights as its
       // own body (see the doc comment above), so the trigger is direct: it
@@ -995,7 +1012,7 @@ export function resolveBattle(
       const dealt = newDismemberments.get(p.id)
       return {
         ...p,
-        battles: p.battles + 1,
+        battles: fought ? p.battles + 1 : p.battles,
         wound,
         permanentInjuries: injuries ? [...p.permanentInjuries, ...injuries] : p.permanentInjuries,
         dismemberments: dealt ? [...p.dismemberments, ...dealt] : p.dismemberments,

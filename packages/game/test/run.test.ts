@@ -1183,6 +1183,50 @@ describe('reserve and market', () => {
     expect(sources).not.toContainEqual({ kind: 'prospect', id: 'out' })
   })
 
+  it('does not credit a benched body with a battle it sat out', () => {
+    /*
+     * prospects.ts states the rule outright — "Unfielded Prospects are stock:
+     * they do not deploy, do not accrue battles towards Firstborn" — and the
+     * resolve pass credited every Prospect on the roster regardless. Nothing
+     * tested it, because the neighbouring test only checks that a benched body
+     * stays out of the SIM, which it always did.
+     *
+     * It matters because battles are the only currency of growth. Crediting a
+     * body that never left camp makes benching strictly better than fielding:
+     * it cannot die, and it grows anyway.
+     */
+    const base = start()
+    const first = base.warband.prospects[0]
+    const run: RunState = {
+      ...base,
+      warband: {
+        ...base.warband,
+        prospects: [
+          { ...first, id: 'fought', fielded: true, battles: 0 },
+          { ...first, id: 'benched', fielded: false, battles: 0 },
+        ],
+      },
+    }
+
+    const setup = buildBattle(run)
+    const battle = new Battle(setup.config)
+    battle.run()
+    const resolved = resolveBattle(
+      run,
+      battle.results(),
+      battle.winner,
+      battle.tick,
+      setup.playerSources,
+    )
+
+    const benched = resolved.warband.prospects.find((p) => p.id === 'benched')!
+    expect(benched.battles).toBe(0)
+
+    // And the one that did fight is still credited, if it lived.
+    const fought = resolved.warband.prospects.find((p) => p.id === 'fought')
+    if (fought) expect(fought.battles).toBe(1)
+  })
+
   it('drops a leadership when the leader is benched or sold', () => {
     // The Scion start fills both leader slots with Officers, so the Prospect
     // it comes with leads nobody until told to. Set it up rather than relying
