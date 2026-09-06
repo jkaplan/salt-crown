@@ -3401,3 +3401,96 @@ describe('march attrition', () => {
     expect(fielded).toBe(bodies(walked))
   })
 })
+
+describe('the chase, and how a run ends', () => {
+  /*
+   * Step 4 of docs/plans/travel.md. The gap has been moving since step 2 and
+   * meaning nothing. This is what it was for.
+   *
+   * Three ends, and only one of them is a defeat:
+   *   caught   — the quarry is run down. The true ending.
+   *   endured  — fifteen encounters survived without catching it. A lesser one.
+   *   lost     — a battle lost. Unchanged, and still the only real failure.
+   *
+   * Losing the trail is deliberately NOT a fail state. "You can keep playing
+   * but you cannot win" is miserable; "you can keep playing for less" is not.
+   */
+
+  const walk = (state: RunState, pace: Pace): RunState => {
+    let s = setOut(state, pace)
+    while (s.phase === 'travel' && !travelDone(s)) s = advanceLeg(s)
+    return s
+  }
+
+  it('ends the run the moment the quarry is run down', () => {
+    const run = { ...start(), gap: 1 }
+    const caught = walk(run, 'killing')
+
+    expect(caught.gap).toBeLessThanOrEqual(0)
+    expect(hasCaught(caught)).toBe(true)
+    expect(caught.phase).toBe('over')
+    expect(caught.outcome).toBe('won')
+    expect(caught.ending).toBe('caught')
+  })
+
+  it('does not end the run when the trail goes cold', () => {
+    const run = { ...start(), gap: TRAIL_LOST_AT - 1 }
+    const cold = walk(run, 'column')
+
+    expect(cold.trailLost).toBe(true)
+    // Still walking. This is a worse run, not a finished one.
+    expect(cold.phase).toBe('travel')
+    expect(cold.outcome).toBeNull()
+  })
+
+  it('never lets a cold trail be picked back up', () => {
+    /*
+     * Without this, a run could drift to the edge at Column and then buy the
+     * true ending back with a few hard marches — which makes losing the trail
+     * a temporary inconvenience rather than the thing you spent the run
+     * avoiding.
+     */
+    let s: RunState = { ...start(), gap: TRAIL_LOST_AT - 1 }
+    s = walk(s, 'column')
+    expect(s.trailLost).toBe(true)
+
+    for (let i = 0; i < 20; i++) {
+      s = { ...s, phase: 'camp', travel: null }
+      s = walk(s, 'killing')
+      if (s.phase === 'travel' && travelDone(s)) s = march(s).state
+      s = { ...s, phase: 'camp', travel: null }
+    }
+
+    expect(s.trailLost).toBe(true)
+    expect(s.ending).not.toBe('caught')
+    expect(s.outcome).not.toBe('won')
+  })
+
+  it('ends in the lesser ending when the campaign runs out first', () => {
+    // Survived everything, never ran the quarry down.
+    const run: RunState = {
+      ...start(),
+      encounterIndex: ENCOUNTERS_PER_RUN - 1,
+      phase: 'report',
+      gap: 5,
+      report: { ...(start().report ?? ({} as never)), won: true } as RunState['report'],
+    }
+    const done = advance(run)
+
+    expect(done.phase).toBe('over')
+    expect(done.outcome).toBe('won')
+    expect(done.ending).toBe('endured')
+  })
+
+  it('still calls a lost battle a loss, with no ending to speak of', () => {
+    const run: RunState = {
+      ...start(),
+      phase: 'report',
+      report: { ...(start().report ?? ({} as never)), won: false } as RunState['report'],
+    }
+    const done = advance(run)
+
+    expect(done.outcome).toBe('lost')
+    expect(done.ending).toBeNull()
+  })
+})

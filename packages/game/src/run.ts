@@ -47,7 +47,7 @@ import {
   PACE_WOUND_CHANCE,
   STRAGGLER_RETURN_CHANCE,
 } from './travel.js'
-import type { Pace, Straggler, TravelState } from './travel.js'
+import type { Ending, Pace, Straggler, TravelState } from './travel.js'
 import { BIONICS, BIONICS_BY_ID, BIONIC_SLOTS } from './bionics.js'
 import { RELICS, RELICS_BY_ID } from './relics.js'
 import { postmortem } from './postmortem.js'
@@ -147,6 +147,17 @@ export interface RunState {
    * to a lesser one rather than ending it.
    */
   gap: number
+  /**
+   * The trail has gone cold and cannot be picked back up.
+   *
+   * Permanent by design. Without it a run could drift to the edge at Column
+   * and then buy the true ending back with a few hard marches, which would
+   * make losing the trail a temporary inconvenience rather than the thing the
+   * whole run was spent avoiding.
+   */
+  trailLost: boolean
+  /** Which ending was reached. Null until the run is over, and on a defeat. */
+  ending: Ending | null
   encounterIndex: number
   warband: Warband
   offers: Offer[]
@@ -204,6 +215,8 @@ export function newRun(seedText: string, choice: StartChoice = { origin: 'scion'
     phase: 'camp',
     travel: null,
     gap: STARTING_GAP,
+    trailLost: false,
+    ending: null,
     encounterIndex: 0,
     warband,
     offers: rollOffers(rng, 0, origin.truekinPremium),
@@ -861,9 +874,14 @@ export function buildBattle(state: RunState): BattleSetup {
  * that is already consistent with the state makes that ordering impossible to
  * get wrong.
  */
-/** Has the quarry been run down? */
+/**
+ * Has the quarry been run down?
+ *
+ * A cold trail can never be caught, however hard the column is driven
+ * afterwards — see `RunState.trailLost`.
+ */
 export function hasCaught(state: RunState): boolean {
-  return state.gap <= 0
+  return !state.trailLost && state.gap <= 0
 }
 
 /**
@@ -1025,12 +1043,31 @@ export function advanceLeg(state: RunState): RunState {
   const legsDone = travel.legsDone + 1
   const last = legsDone >= LEGS_PER_MARCH
 
-  return {
+  const gap = last ? state.gap + PACE_GAP_MOVE[travel.pace] : state.gap
+  const walked: RunState = {
     ...worn,
     travel: { ...carried, legsDone, spent: carried.spent + drawn },
-    gap: last ? state.gap + PACE_GAP_MOVE[travel.pace] : state.gap,
+    gap,
+    // Cold once, cold for good.
+    trailLost: state.trailLost || gap >= TRAIL_LOST_AT,
     warband: { ...worn.warband, water: Math.max(0, worn.warband.water - drawn) },
   }
+
+  /*
+   * Running the quarry down ends the run where it happens, on the road,
+   * rather than waiting for the encounter counter to run out. That is what
+   * makes a hard pace a bet rather than a tax: it can end the campaign early
+   * and in your favour, and the warband you burned getting there is the
+   * price you paid for it.
+   *
+   * The confrontation itself is not built. The run ends at the moment the
+   * column runs them down, and what is at the end of that trail is content
+   * this plan deliberately left open.
+   */
+  if (hasCaught(walked)) {
+    return { ...walked, phase: 'over', outcome: 'won', ending: 'caught' }
+  }
+  return walked
 }
 
 export function march(state: RunState): { state: RunState; setup: BattleSetup } {
@@ -1355,12 +1392,16 @@ export function resolveBattle(
  */
 export function advance(state: RunState): RunState {
   if (!state.report?.won || totalBodies(state.warband) === 0) {
-    return { ...state, phase: 'over', outcome: 'lost' }
+    return { ...state, phase: 'over', outcome: 'lost', ending: null }
   }
 
   const next = state.encounterIndex + 1
   if (next >= ENCOUNTERS_PER_RUN) {
-    return { ...state, phase: 'over', outcome: 'won' }
+    /*
+     * Survived everything and never ran the quarry down. A win, and a smaller
+     * one than it could have been — see travel.ts's Ending.
+     */
+    return { ...state, phase: 'over', outcome: 'won', ending: 'endured' }
   }
 
   const returned = returnExpedition(state)

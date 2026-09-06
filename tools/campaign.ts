@@ -353,7 +353,13 @@ function playRun(
        * march needs the gap wired to an ending first, which is step 4.
        */
       let walked = setOut(state, pace)
-      while (!travelDone(walked)) walked = advanceLeg(walked)
+      while (walked.phase === 'travel' && !travelDone(walked)) walked = advanceLeg(walked)
+      // The quarry can be run down on the road, which ends the run then and
+      // there — no battle, and nothing further to do this iteration.
+      if (walked.phase === 'over') {
+        state = walked
+        continue
+      }
       const marched = march(walked)
       const setup = marched.setup
       state = marched.state
@@ -393,6 +399,8 @@ function playRun(
     shortMarches,
     ticks,
     maimed,
+    ending: state.ending,
+    trailLost: state.trailLost,
     woundCamps,
     benchCamps,
     relicsBound,
@@ -434,6 +442,8 @@ let marches = 0
 let firstborn = 0
 let prospects = 0
 let maimed = 0
+let caught = 0
+let coldTrails = 0
 let woundCamps = 0
 let benchCamps = 0
 let relicsBound = 0
@@ -453,6 +463,8 @@ for (let i = 1; i <= runs; i++) {
   firstborn += r.firstborn
   prospects += r.prospects
   maimed += r.maimed
+  if (r.ending === 'caught') caught++
+  if (r.trailLost) coldTrails++
   woundCamps += r.woundCamps
   benchCamps += r.benchCamps
   relicsBound += r.relicsBound
@@ -478,6 +490,10 @@ console.log(
 `,
 )
 console.log(`maimed      ${maimed} across ${runs} runs (both sides), ${(maimed / runs).toFixed(2)} per run\n`)
+console.log(
+  `chase       ${caught} caught the quarry, ${coldTrails} lost the trail ` +
+    `(${((caught / runs) * 100).toFixed(1)}% / ${((coldTrails / runs) * 100).toFixed(1)}%)`,
+)
 console.log(`relics      ${relicsBound} bound across ${runs} runs, ${(relicsBound / runs).toFixed(2)} per run`)
 console.log(
   `wounds      ${woundCamps} wounded-Prospect-camps, ${benchCamps} benched-Prospect-camps ` +

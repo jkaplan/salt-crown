@@ -74,7 +74,14 @@ export default function App() {
      * legs become something the player watches happen.
      */
     let walked = setOut(run, 'column')
-    while (!travelDone(walked)) walked = advanceLeg(walked)
+    while (walked.phase === 'travel' && !travelDone(walked)) walked = advanceLeg(walked)
+
+    // Running the quarry down ends the run on the road. There is no battle to
+    // set up, and the loop above must not wait for one.
+    if (walked.phase === 'over') {
+      setRun(walked)
+      return
+    }
 
     // The setup comes back from march() so it always matches the warband that
     // actually leaves camp — a water shortfall removes bodies here.
@@ -243,16 +250,25 @@ export default function App() {
                 <div className="report">
                   <div className="report-card">
                     <h2 className={run.outcome === 'won' ? 'won' : 'lost'}>
-                      {run.outcome === 'won' ? 'The warband endures' : 'The warband is gone'}
+                      {run.ending === 'caught'
+                        ? 'Run down at last'
+                        : run.outcome === 'won'
+                          ? 'The warband endures'
+                          : 'The warband is gone'}
                     </h2>
                     <p className="enc">
-                      {run.outcome === 'won'
-                        ? `The column held all the way through. ${totalBodies(run.warband)} still ` +
-                          "standing — the wasteland doesn't usually let that many walk away. " +
-                          'The Crown is theirs now, whatever that turns out to mean.'
-                        : 'Nothing left to field. Attrition got there first, same as it gets ' +
-                          'everyone eventually. The Muster does not stop to notice, and neither ' +
-                          'does whatever is under the salt.'}
+                      {run.ending === 'caught'
+                        ? `You caught it. ${totalBodies(run.warband)} still standing at the end of ` +
+                          'the trail, and whatever you burned getting here is spent. Nobody ' +
+                          'else in the Muster got this far, and nobody else will hear what was there.'
+                        : run.outcome === 'won'
+                          ? `The column held all the way through. ${totalBodies(run.warband)} still ` +
+                            "standing — the wasteland doesn't usually let that many walk away. " +
+                            'The trail went cold somewhere behind you. The Crown is theirs now, ' +
+                            'whatever that turns out to mean.'
+                          : 'Nothing left to field. Attrition got there first, same as it gets ' +
+                            'everyone eventually. The Muster does not stop to notice, and neither ' +
+                            'does whatever is under the salt.'}
                     </p>
                     <button className="btn-primary" onClick={restart}>
                       New run

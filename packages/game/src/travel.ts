@@ -179,6 +179,16 @@ export const PACE_STRAGGLE_RATE: Record<Pace, number> = {
  */
 export const STRAGGLER_RETURN_CHANCE = 0.45
 
+/**
+ * How a run finished, when it finished at all.
+ *
+ * Separate from `outcome` on purpose. `outcome` answers "did the warband
+ * survive", which is what every completion figure on record measures and
+ * what the harness still counts. This answers "which ending did it reach",
+ * which is the question the chase exists to pose.
+ */
+export type Ending = 'caught' | 'endured'
+
 /** Bodies that fell behind, and the squad they belong to if they catch up. */
 export interface Straggler {
   squadId: string
