@@ -8,6 +8,7 @@ Structural model is *Oregon Trail* (the march is the game: distance, supply, and
 
 ## Docs
 
+- [docs/PLAN.md](docs/PLAN.md) — **what this project is betting on.** The assumptions table, ranked by what breaks. Read it before proposing work; update it when a decision changes what is being assumed.
 - [docs/VISION.md](docs/VISION.md) — long-term vision. Aspirational, not the build target.
 - [docs/TECH.md](docs/TECH.md) — stack decision and architecture rules.
 - [docs/V0-DESIGN.md](docs/V0-DESIGN.md) — what V0 actually is. **Read before proposing design changes.**
