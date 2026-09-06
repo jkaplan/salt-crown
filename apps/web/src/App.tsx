@@ -8,6 +8,7 @@ import {
   setFielded,
   chooseCampOption,
   resolveEvent,
+  resolveTrailEvent,
   sellProspect,
   sendExpedition,
   recallExpedition,
@@ -76,6 +77,11 @@ export default function App() {
   const onSetOut = useCallback((pace: Pace) => setRun((r) => (r ? setOut(r, pace) : r)), [])
 
   const onWalk = useCallback(() => setRun((r) => (r ? advanceLeg(r) : r)), [])
+
+  const onAnswer = useCallback(
+    (i: number) => setRun((r) => (r ? resolveTrailEvent(r, i) : r)),
+    [],
+  )
 
   const onArrive = useCallback(() => {
     if (!run) return
@@ -202,6 +208,7 @@ export default function App() {
                   onSetOut={onSetOut}
                   onWalk={onWalk}
                   onArrive={onArrive}
+                  onAnswer={onAnswer}
                 />
               )}
 
