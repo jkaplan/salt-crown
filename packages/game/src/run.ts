@@ -47,8 +47,7 @@ import { ORIGINS, ORIGINS_BY_ID, startingWarband } from './origins.js'
 import type { OriginId, StartChoice } from './origins.js'
 import {
   escalateWound,
-  FREE_RECOVERY_MUTANT,
-  FREE_RECOVERY_TRUEKIN,
+  BENCH_RECOVERY_RUNGS,
   OFFICER_WOUND_CHANCE_ON_COLLAPSE,
   recoverWound,
   TREAT_COST,
@@ -1006,8 +1005,16 @@ export function resolveBattle(
       // survived and still took damage. Free recovery (Mutant: 2 rungs) is
       // applied in the same pass, so a fresh wound already has a chance to
       // shrink before the player sees the report.
-      let wound = r && r.damageTaken > 0 ? escalateWound(p.wound, state.rng) : p.wound
-      wound = recoverWound(wound, FREE_RECOVERY_MUTANT)
+      /*
+       * Recovery is something a body sits out for, never something a battle
+       * hands back for turning up. A body that fought can only stay where it
+       * is or get worse; a body on the bench mends a rung.
+       */
+      const wound = fought
+        ? r && r.damageTaken > 0
+          ? escalateWound(p.wound, state.rng)
+          : p.wound
+        : recoverWound(p.wound, BENCH_RECOVERY_RUNGS)
       const injuries = newInjuries.get(p.id)
       const dealt = newDismemberments.get(p.id)
       return {
@@ -1035,11 +1042,17 @@ export function resolveBattle(
   const officers = state.warband.officers.map((o) => {
     const r = officerSquadResult.get(o.id)
     const collapsed = r ? r.endEffectiveness < COLLAPSE_THRESHOLD : false
-    let wound =
-      collapsed && state.rng.float() < OFFICER_WOUND_CHANCE_ON_COLLAPSE
+    /*
+     * An Officer has no body on the field and no `fielded` flag of its own, so
+     * leading nobody is the only way it can sit a battle out. That is the
+     * Officer’s bench, and it mends at the same rate as a benched Prospect.
+     */
+    const led = r !== undefined
+    const wound = led
+      ? collapsed && state.rng.float() < OFFICER_WOUND_CHANCE_ON_COLLAPSE
         ? escalateWound(o.wound, state.rng)
         : o.wound
-    wound = recoverWound(wound, FREE_RECOVERY_TRUEKIN)
+      : recoverWound(o.wound, BENCH_RECOVERY_RUNGS)
     return { ...o, wound }
   })
 

@@ -316,6 +316,8 @@ function playRun(
   let peakFirstborn = 0
   let peakProspects = 0
   let maimed = 0
+  let woundCamps = 0
+  let benchCamps = 0
   let relicsBound = 0
 
   while (state.phase !== 'over') {
@@ -348,6 +350,15 @@ function playRun(
       const events = battle.newEventsSince(0)
       maimed += events.filter((e) => e.type === BattleEventType.Maimed).length
       state = resolveBattle(state, battle.results(), battle.winner, battle.tick, setup.playerSources, events)
+      /*
+       * The wound ladder used to be dead code for mutants: a fresh wound
+       * escalated to rung 1 and free recovery healed 2 rungs in the same
+       * pass, so no Prospect ever carried one. Nothing in this harness would
+       * have shown that, which is why it went unnoticed. Counted per camp so
+       * "the ladder fires at all" is now visible.
+       */
+      woundCamps += state.warband.prospects.filter((pr) => pr.wound !== null).length
+      benchCamps += state.warband.prospects.filter((pr) => !pr.fielded).length
     } else if (state.phase === 'report') {
       if (state.report?.won) reached = state.encounterIndex + 1
       state = advance(state)
@@ -366,6 +377,8 @@ function playRun(
     shortMarches,
     ticks,
     maimed,
+    woundCamps,
+    benchCamps,
     relicsBound,
     // Instability, docs/V0-DESIGN.md §15. This bot claims EVERY growth offer,
     // so it pushes past capacity at every opportunity — an upper bound on how
@@ -403,6 +416,8 @@ let marches = 0
 let firstborn = 0
 let prospects = 0
 let maimed = 0
+let woundCamps = 0
+let benchCamps = 0
 let relicsBound = 0
 let pushed = 0
 let defects = 0
@@ -420,6 +435,8 @@ for (let i = 1; i <= runs; i++) {
   firstborn += r.firstborn
   prospects += r.prospects
   maimed += r.maimed
+  woundCamps += r.woundCamps
+  benchCamps += r.benchCamps
   relicsBound += r.relicsBound
   pushed += r.pushed
   defects += r.defects
@@ -444,6 +461,10 @@ console.log(
 )
 console.log(`maimed      ${maimed} across ${runs} runs (both sides), ${(maimed / runs).toFixed(2)} per run\n`)
 console.log(`relics      ${relicsBound} bound across ${runs} runs, ${(relicsBound / runs).toFixed(2)} per run`)
+console.log(
+  `wounds      ${woundCamps} wounded-Prospect-camps, ${benchCamps} benched-Prospect-camps ` +
+    `(${(woundCamps / runs).toFixed(1)} / ${(benchCamps / runs).toFixed(1)} per run)`,
+)
 console.log(
   `instability ${pushed} bodies pushed past capacity, ${defects} defects grown, ` +
     `peak ${peakInstability}\n`,

@@ -1044,6 +1044,118 @@ describe('wound ladder', () => {
     const broke = { ...wounded, warband: { ...wounded.warband, salvage: TREAT_COST - 1 } }
     expect(treatOfficer(broke, officer.id)).toBe(broke)
   })
+
+  /*
+   * Recovery — docs/V0-DESIGN.md §7, revised.
+   *
+   * Wounds used to heal automatically at the end of every battle, and the
+   * arithmetic cancelled the ladder out entirely: a fresh wound escalates from
+   * nothing to rung 1, and FREE_RECOVERY_MUTANT then healed 2 rungs in the
+   * same pass, so a mutant Prospect could never hold a wound at all.
+   * Recovery is now something a body has to sit out for.
+   *
+   * These fights stack the PLAYER side heavily on purpose. The default roster
+   * loses encounter 0 outright — every squad dies and the Officer's squad
+   * collapses — and both of those hide the thing under test: a dead body has
+   * no wound to inspect, and a collapse rolls its own escalation on top.
+   */
+  const winEasily = (state: RunState) => {
+    const setup = buildBattle(state)
+    const config = {
+      ...setup.config,
+      // Shrink the enemy rather than inflate the player: same lopsided
+      // result, without building a battle of thousands for a unit test.
+      groups: setup.config.groups.map((g) =>
+        g.team === TEAM_B ? { ...g, count: 1 } : g,
+      ),
+    }
+    const battle = new Battle(config)
+    battle.run()
+    return resolveBattle(state, battle.results(), battle.winner, battle.tick, setup.playerSources)
+  }
+
+  it('does not mend a body that fought, however the fight went', () => {
+    const base = start()
+    const first = base.warband.prospects[0]
+    const crippled: Wound = { zone: 'arms', rung: 3 }
+    const run: RunState = {
+      ...base,
+      warband: {
+        ...base.warband,
+        prospects: [{ ...first, id: 'fights', fielded: true, wound: crippled }],
+      },
+    }
+
+    const after = winEasily(run).warband.prospects.find((p) => p.id === 'fights')
+    /*
+     * Free recovery used to hand this body two rungs back simply for turning
+     * up, which is what cancelled the ladder out. Escalation caps at Crippled
+     * and keeps its zone, so a body that fought comes home no better than it
+     * left, whether the fight touched it or not.
+     */
+    expect(after).toBeDefined()
+    expect(after!.wound).toEqual(crippled)
+  })
+
+  it('mends a benched body one rung per camp, and only while benched', () => {
+    const base = start()
+    const first = base.warband.prospects[0]
+    let run: RunState = {
+      ...base,
+      warband: {
+        ...base.warband,
+        prospects: [{ ...first, id: 'resting', fielded: false, wound: { zone: 'arms', rung: 3 } }],
+      },
+    }
+
+    const rungs: (number | null)[] = []
+    for (let camp = 0; camp < 4; camp++) {
+      run = winEasily(run)
+      const p = run.warband.prospects.find((x) => x.id === 'resting')!
+      rungs.push(p.wound ? p.wound.rung : null)
+    }
+
+    // Crippled -> Injured -> Strained -> Healthy, one rung at a time, then it
+    // simply stays healthy.
+    expect(rungs).toEqual([2, 1, null, null])
+  })
+
+  it('mends an Officer who led nobody, and not one who led a squad', () => {
+    const base = start()
+    const officer = base.warband.officers[0]
+    if (!officer) return
+    const hurt = { ...officer, wound: { zone: 'core', rung: 2 } as Wound }
+
+    /*
+     * An Officer has no `fielded` flag of its own — leading nobody is the only
+     * way it can sit a battle out, so that is the Officer version of a bench.
+     */
+    const idle: RunState = {
+      ...base,
+      warband: {
+        ...base.warband,
+        officers: [hurt],
+        squads: base.warband.squads.map((sq) => ({ ...sq, leader: null })),
+      },
+    }
+    expect(winEasily(idle).warband.officers[0].wound).toEqual({ zone: 'core', rung: 1 })
+
+    const leading: RunState = {
+      ...base,
+      warband: {
+        ...base.warband,
+        officers: [hurt],
+        squads: base.warband.squads.map((sq, i) =>
+          i === 0
+            ? { ...sq, leader: { kind: 'officer' as const, id: hurt.id } }
+            : { ...sq, leader: null },
+        ),
+      },
+    }
+    // It led, so it mends nothing. The squad wins comfortably here, so no
+    // collapse roll muddies the reading — the wound is exactly as it started.
+    expect(winEasily(leading).warband.officers[0].wound).toEqual({ zone: 'core', rung: 2 })
+  })
 })
 
 describe('Firstborn promotion', () => {

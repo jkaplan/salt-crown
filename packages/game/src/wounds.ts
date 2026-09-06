@@ -59,15 +59,23 @@ export const TREAT_COST = 40
 export const OFFICER_WOUND_CHANCE_ON_COLLAPSE = 0.35
 
 /**
- * Free recovery rungs applied automatically each time a battle resolves —
- * docs/V0-DESIGN §7: "Free recovery between battles is one rung, Strained ->
- * Healthy only. [...] Mutants recover an extra rung free. [...] True Kin
- * recover normally." A Mutant's 2 free rungs can reach past Strained (e.g.
- * Injured -> Healthy in one window); True Kin's 1 rung only ever clears
- * Strained, same as the base case the doc describes.
+ * Rungs mended per camp, for a body that sat the battle out — the bench for
+ * a Prospect, leading nobody for an Officer.
+ *
+ * This replaces the automatic free recovery that used to run after every
+ * battle regardless of who fought. That version cancelled the ladder out
+ * completely: a fresh wound escalates from nothing to rung 1, and the mutant
+ * rate of 2 rungs healed it in the same pass, so a mutant Prospect could
+ * never hold a wound at all. The ladder existed and never once fired.
+ *
+ * One rung per camp, at the same rate for both lineages. That drops §7’s
+ * "Mutants recover an extra rung free" — a deliberate change, not an
+ * oversight. The distinction bought little once recovery costs a roster slot,
+ * and a flat rate makes the price legible at a glance: rungs are camps. A
+ * Crippled body is three camps on the bench, or salvage through TREAT_COST to
+ * buy that time back.
  */
-export const FREE_RECOVERY_MUTANT = 2
-export const FREE_RECOVERY_TRUEKIN = 1
+export const BENCH_RECOVERY_RUNGS = 1
 
 /**
  * A body that survived a battle but took damage escalates one rung. First

@@ -479,7 +479,40 @@ Attrition is still what kills you — it's the reason you arrive at an encounter
 
 Zones: **Head** → accuracy and leader-bonus loss · **Core** → max HP · **Arms** → damage · **Legs** → move and evade.
 
-Free recovery between battles is one rung, Strained → Healthy only. Worse costs resources. Mutants recover an extra rung free. Machines recover nothing without Salvage. True Kin recover normally.
+~~Free recovery between battles is one rung, Strained → Healthy only. Worse
+costs resources. Mutants recover an extra rung free. Machines recover nothing
+without Salvage. True Kin recover normally.~~
+
+**Superseded 2026-09-05 — recovery is benched-only.** The rule above was
+built as written and it cancelled the ladder out completely. A fresh wound
+escalates from nothing to rung 1; `FREE_RECOVERY_MUTANT` then healed 2 rungs
+in the same pass. A mutant Prospect — the entire tier this system exists for
+— could never hold a wound at all.
+
+It went unnoticed for the same reason it was unnoticeable: nothing measured
+it. `sim:campaign` reported maimings but never wounds, so a system that fired
+exactly zero times across hundreds of runs looked identical to one working
+perfectly. The harness now reports wounded- and benched-Prospect-camps, and
+the before/after is as blunt as it gets:
+
+| 300 runs, greedy | wounded-camps | benched-camps | Firstborn/run | completion |
+|---|---|---|---|---|
+| free auto-recovery | **0** | **0** | 0.39 | 10.0% |
+| benched-only | 1558 | 59 | 0.52 | 10.3% |
+
+The rule now: **a wound mends only while the body sits the battle out** —
+the bench for a Prospect, leading nobody for an Officer, since an Officer has
+no `fielded` flag and that is the only way it can miss a fight.
+`BENCH_RECOVERY_RUNGS` is 1, so rungs are camps: a Crippled body is three
+camps benched, or `TREAT_COST` salvage to buy that time back.
+
+Two consequences worth naming. The mutant extra rung is **gone** — a
+deliberate simplification, since the distinction bought little once recovery
+costs a roster slot, and a flat rate makes the price legible. And Firstborn
+per run rose 0.39 → 0.52, which is *judged*, not measured: the likely cause is
+that a bench which finally does something keeps named bodies alive long enough
+to finish growing, where before they simply fought until they died. Completion
+moved 10.0% → 10.3%, a one-run difference on 300 and well inside noise.
 
 **✅ Built** (`packages/game/src/wounds.ts`, wired into `run.ts`, `roster.ts`,
 `officers.ts`, and the Camp screen). One escalating wound per individual, not
