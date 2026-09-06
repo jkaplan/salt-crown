@@ -20,7 +20,8 @@
     "sim:leaders": "tsx tools/leaders.ts",
     "sim:golden": "tsx tools/golden.ts",
     "build": "npm run build --workspace apps/web",
-    "sim:why": "tsx tools/why.ts"
+    "sim:why": "tsx tools/why.ts",
+    "map": "node tools/system-map.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
