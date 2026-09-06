@@ -1,6 +1,6 @@
 # Plan: The march
 
-Status: **agreed, step 2 of 6 implemented** — 2026-09-05
+Status: **agreed, steps 1-3 of 6 implemented** — 2026-09-06
 
 Went agreed → proposed → agreed in one day. Desk research
 ([research/travel-games.md](../research/travel-games.md)) invalidated the first
@@ -179,9 +179,17 @@ measured:   Column, greedy, 300 runs: byte-identical to the baseline on every
             counter — 31 runs won (10.3%), 8147 deserters over 2530 marches,
             0.52 Firstborn, 1558 wounded-camps. Not "within 2 points": the
             same numbers.
-            Forced and Killing are unmeasured — the bot always walks Column,
-            deliberately, so the recorded baselines stay comparable. Reading
-            them needs a bot that picks a pace, which is step 4.
+            Forced and Killing, once step 3 gave them teeth and --pace let the
+            harness walk them, 300 runs each:
+
+              Column   10.3% completion   20.9% marches short   0.52 Firstborn
+              Forced    4.0%              29.9%                 0.17
+              Killing   0.3%              44.0%                 0.06
+
+            That is the COST side only. Nothing yet rewards closing the gap,
+            so a bot walking Killing is paying for a prize that is not wired
+            up — it is strictly worse, and should be, until catching the
+            quarry gates an ending. Read these again after step 4/5.
 verdict:    Right, for the half that was testable. Getting there took two
             wrong shapes, both caught by the harness and neither by a test:
             splitting the water shortfall across legs cascaded desertion and

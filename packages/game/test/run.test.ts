@@ -3238,3 +3238,166 @@ describe('the march', () => {
     expect(hasLostTrail(camp())).toBe(false)
   })
 })
+
+describe('march attrition', () => {
+  /*
+   * Step 3 of docs/plans/travel.md — what the road itself costs, as opposed to
+   * what the battle costs.
+   *
+   * Two things, both routed through systems that already exist rather than new
+   * ones: a hard pace advances the wound ladder, and bodies fall behind at a
+   * rate set by the discipline stat. Straggling is historically a discipline
+   * problem before it is a fatigue one, which is why that mapping is honest
+   * rather than merely convenient.
+   */
+
+  const bodies = (s: RunState) => s.warband.squads.reduce((n, sq) => n + sq.count, 0)
+
+  const walk = (state: RunState, pace: Pace): RunState => {
+    let s = setOut(state, pace)
+    while (!travelDone(s)) s = advanceLeg(s)
+    return s
+  }
+
+  /**
+   * A column large enough for the rates to be readable, carrying far more
+   * water than the march can cost.
+   *
+   * The water matters more than it looks: a 200-body squad has enormous
+   * upkeep, and without a deep cistern provisioning sheds most of it before
+   * the column moves. The first draft of these tests measured that and read
+   * it as straggling — mutants and True Kin came out within 5 of each other
+   * at about 155 of 200 lost, which is the water bill, not the road.
+   */
+  const column = (typeId: number, count = 300): RunState => {
+    const base = start()
+    return {
+      ...base,
+      warband: {
+        ...base.warband,
+        water: 100000,
+        squads: [{ id: 's', typeId, count, leader: null, relicId: null }],
+        prospects: [],
+        officers: [],
+        machines: [],
+      },
+    }
+  }
+
+  it('takes nothing but water at Column, and does not even roll for it', () => {
+    /*
+     * Column is the baseline, and the harness walks it for every recorded
+     * figure. If the road draws from the seeded stream at Column then every
+     * campaign number taken before this feature stops being comparable — so
+     * the guard is that it must not draw AT ALL, not merely that it rolls
+     * zeroes.
+     */
+    const a = start()
+    const b = start()
+    const walked = walk(a, 'column')
+
+    expect(bodies(walked)).toBe(bodies(a))
+    expect(walked.travel!.stragglers).toEqual([])
+    // The stream is exactly where it would have been had nobody left camp.
+    expect(walked.rng.float()).toBe(b.rng.float())
+  })
+
+  it('sheds bodies at Forced, and more of them at Killing', () => {
+    const run = column(MUTANT_TYPES[0].id)
+    const lost = (pace: Pace) => bodies(run) - bodies(walk(run, pace))
+
+    expect(lost('column')).toBe(0)
+    expect(lost('forced')).toBeGreaterThan(0)
+    expect(lost('killing')).toBeGreaterThan(lost('forced'))
+  })
+
+  it('loses mutants faster than True Kin, because that is what discipline is', () => {
+    /*
+     * Mutants sit at 0.35 discipline and True Kin at 0.78. The same road, the
+     * same pace, and the difference between them is the stat rather than a
+     * rule written specially for the road.
+     */
+    const one = (typeId: number): number => {
+      const run = column(typeId)
+      return 300 - bodies(walk(run, 'killing'))
+    }
+
+    expect(one(MUTANT_TYPES[0].id)).toBeGreaterThan(one(TRUEKIN_TYPES[0].id))
+  })
+
+  it('never loses a machine to the road — they break instead', () => {
+    // Discipline 1 means (1 - discipline) is 0, so machines fall out of the
+    // straggling formula rather than being special-cased around it.
+    expect(DISCIPLINE.machine).toBe(1)
+  })
+
+  it('lets stragglers catch the column up', () => {
+    /*
+     * The tail is what makes a hard pace a gamble rather than a flat toll:
+     * some of the people who fell behind this leg are back by the next one.
+     */
+    const run = column(MUTANT_TYPES[0].id, 400)
+
+    let s = setOut(run, 'killing')
+    s = advanceLeg(s)
+    expect(s.travel!.stragglers.reduce((n, g) => n + g.count, 0)).toBeGreaterThan(0)
+
+    /*
+     * Preloaded far beyond what one leg can produce, because every leg both
+     * returns people and loses new ones. Watching the raw total across two
+     * legs reads the wrong thing — it went UP, since a killing pace sheds
+     * faster than it gives back. Stacking the pool makes the returns the
+     * dominant term, which is what this test is actually about.
+     */
+    const stacked = { ...s, travel: { ...s.travel!, stragglers: [{ squadId: 's', count: 200 }] } }
+    const before = bodies(stacked)
+    const after = advanceLeg(stacked)
+
+    expect(after.travel!.stragglers.reduce((n, g) => n + g.count, 0)).toBeLessThan(200)
+    expect(bodies(after)).toBeGreaterThan(before)
+  })
+
+  it('wounds a named body on a hard march, and never kills one', () => {
+    /*
+     * Fodder is what the road takes. A Prospect or an Officer only ever gets
+     * worse — a second way to lose the exact bodies the attrition systems
+     * spend their time making you care about is not worth having.
+     */
+    const base = start()
+    const first = base.warband.prospects[0]
+    const run: RunState = {
+      ...base,
+      warband: {
+        ...base.warband,
+        prospects: [{ ...first, id: 'walks', fielded: true, wound: null }],
+      },
+    }
+
+    let anyWorse = false
+    for (let i = 0; i < 40; i++) {
+      const after = walk({ ...run, rng: new Rng(hashSeed('road-' + i)) }, 'killing')
+      const p = after.warband.prospects.find((x) => x.id === 'walks')
+      // Still there, every time.
+      expect(p).toBeDefined()
+      if (p!.wound !== null) anyWorse = true
+      // And never past the bottom of the ladder.
+      if (p!.wound) expect(p!.wound.rung).toBeLessThanOrEqual(3)
+    }
+    expect(anyWorse).toBe(true)
+  })
+
+  it('leaves behind whoever never caught up', () => {
+    const run = column(MUTANT_TYPES[0].id, 400)
+
+    const walked = walk(run, 'killing')
+    const stillBehind = walked.travel!.stragglers.reduce((n, g) => n + g.count, 0)
+    expect(stillBehind).toBeGreaterThan(0)
+
+    // They do not reach the fight, and they are not quietly restored either.
+    const { setup } = march(walked)
+    const fielded = setup.config.groups
+      .filter((g) => g.team === TEAM_A)
+      .reduce((n, g) => n + g.count, 0)
+    expect(fielded).toBe(bodies(walked))
+  })
+})

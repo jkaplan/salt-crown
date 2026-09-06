@@ -5,7 +5,14 @@ import type { Encounter } from './encounters.js'
 import { newId, rollOffers, rollSquadBatch } from './shop.js'
 import type { Offer } from './shop.js'
 import { rollOfficer } from './officers.js'
-import { toSimGroups, totalBodies, unitType } from './roster.js'
+import {
+  findLeadingProspect,
+  findOfficer,
+  resolveDiscipline,
+  toSimGroups,
+  totalBodies,
+  unitType,
+} from './roster.js'
 import type { GroupSource, SquadLeader, Warband } from './roster.js'
 import {
   APPRAISAL_COST,
@@ -35,8 +42,12 @@ import {
   TRAIL_LOST_AT,
   legWaterCost,
   marchWaterBill,
+  paceIsHard,
+  PACE_STRAGGLE_RATE,
+  PACE_WOUND_CHANCE,
+  STRAGGLER_RETURN_CHANCE,
 } from './travel.js'
-import type { Pace, TravelState } from './travel.js'
+import type { Pace, Straggler, TravelState } from './travel.js'
 import { BIONICS, BIONICS_BY_ID, BIONIC_SLOTS } from './bionics.js'
 import { RELICS, RELICS_BY_ID } from './relics.js'
 import { postmortem } from './postmortem.js'
@@ -903,7 +914,7 @@ export function setOut(state: RunState, pace: Pace): RunState {
   return {
     ...state,
     phase: 'travel',
-    travel: { pace, legsDone: 0, waterBill: spent, spent: 0, deserted },
+    travel: { pace, legsDone: 0, waterBill: spent, spent: 0, deserted, stragglers: [] },
     warband: {
       ...state.warband,
       squads,
@@ -920,20 +931,105 @@ export function setOut(state: RunState, pace: Pace): RunState {
  * once, on the last leg — pace is a commitment for the whole road, so it
  * resolves as one outcome rather than three small ones.
  */
+/**
+ * How many of `count` fall behind on one leg.
+ *
+ * The fractional part is rolled rather than rounded, so a small squad on a
+ * hard road still loses people sometimes instead of always losing nobody.
+ */
+function stragglersThisLeg(rng: Rng, count: number, rate: number, discipline: number): number {
+  const expected = count * rate * (1 - discipline)
+  const whole = Math.floor(expected)
+  return whole + (rng.float() < expected - whole ? 1 : 0)
+}
+
+/**
+ * The road, taking its cut.
+ *
+ * Order matters and is deliberate: stragglers catch up FIRST, so a body that
+ * fell behind last leg can rejoin and then fall behind again, rather than
+ * being safe for the rest of the march by virtue of having already failed.
+ */
+function walkAttrition(state: RunState, travel: TravelState): RunState {
+  const rng = state.rng
+  const returning: Straggler[] = []
+  const rejoined = new Map<string, number>()
+
+  for (const group of travel.stragglers) {
+    let back = 0
+    for (let i = 0; i < group.count; i++) {
+      if (rng.float() < STRAGGLER_RETURN_CHANCE) back++
+    }
+    if (back > 0) rejoined.set(group.squadId, back)
+    const left = group.count - back
+    if (left > 0) returning.push({ squadId: group.squadId, count: left })
+  }
+
+  const rate = PACE_STRAGGLE_RATE[travel.pace]
+  const squads = state.warband.squads.map((sq) => {
+    const withBack = sq.count + (rejoined.get(sq.id) ?? 0)
+    /*
+     * The full discipline, not the bare lineage number — so an Officer who
+     * holds his squad together in a battle also holds it together on the
+     * road, and a warband with its morale in the floor bleeds worse. That
+     * falls out of reusing the stat rather than inventing a road-specific one.
+     */
+    const discipline = resolveDiscipline(
+      sq.typeId,
+      findOfficer(state.warband, sq),
+      findLeadingProspect(state.warband, sq),
+      state.warband.morale,
+    )
+    const lost = Math.min(withBack, stragglersThisLeg(rng, withBack, rate, discipline))
+    if (lost > 0) {
+      const existing = returning.find((g) => g.squadId === sq.id)
+      if (existing) existing.count += lost
+      else returning.push({ squadId: sq.id, count: lost })
+    }
+    return { ...sq, count: withBack - lost }
+  })
+
+  /*
+   * Named bodies only ever get worse. Fodder is what the road takes — a
+   * second way to lose the exact bodies the wound ladder and permadeath
+   * spend their time making the player care about is not worth having.
+   */
+  const chance = PACE_WOUND_CHANCE[travel.pace]
+  const prospects = state.warband.prospects.map((p) =>
+    p.fielded && rng.float() < chance ? { ...p, wound: escalateWound(p.wound, rng) } : p,
+  )
+  const officers = state.warband.officers.map((o) =>
+    rng.float() < chance ? { ...o, wound: escalateWound(o.wound, rng) } : o,
+  )
+
+  return {
+    ...state,
+    travel: { ...travel, stragglers: returning },
+    warband: { ...state.warband, squads: squads.filter((sq) => sq.count > 0), prospects, officers },
+  }
+}
+
 export function advanceLeg(state: RunState): RunState {
   const travel = state.travel
   if (state.phase !== 'travel' || !travel || travelDone(state)) return state
 
-  // Water only. Who walks was settled when the column was provisioned.
+  /*
+   * Column takes nothing but water and must not touch the seeded stream at
+   * all — every campaign figure on record was walked at Column, and rolling
+   * zeroes is not the same as not rolling.
+   */
+  const worn = paceIsHard(travel.pace) ? walkAttrition(state, travel) : state
+  const carried = worn.travel ?? travel
+
   const drawn = legWaterCost(travel.waterBill, travel.legsDone)
   const legsDone = travel.legsDone + 1
   const last = legsDone >= LEGS_PER_MARCH
 
   return {
-    ...state,
-    travel: { ...travel, legsDone, spent: travel.spent + drawn },
+    ...worn,
+    travel: { ...carried, legsDone, spent: carried.spent + drawn },
     gap: last ? state.gap + PACE_GAP_MOVE[travel.pace] : state.gap,
-    warband: { ...state.warband, water: Math.max(0, state.warband.water - drawn) },
+    warband: { ...worn.warband, water: Math.max(0, worn.warband.water - drawn) },
   }
 }
 

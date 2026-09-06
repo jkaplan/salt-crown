@@ -107,6 +107,8 @@ export interface TravelState {
    */
   spent: number
   deserted: number
+  /** Who has fallen behind and might yet catch up. */
+  stragglers: Straggler[]
 }
 
 /** The march's whole Water bill, at a given pace. */
@@ -126,4 +128,64 @@ export function legWaterCost(bill: number, legsDone: number): number {
   const soFar = Math.round((bill * legsDone) / LEGS_PER_MARCH)
   const after = Math.round((bill * (legsDone + 1)) / LEGS_PER_MARCH)
   return after - soFar
+}
+
+/**
+ * What the road takes — docs/plans/travel.md step 3.
+ *
+ * Two costs, both routed through machinery that already exists rather than
+ * invented beside it. A hard pace advances the wound ladder; bodies fall
+ * behind at a rate set by the discipline stat.
+ *
+ * Straggling was historically the dominant cost of hard marching — Lee lost a
+ * large share of his army to it before Antietam, and Napoleon's 1812 campaign
+ * lost far more men to straggling and exhaustion than to any battle. Crucially
+ * it is a DISCIPLINE problem before it is a fatigue one, which is why keying
+ * it to the stat the game already has is honest rather than merely tidy.
+ *
+ * PLACEHOLDER NUMBERS. Tune against sim:campaign, never by feel.
+ */
+
+/**
+ * Chance per leg that a named body's wound worsens a rung.
+ *
+ * Column is 0 and that is load-bearing, not decorative: the harness walks
+ * Column for every recorded figure, so the road must not draw from the seeded
+ * stream at all there. Rolling zeroes is not the same as not rolling.
+ */
+export const PACE_WOUND_CHANCE: Record<Pace, number> = {
+  column: 0,
+  forced: 0.1,
+  killing: 0.22,
+}
+
+/**
+ * Share of a squad that falls behind on one leg, BEFORE discipline is applied.
+ * The real rate is this times `1 - discipline`, so machines (discipline 1)
+ * fall out of the formula entirely rather than being special-cased around it.
+ */
+export const PACE_STRAGGLE_RATE: Record<Pace, number> = {
+  column: 0,
+  forced: 0.03,
+  killing: 0.08,
+}
+
+/**
+ * Chance a straggler rejoins the column on any later leg.
+ *
+ * The tail is the whole point: it makes a hard pace a gamble rather than a
+ * flat toll, and it makes *arriving early* and *arriving whole* two different
+ * things to want.
+ */
+export const STRAGGLER_RETURN_CHANCE = 0.45
+
+/** Bodies that fell behind, and the squad they belong to if they catch up. */
+export interface Straggler {
+  squadId: string
+  count: number
+}
+
+/** Does this pace cost anything beyond water? */
+export function paceIsHard(pace: Pace): boolean {
+  return PACE_STRAGGLE_RATE[pace] > 0 || PACE_WOUND_CHANCE[pace] > 0
 }

@@ -61,6 +61,7 @@ import {
   squadPower,
   totalBodies,
   MUTATIONS_BY_ID,
+  PACES,
   isFirstborn,
   chooseMutation,
   setFielded,
@@ -77,7 +78,7 @@ import {
   resolveEvent,
   chooseCampOption,
 } from '@salt/game'
-import type { Offer, RunState } from '@salt/game'
+import type { Offer, Pace, RunState } from '@salt/game'
 
 /** How hard to chase raw damage-per-hit as the enemy's armour reads heavier. */
 const ARMOR_PRESSURE: Record<string, number> = {
@@ -298,6 +299,7 @@ function playRun(
   onCurve: boolean,
   verb: 'scavenge' | 'delve' | null,
   origin: 'scion' | 'firstborn',
+  pace: Pace,
 ) {
   // A bot cannot make a character-creation decision, so the mutant origin gets
   // the widest opening: three mutations at the shallow level. A player choosing
@@ -342,13 +344,15 @@ function playRun(
         if (crew.length > 0) state = sendExpedition(state, verb, crew)
       }
       /*
-       * Column pace, always. It is the baseline — exactly the old march cost —
-       * so every completion figure recorded before travel existed stays
-       * comparable. A bot that picks a pace is what step 4 of the plan is for,
-       * and it needs the gap wired to an ending before the choice means
-       * anything.
+       * Column unless told otherwise, and that default is load-bearing: it is
+       * exactly the old march cost, so every figure recorded before travel
+       * existed stays comparable. --pace is for reading what the harder ones
+       * do, not for changing what the baseline means.
+       *
+       * The bot still walks ONE pace for a whole run. A bot that chooses per
+       * march needs the gap wired to an ending first, which is step 4.
        */
-      let walked = setOut(state, 'column')
+      let walked = setOut(state, pace)
       while (!travelDone(walked)) walked = advanceLeg(walked)
       const marched = march(walked)
       const setup = marched.setup
@@ -407,6 +411,8 @@ function playRun(
 const runs = arg('runs', 200)
 const thrifty = process.argv.includes('--thrifty')
 const onCurve = process.argv.includes('--oncurve')
+const paceArg = process.argv[process.argv.indexOf('--pace') + 1]
+const pace: Pace = PACES.includes(paceArg as Pace) ? (paceArg as Pace) : 'column'
 const origin = process.argv.includes('--firstborn')
   ? ('firstborn' as const)
   : ('scion' as const)
@@ -417,7 +423,7 @@ const verb = process.argv.includes('--delve')
     : null
 console.log('Salt Crown — campaign harness')
 console.log(
-  `${runs} runs, ${thrifty ? 'thrifty' : 'greedy'}${onCurve ? '+oncurve' : ''} buyer, ` +
+  `${runs} runs, ${thrifty ? 'thrifty' : 'greedy'}${onCurve ? '+oncurve' : ''} buyer, ${pace} pace, ` +
     `${ENCOUNTERS_PER_RUN} encounters each\n`,
 )
 
@@ -440,7 +446,7 @@ const finalBodies: number[] = []
 
 const started = Date.now()
 for (let i = 1; i <= runs; i++) {
-  const r = playRun(`seed-${i}`, thrifty, onCurve, verb, origin)
+  const r = playRun(`seed-${i}`, thrifty, onCurve, verb, origin, pace)
   deserted += r.deserted
   shortMarches += r.shortMarches
   if (r.outcome === 'won') runTicks.push(r.ticks)
