@@ -164,9 +164,10 @@ export {
   STARTING_GAP,
   TRAIL_LOST_AT,
   marchWaterBill,
+  forecastPace,
   legWaterCost,
 } from './travel.js'
-export type { Ending, Pace, Straggler, TravelState } from './travel.js'
+export type { Ending, Pace, PaceForecast, Straggler, TravelState } from './travel.js'
 export { postmortem } from './postmortem.js'
 export type { Postmortem } from './postmortem.js'
 export { scoutEnemy, armorWord, mixWord } from './scouting.js'
