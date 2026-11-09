@@ -2,7 +2,7 @@
 
 A prototype survival roguelite set in a post-collapse salt wasteland. You march a warband of
 mutants and salvaged machines across the map, and the fights along the way play out on their own
-as an auto battler. The interesting part is getting your band to the end of the road alive.
+as an auto battler.
 
 It's a personal project and still early. Expect rough edges.
 
